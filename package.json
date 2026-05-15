@@ -1,0 +1,44 @@
+{
+  "name": "up-remastered",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Small self-hosted temporary file hosting service.",
+  "type": "module",
+  "packageManager": "npm@10.9.2",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "format": "eslint . --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=24.14 <25",
+    "npm": ">=10"
+  },
+  "keywords": [
+    "file-sharing",
+    "self-hosted",
+    "nextjs"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "next": "^16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.6",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3"
+  }
+}

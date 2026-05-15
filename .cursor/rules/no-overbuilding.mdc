@@ -1,0 +1,20 @@
+---
+description: Prevent unnecessary infrastructure and cloud dependencies
+alwaysApply: true
+---
+
+# No Overbuilding
+
+Do not add these without explicit user request:
+
+- Redis.
+- Queue systems.
+- BullMQ or Redis workers.
+- PostgreSQL.
+- S3 or cloud object storage.
+- Long-running job workers.
+- Auth providers.
+- Separate backend frameworks.
+- Serverless-only assumptions.
+
+A simple cleanup script invoked by cron or Docker Compose is allowed.

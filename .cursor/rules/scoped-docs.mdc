@@ -1,0 +1,23 @@
+---
+description: Store docs by exact app scope and concern
+alwaysApply: true
+---
+
+# Scoped Docs
+
+Keep documentation narrow and discoverable.
+
+Use exact scope paths:
+
+- `docs/api/download/security.md`
+- `docs/api/download/streaming.md`
+- `docs/pages/upload/requirements.md`
+- `docs/storage/filesystem/requirements.md`
+
+Avoid broad catch-all files like:
+
+- `docs/security.md`
+- `docs/architecture.md`
+- `docs/requirements.md`
+
+When adding a feature, add or update docs under the matching app area and concern.

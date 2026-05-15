@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  install-node-modules:
+    name: Install and cache dependencies
+    uses: ./.github/workflows/workflow-install-node_modules.yaml
+    with:
+      fail-on-cache-miss: false
+
+  eslint:
+    name: ESLint
+    needs: [install-node-modules]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v5
+        with:
+          fail-on-cache-miss: true
+          path: |
+            ~/.npm
+            **/node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Run ESLint
+        run: npm run lint
+
+  typescript:
+    name: TypeScript
+    needs: [install-node-modules]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v5
+        with:
+          fail-on-cache-miss: true
+          path: |
+            ~/.npm
+            **/node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Run TypeScript
+        run: npm run typecheck
+
+  build:
+    name: Next.js build
+    needs: [install-node-modules]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          check-latest: true
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v5
+        with:
+          fail-on-cache-miss: true
+          path: |
+            ~/.npm
+            **/node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Build Next.js
+        run: npm run build

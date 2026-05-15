@@ -1,0 +1,19 @@
+---
+description: TypeScript and Next.js conventions
+globs: **/*.{ts,tsx}
+alwaysApply: false
+---
+
+# TypeScript And Next.js
+
+- Keep TypeScript strict. Do not add JavaScript source files.
+- Use App Router conventions.
+- Prefer Server Components by default; add Client Components only for browser interactivity.
+- Future upload/download API routes must use:
+
+```ts
+export const runtime = "nodejs";
+```
+
+- Do not use Edge runtime for filesystem, SQLite, password hashing, token generation, upload, or download code.
+- Keep route handlers thin and call `src/server/**` modules for durable logic.

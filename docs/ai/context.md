@@ -1,0 +1,30 @@
+# AI Context
+
+Read this before future implementation work.
+
+Project: `up - remastered`, short name `up`.
+
+Intent: small self-hosted temporary file hosting service, written in TypeScript with Next.js App Router.
+
+Hard constraints:
+
+- Use npm and commit `package-lock.json`.
+- Use Node.js runtime for upload/download APIs.
+- Store metadata in SQLite only.
+- Store uploaded bytes on local filesystem under `/data/uploads`.
+- Keep database at `/data/app.db`.
+- Do not use Redis, PostgreSQL, S3, Prisma, queue systems, auth providers, or cloud storage unless explicitly requested.
+- Keep server-only code under `src/server/`.
+- Use `import "server-only"` in server modules that touch filesystem, database, env vars, password hashing, or tokens.
+- Keep route handlers thin.
+- Keep docs scoped to exact app area and concern.
+
+Most useful docs:
+
+- `docs/project/code-organization.md`
+- `docs/storage/filesystem/requirements.md`
+- `docs/storage/sqlite/requirements.md`
+- `docs/api/upload/requirements.md`
+- `docs/api/download/requirements.md`
+- `docs/api/download/streaming.md`
+- `docs/api/download/security.md`

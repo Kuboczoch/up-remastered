@@ -1,0 +1,26 @@
+---
+description: Keep server-only logic under src/server
+alwaysApply: true
+---
+
+# Server Code Organization
+
+Future server-only logic belongs under:
+
+```txt
+src/server/db/
+src/server/storage/
+src/server/config/
+src/server/security/
+src/server/files/
+```
+
+Route handlers should orchestrate server modules. Do not place database, filesystem, env, password, token, or path logic directly in route handlers.
+
+Server-only modules that access filesystem, database, env vars, password hashing, or tokens should import:
+
+```ts
+import "server-only";
+```
+
+Future environment validation belongs in `src/server/config/env.ts` with Zod.
