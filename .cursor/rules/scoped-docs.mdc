@@ -20,4 +20,8 @@ Avoid broad catch-all files like:
 - `docs/architecture.md`
 - `docs/requirements.md`
 
-When adding a feature, add or update docs under the matching app area and concern.
+Every meaningful code, config, workflow, Docker, security, storage, API, or operations change must include a docs check.
+
+If behavior, commands, constraints, architecture, setup, CI, or deployment expectations change, update the matching scoped docs in the same task.
+
+If no docs need changing, mention that briefly in the final response.

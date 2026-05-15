@@ -18,6 +18,7 @@ Hard constraints:
 - Use `import "server-only"` in server modules that touch filesystem, database, env vars, password hashing, or tokens.
 - Keep route handlers thin.
 - Keep docs scoped to exact app area and concern.
+- Maintain docs during every meaningful change. Update matching scoped docs for behavior, config, CI, Docker, API, storage, security, or operations changes.
 
 Most useful docs:
 
@@ -28,3 +29,4 @@ Most useful docs:
 - `docs/api/download/requirements.md`
 - `docs/api/download/streaming.md`
 - `docs/api/download/security.md`
+- `.cursor/rules/docs-maintenance.mdc`

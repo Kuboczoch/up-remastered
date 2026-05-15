@@ -9,6 +9,7 @@ Before feature work, read:
 
 - `docs/ai/context.md`
 - The scoped docs for the exact area being changed.
+- `.cursor/rules/docs-maintenance.mdc`
 
 Core constraints:
 
@@ -24,5 +25,8 @@ Core constraints:
 - Stream large uploads/downloads; never buffer whole files.
 - Enforce expiration in download logic, not only cleanup.
 - Cleanup may be a cron/Compose script; do not add queue workers.
+- Keep docs updated with every meaningful code, config, CI, Docker, API, storage, security, or operations change.
 
 Do not add Redis, PostgreSQL, S3, Prisma, auth providers, queues, cloud storage, or a separate backend framework unless explicitly requested.
+
+Before finishing, update matching scoped docs or state why no docs changed.

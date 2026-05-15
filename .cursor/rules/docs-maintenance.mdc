@@ -1,0 +1,20 @@
+---
+description: Keep project docs updated during every change
+alwaysApply: true
+---
+
+# Docs Maintenance
+
+For every task, check whether docs should change.
+
+Update docs when changing:
+
+- App behavior or user flows.
+- API contracts, routes, validation, or error states.
+- Storage, database, filesystem, security, or config rules.
+- Docker, CI, release, or operations workflows.
+- Cursor rules, skills, or AI guidance.
+
+Use scoped docs. Prefer `docs/api/download/security.md` over broad docs.
+
+If the task only changes internal formatting or has no user/maintainer impact, docs may stay unchanged. Say that in the final response.
