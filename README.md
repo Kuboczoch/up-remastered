@@ -1,6 +1,6 @@
 # up - remastered
 
-`up` is a small self-hosted temporary file hosting service. This repo currently contains only the project foundation: Next.js, TypeScript, linting, Docker, docs, and Cursor guidance.
+`up` is a small self-hosted temporary file hosting service. This repo currently contains only the project foundation: Next.js, TypeScript, Tailwind CSS, shadcn/ui, linting, Docker, docs, and Cursor guidance.
 
 Feature work is intentionally deferred. Do not implement upload, share, download, cleanup, Drizzle schema, or database behavior as part of this setup step.
 
@@ -8,6 +8,8 @@ Feature work is intentionally deferred. Do not implement upload, share, download
 
 - Next.js App Router
 - TypeScript
+- Tailwind CSS
+- shadcn/ui
 - ESLint with Prettier plugin
 - npm with committed `package-lock.json`
 - Docker with a mounted `/data` volume
