@@ -1,0 +1,14 @@
+{
+  "LABEL": {
+    "name": "",
+    "color": "ededed"
+  },
+  "CHECKS": {
+    "regexp": "^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\\([a-z0-9._/-]+\\))?!?: .+$"
+  },
+  "MESSAGES": {
+    "success": "Pull request title follows Conventional Commits.",
+    "failure": "Pull request title must follow Conventional Commits, for example: feat: add upload expiry cleanup.",
+    "notice": ""
+  }
+}

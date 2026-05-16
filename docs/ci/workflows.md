@@ -16,6 +16,7 @@ Reusable dependency action:
 
 Checks:
 
+- Check pull request titles against Conventional Commits with `thehanimo/pr-title-checker`.
 - Check out the repository before using any local action.
 - Run the dependency action once with `fail-on-cache-miss: false` to install dependencies with `npm ci` and populate the cache.
 - Use the same dependency action in each check job with `fail-on-cache-miss: true`.
@@ -24,6 +25,13 @@ Checks:
 - Run TypeScript in its own job with `npm run typecheck`.
 - Run Next.js build in its own job with `npm run build`, then upload the `.next` build as an artifact.
 - Run Playwright E2E in its own job after the build job succeeds.
+
+Pull request title job:
+
+- Runs only for pull request events.
+- Re-runs when the pull request title is edited.
+- Uses `.github/pr-title-checker.config.json`.
+- Requires titles like `feat: add upload expiry cleanup` or `fix(api): reject invalid download tokens`.
 
 Playwright job:
 
