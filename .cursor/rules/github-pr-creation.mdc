@@ -7,13 +7,14 @@ alwaysApply: true
 
 When asked to create a pull request:
 
-- Prefer `gh pr create` when `gh` is installed.
-- If using MCP, list and read the GitHub MCP tool descriptors before calling a tool.
-- The active `user-github` MCP server may expose only PR read/list/search tools. If no PR creation MCP tool exists, do not stop there.
-- Read `.cursor/mcp.json` and use the configured GitHub server token to call the GitHub REST API directly.
+- Do not use `gh`. It is not expected to be available in this repository.
+- Use the `user-github` MCP server for GitHub reads, searches, and duplicate checks.
+- Before calling any GitHub MCP tool, list/read the matching MCP tool descriptor.
+- The active `user-github` MCP server may expose only read/list/search tools. If a needed write operation is not exposed, do not stop there.
+- For GitHub writes such as creating pull requests or issues, read `.cursor/mcp.json` and use the configured GitHub server token to call the GitHub REST API directly.
 - Never write, print, or persist the token value in rules, docs, commits, PR bodies, or final responses.
 
-For this repository, the successful fallback was:
+For this repository, the standard REST API fallback is:
 
 ```powershell
 $Config = Get-Content -Raw ".cursor/mcp.json" | ConvertFrom-Json
