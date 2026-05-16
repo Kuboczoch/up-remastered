@@ -25,6 +25,7 @@ Checks:
 - Run TypeScript in its own job with `pnpm run typecheck`.
 - Run Jest unit tests in their own job with `pnpm run test:unit:ci`.
 - Run Next.js build in its own job with `pnpm run build`, then upload the `.next` build as an artifact.
+- Build the production Docker image in its own job with `docker build --pull --tag up-remastered:ci .`.
 - Run Playwright E2E in its own job after the build job succeeds.
 
 Pull request title job:
@@ -48,7 +49,14 @@ Playwright job:
 - Runs Playwright E2E tests with `pnpm run test:e2e:ci`.
 - Uploads the Playwright report artifact.
 
+Docker image job:
+
+- Checks out the repository.
+- Builds the production Docker image locally.
+- Does not publish or deploy the image.
+
 CI does not:
 
 - Deploy anywhere.
+- Publish Docker images.
 - Target branches other than `master`.

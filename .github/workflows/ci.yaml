@@ -145,6 +145,20 @@ jobs:
           path: next-build.tar.gz
           retention-days: 1
 
+  docker-image:
+    name: Docker image build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Build production Docker image
+        run: docker build --pull --tag up-remastered:ci .
+
   playwright:
     name: Playwright E2E
     needs: [build]
