@@ -3,6 +3,7 @@
 Use:
 
 - Next.js App Router for UI and backend routes.
+- React Compiler for build-time component memoization.
 - TypeScript for all project code.
 - Tailwind CSS for styling.
 - shadcn/ui for reusable UI components.
