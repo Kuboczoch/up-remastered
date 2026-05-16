@@ -3,6 +3,7 @@
 Use:
 
 - Next.js App Router for UI and backend routes.
+- React Compiler for build-time component memoization.
 - TypeScript for all project code.
 - SQLite for metadata.
 - Drizzle ORM for future schema, migrations, and queries.
