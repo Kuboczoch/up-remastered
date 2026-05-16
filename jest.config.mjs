@@ -6,7 +6,7 @@ const createJestConfig = nextJest({
 
 /** @type {import("jest").Config} */
 const config = {
-  testEnvironment: "node",
+  testEnvironment: "jsdom",
   testMatch: ["**/src/**/*.test.ts", "**/src/**/*.test.tsx"],
 };
 

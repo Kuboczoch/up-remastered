@@ -4,9 +4,10 @@ Use small, focused test tooling as features need it.
 
 Current coverage:
 
-- Playwright for browser-level homepage and future upload, share, and download flows.
+- Jest for component-level homepage checks, including `jest-axe` accessibility scans.
+- Playwright for browser-level homepage and future upload, share, and download flows, including `@axe-core/playwright` accessibility scans.
 
-CI runs Playwright after `npm run build` so the tests use the production Next.js output.
+CI runs Jest in jsdom for component tests. CI runs Playwright after `npm run build` so the tests use the production Next.js output.
 
 Future preference:
 
