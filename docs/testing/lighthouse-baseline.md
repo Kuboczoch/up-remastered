@@ -12,9 +12,9 @@ Run the baseline audit locally:
 pnpm run test:lighthouse
 ```
 
-The Playwright test starts the local app through `playwright.config.ts`, launches
-Chromium with a remote debugging port, runs Lighthouse against `/`, and attaches
-the score JSON to the Playwright test output under `test-results/`.
+The Playwright test builds the production app through `playwright.config.ts`,
+launches Chromium with a remote debugging port, runs Lighthouse against `/`, and
+attaches the score JSON to the Playwright test output under `test-results/`.
 
 ## Current Baseline
 
@@ -22,7 +22,7 @@ Captured on 2026-05-16 against `http://127.0.0.1:3000/`:
 
 | Category | Score | Minimum |
 | --- | ---: | ---: |
-| Performance | 99 | 85 |
+| Performance | 98 | 95 |
 | Accessibility | 100 | 100 |
 | Best practices | 96 | 95 |
 | SEO | 100 | 100 |

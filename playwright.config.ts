@@ -4,6 +4,8 @@ const port = 3000;
 const baseURL = `http://127.0.0.1:${port}`;
 const isCiRun =
   !!process.env.CI || process.env.npm_lifecycle_event === "test:e2e:ci";
+const isLighthouseRun = process.env.npm_lifecycle_event === "test:lighthouse";
+const usesProductionServer = isCiRun || isLighthouseRun;
 
 export default defineConfig({
   testDir: ".",
@@ -27,9 +29,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: isCiRun ? "node .next/standalone/server.js" : "pnpm run dev",
+    command: isCiRun
+      ? "node .next/standalone/server.js"
+      : isLighthouseRun
+        ? "pnpm run build && node .next/standalone/server.js"
+        : "pnpm run dev",
     url: baseURL,
-    reuseExistingServer: !isCiRun,
-    timeout: 120_000,
+    reuseExistingServer: !usesProductionServer,
+    timeout: 180_000,
   },
 });
