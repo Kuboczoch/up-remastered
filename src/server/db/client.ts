@@ -12,7 +12,7 @@ export function createSqliteConnection(databasePath = getDatabasePath()) {
   return new Database(databasePath);
 }
 
-export function createDbClient(connection = createSqliteConnection()) {
+export function createDbClient(connection: SqliteDatabase) {
   return drizzle(connection, { schema });
 }
 
