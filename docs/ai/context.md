@@ -8,7 +8,9 @@ Intent: small self-hosted temporary file hosting service, written in TypeScript 
 
 Hard constraints:
 
-- Use npm and commit `package-lock.json`.
+- Use pnpm and commit `pnpm-lock.yaml`.
+- Keep `minimumReleaseAge` set to 2880 minutes for dependency installs.
+- Keep the `resolve` override pinned while it is excluded from the age check.
 - Use Node.js runtime for upload/download APIs.
 - Store metadata in SQLite only.
 - Store uploaded bytes on local filesystem under `/data/uploads`.

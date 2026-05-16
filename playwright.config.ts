@@ -27,7 +27,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: isCiRun ? "node .next/standalone/server.js" : "npm run dev",
+    command: isCiRun ? "node .next/standalone/server.js" : "pnpm run dev",
     url: baseURL,
     reuseExistingServer: !isCiRun,
     timeout: 120_000,
