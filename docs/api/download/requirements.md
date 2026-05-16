@@ -17,3 +17,5 @@ Before allowing a download:
 Increment `downloadCount` only after authorization succeeds.
 
 Cleanup is not enough. Download routes must reject expired or unavailable files even if cleanup has not run.
+
+Server-side download failures should follow `docs/operations/logging.md`.

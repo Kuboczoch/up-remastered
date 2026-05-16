@@ -20,3 +20,5 @@ Future behavior:
 - Return share URL based on `BASE_URL`.
 
 Do not buffer entire uploads into memory.
+
+Server-side upload failures should follow `docs/operations/logging.md`.
