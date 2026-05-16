@@ -1,4 +1,5 @@
 import { writeFile } from "node:fs/promises";
+import { createServer } from "node:net";
 
 import { chromium, expect, test } from "@playwright/test";
 import lighthouse from "lighthouse";
@@ -17,13 +18,12 @@ const minimumScores: Record<(typeof auditedCategories)[number], number> = {
   seo: 1,
 };
 
-const remoteDebuggingPort = 9222;
-
 test("tracks the homepage Lighthouse baseline", async ({
   baseURL,
 }, testInfo) => {
   expect(baseURL).toBeDefined();
 
+  const remoteDebuggingPort = await reserveRemoteDebuggingPort();
   const browser = await chromium.launch({
     args: [`--remote-debugging-port=${remoteDebuggingPort}`],
   });
@@ -87,3 +87,23 @@ test("tracks the homepage Lighthouse baseline", async ({
     await browser.close();
   }
 });
+
+async function reserveRemoteDebuggingPort(): Promise<number> {
+  return await new Promise((resolve, reject) => {
+    const server = createServer();
+
+    server.once("error", reject);
+    server.listen(0, () => {
+      const address = server.address();
+
+      if (!address || typeof address === "string") {
+        server.close(() =>
+          reject(new Error("Unable to reserve a remote debugging port.")),
+        );
+        return;
+      }
+
+      server.close(() => resolve(address.port));
+    });
+  });
+}
