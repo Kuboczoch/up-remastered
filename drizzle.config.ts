@@ -13,7 +13,7 @@ function getDatabasePath() {
   }
 
   if (databaseUrl.startsWith("file:/") && !databaseUrl.startsWith("file:///")) {
-    return url.pathname;
+    return decodeURIComponent(url.pathname);
   }
 
   return fileURLToPath(url);

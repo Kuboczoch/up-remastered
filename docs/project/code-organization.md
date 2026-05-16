@@ -24,4 +24,4 @@ Future config validation belongs in:
 src/server/config/env.ts
 ```
 
-Use Zod there later to validate `DATA_DIR`, `UPLOAD_DIR`, `DATABASE_URL`, `MAX_UPLOAD_SIZE`, `DEFAULT_EXPIRATION_HOURS`, and `BASE_URL`.
+Use Zod there later to validate `DATA_DIR`, `UPLOAD_DIR`, `DATABASE_URL`, `MAX_UPLOAD_SIZE`, `DEFAULT_EXPIRATION_HOURS`, and `UP_PUBLIC_ORIGIN`.

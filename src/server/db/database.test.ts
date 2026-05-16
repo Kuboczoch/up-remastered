@@ -31,6 +31,12 @@ describe("SQLite metadata persistence", () => {
     expect(getDatabasePath("file:/data/app.db")).toBe("/data/app.db");
   });
 
+  it("decodes file URL paths", () => {
+    expect(getDatabasePath("file:/data/app%20db.sqlite")).toBe(
+      "/data/app db.sqlite",
+    );
+  });
+
   it("creates the schema and stores upload metadata", async () => {
     const databasePath = await createTempDatabasePath();
     const createdAt = new Date("2026-01-01T00:00:00.000Z");

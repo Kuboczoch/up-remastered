@@ -22,7 +22,7 @@ export function getDatabasePath(databaseUrl = getDatabaseUrl()): string {
   }
 
   if (databaseUrl.startsWith("file:/") && !databaseUrl.startsWith("file:///")) {
-    return url.pathname;
+    return decodeURIComponent(url.pathname);
   }
 
   return fileURLToPath(url);

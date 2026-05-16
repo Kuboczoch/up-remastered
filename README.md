@@ -54,7 +54,7 @@ Runtime variables:
 - `DATABASE_URL=file:/data/app.db`
 - `MAX_UPLOAD_SIZE=1073741824`
 - `DEFAULT_EXPIRATION_HOURS=24`
-- `BASE_URL=http://localhost:3000`
+- `UP_PUBLIC_ORIGIN=http://localhost:3000`
 
 Future config validation belongs in `src/server/config/env.ts` with Zod.
 
