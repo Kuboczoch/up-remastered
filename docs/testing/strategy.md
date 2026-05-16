@@ -1,11 +1,16 @@
 # Testing Strategy
 
-Do not install test tooling during setup.
+Use small, focused test tooling as features need it.
+
+Current coverage:
+
+- Playwright for browser-level homepage and future upload, share, and download flows.
+
+CI runs Playwright after `npm run build` so the tests use the production Next.js output.
 
 Future preference:
 
 - Vitest for unit tests around server utilities, config parsing, token generation, path safety, and database helpers.
-- Playwright optional later for browser-level upload, share, and download flows.
 
 Prioritize tests where mistakes can lose files, bypass expiration, leak paths, or mis-handle large streams.
 

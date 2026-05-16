@@ -20,6 +20,11 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# playwright
+/playwright-report
+/test-results
+/blob-report
+
 # local persistent data
 /data
 *.db
@@ -32,6 +37,3 @@ Thumbs.db
 .idea
 .vscode/*
 !.vscode/extensions.json
-
-# local reference material
-/.github-copy

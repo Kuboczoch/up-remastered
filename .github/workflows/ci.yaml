@@ -19,9 +19,19 @@ permissions:
 jobs:
   install-node-modules:
     name: Install and cache dependencies
-    uses: ./.github/workflows/workflow-install-node_modules.yaml
-    with:
-      fail-on-cache-miss: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Install and cache node_modules
+        uses: ./.github/actions/workflow-install-node_modules
+        with:
+          fail-on-cache-miss: false
 
   eslint:
     name: ESLint
@@ -35,20 +45,10 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          check-latest: true
-
-      - name: Restore node_modules cache
-        uses: actions/cache@v5
+      - name: Install and cache node_modules
+        uses: ./.github/actions/workflow-install-node_modules
         with:
           fail-on-cache-miss: true
-          path: |
-            ~/.npm
-            **/node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Run ESLint
         run: npm run lint
@@ -65,20 +65,10 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          check-latest: true
-
-      - name: Restore node_modules cache
-        uses: actions/cache@v5
+      - name: Install and cache node_modules
+        uses: ./.github/actions/workflow-install-node_modules
         with:
           fail-on-cache-miss: true
-          path: |
-            ~/.npm
-            **/node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Run TypeScript
         run: npm run typecheck
@@ -95,20 +85,77 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          check-latest: true
-
-      - name: Restore node_modules cache
-        uses: actions/cache@v5
+      - name: Install and cache node_modules
+        uses: ./.github/actions/workflow-install-node_modules
         with:
           fail-on-cache-miss: true
-          path: |
-            ~/.npm
-            **/node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
 
       - name: Build Next.js
         run: npm run build
+
+      - name: Archive Next.js build
+        run: tar -czf next-build.tar.gz .next
+
+      - name: Upload Next.js build
+        uses: actions/upload-artifact@v7
+        with:
+          name: next-build
+          path: next-build.tar.gz
+          retention-days: 1
+
+  playwright:
+    name: Playwright E2E
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Install and cache node_modules
+        uses: ./.github/actions/workflow-install-node_modules
+        with:
+          fail-on-cache-miss: true
+
+      - name: Download Next.js build
+        uses: actions/download-artifact@v7
+        with:
+          name: next-build
+
+      - name: Extract Next.js build
+        run: tar -xzf next-build.tar.gz
+
+      - name: Get Playwright version
+        run: |
+          echo "PLAYWRIGHT_VERSION=$(npm ls @playwright/test --depth=0 \
+            | grep @playwright/test \
+            | sed 's/.*@//')" >> "$GITHUB_ENV"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run Playwright E2E
+        run: npm run test:e2e:ci
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 30

@@ -8,11 +8,13 @@ export default defineConfig([
   ...nextTypeScript,
   prettier,
   globalIgnores([
-    ".github-copy/**",
     ".next/**",
+    "github-copy/**",
     "next-env.d.ts",
     "node_modules/**",
     "out/**",
+    "playwright-report/**",
     "public/**",
+    "test-results/**",
   ]),
 ]);
