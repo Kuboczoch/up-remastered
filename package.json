@@ -22,6 +22,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ci": "playwright test",
     "test:e2e:debug": "playwright test --debug",
+    "test:lighthouse": "playwright test src/app/lighthouse.spec.ts --project=chromium",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "typecheck": "tsc --noEmit"
@@ -67,6 +68,7 @@
     "jest": "^30.4.2",
     "jest-axe": "^10.0.0",
     "jest-environment-jsdom": "^30.4.1",
+    "lighthouse": "^13.3.0",
     "prettier": "^3.8.3",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3"
