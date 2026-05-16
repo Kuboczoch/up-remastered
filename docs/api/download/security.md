@@ -14,3 +14,5 @@ Rules:
 - Missing physical files should be handled gracefully.
 
 Avoid leaking sensitive details. A bad token, expired file, missing file, or limit-reached file can use similar unavailable responses unless UI needs a specific state.
+
+Download URLs must remain out of `sitemap.xml` by default. Tokenized, expiring, password-protected, or private download URLs must not be made indexable unless their crawler behavior is explicitly documented and reviewed first.
