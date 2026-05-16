@@ -4,6 +4,8 @@ Use:
 
 - Next.js App Router for UI and backend routes.
 - TypeScript for all project code.
+- Tailwind CSS for styling.
+- shadcn/ui for reusable UI components.
 - SQLite for metadata.
 - Drizzle ORM for future schema, migrations, and queries.
 - Local filesystem for uploaded bytes.
