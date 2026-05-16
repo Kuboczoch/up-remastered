@@ -5,5 +5,6 @@ overrides:
   resolve: 2.0.0-next.6
 allowBuilds:
   better-sqlite3: true
+  esbuild: true
   sharp: true
   unrs-resolver: true
