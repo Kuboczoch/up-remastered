@@ -5,6 +5,7 @@ Use small, focused test tooling as features need it.
 Current coverage:
 
 - Jest for component-level homepage checks, including `jest-axe` accessibility scans.
+- Jest for server utility tests under `src/server/**` in a Node environment.
 - Playwright for browser-level homepage and future upload, share, and download flows, including `@axe-core/playwright` accessibility scans.
 
 Useful commands:
@@ -16,11 +17,7 @@ Useful commands:
 - `pnpm run test:lighthouse` runs the Playwright-backed Lighthouse homepage baseline from `docs/testing/lighthouse-baseline.md`.
 - `pnpm run test:e2e:ui`, `pnpm run test:e2e:debug`, and `pnpm run test:e2e:report` support local Playwright inspection.
 
-CI runs Jest in jsdom for component tests. CI runs Playwright after `pnpm run build` so the tests use the production Next.js output.
-
-Future preference:
-
-- Vitest for unit tests around server utilities, config parsing, token generation, path safety, and database helpers.
+CI runs Jest with separate app and server projects: app/component tests use jsdom, while `src/server/**/*.test.ts` runs in Node. CI runs Playwright after `pnpm run build` so the tests use the production Next.js output.
 
 Prioritize tests where mistakes can lose files, bypass expiration, leak paths, or mis-handle large streams.
 
