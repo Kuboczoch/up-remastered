@@ -10,7 +10,7 @@ file:/data/app.db
 
 Only `file:` SQLite URLs are supported. Runtime connection and migration code lives under `src/server/db/` and imports `server-only`. The pure Drizzle schema is also under `src/server/db/` but remains importable by Drizzle Kit so migrations can be generated.
 
-Callers that open SQLite connections own closing them. The standalone Docker image includes the committed `drizzle/` migrations folder under `/app/drizzle` so server-side migration helpers can find migration SQL from the runtime working directory.
+Database helpers create the SQLite parent directory before opening or migrating the database. Callers that open SQLite connections own closing them. The standalone Docker image includes the committed `drizzle/` migrations folder under `/app/drizzle` so server-side migration helpers can find migration SQL from the runtime working directory.
 
 Current upload metadata fields:
 

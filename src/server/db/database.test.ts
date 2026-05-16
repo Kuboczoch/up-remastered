@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "@jest/globals";
 import { eq } from "drizzle-orm";
-import { mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -84,6 +84,21 @@ describe("SQLite metadata persistence", () => {
       });
       expect(storedUpload?.createdAt).toEqual(createdAt);
       expect(storedUpload?.expiresAt).toEqual(expiresAt);
+    } finally {
+      connection.close();
+    }
+  });
+
+  it("creates missing parent directories before opening SQLite", async () => {
+    const databasePath = join(
+      await createTempDatabasePath(),
+      "nested",
+      "app.db",
+    );
+    const connection = createSqliteConnection(databasePath);
+
+    try {
+      await expect(access(databasePath)).resolves.toBeUndefined();
     } finally {
       connection.close();
     }

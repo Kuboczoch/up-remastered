@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "drizzle-kit";
@@ -7,16 +9,21 @@ const DEFAULT_DATABASE_URL = "file:/data/app.db";
 function getDatabasePath() {
   const databaseUrl = process.env.DATABASE_URL?.trim() || DEFAULT_DATABASE_URL;
   const url = new URL(databaseUrl);
+  let databasePath: string;
 
   if (url.protocol !== "file:") {
     throw new Error("DATABASE_URL must be a file: SQLite URL.");
   }
 
   if (databaseUrl.startsWith("file:/") && !databaseUrl.startsWith("file:///")) {
-    return decodeURIComponent(url.pathname);
+    databasePath = decodeURIComponent(url.pathname);
+  } else {
+    databasePath = fileURLToPath(url);
   }
 
-  return fileURLToPath(url);
+  mkdirSync(dirname(databasePath), { recursive: true });
+
+  return databasePath;
 }
 
 export default defineConfig({
