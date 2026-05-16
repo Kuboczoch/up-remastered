@@ -1,8 +1,7 @@
 import { writeFile } from "node:fs/promises";
 
-import { expect, test } from "@playwright/test";
+import { chromium, expect, test } from "@playwright/test";
 import lighthouse from "lighthouse";
-import { chromium } from "playwright";
 
 const auditedCategories = [
   "performance",
