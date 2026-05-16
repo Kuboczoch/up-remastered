@@ -15,7 +15,8 @@ Core constraints:
 
 - Next.js App Router owns UI and backend routes.
 - TypeScript only.
-- npm only; keep `package-lock.json`.
+- pnpm only; keep `pnpm-lock.yaml`.
+- Keep `minimumReleaseAge` at 2880 minutes for dependency installs.
 - SQLite stores metadata only.
 - Files live under `/data/uploads`.
 - Database lives at `/data/app.db`.

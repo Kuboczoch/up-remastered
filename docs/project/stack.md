@@ -23,4 +23,4 @@ Avoid unless explicitly requested:
 - Auth providers.
 - Serverless-only design assumptions.
 
-npm is the package manager. Keep `package-lock.json` committed and do not introduce pnpm, yarn, or bun unless requested.
+pnpm is the package manager. Keep `pnpm-lock.yaml` committed and set `minimumReleaseAge` to 2880 minutes so new package versions must age for two days before installation. The `resolve` package is excluded from pnpm's age check only because pnpm evaluates its fresh `next` tag before applying overrides; keep the override pinned to the mature `2.0.0-next.6` release.

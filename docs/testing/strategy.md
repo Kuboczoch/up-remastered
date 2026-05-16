@@ -9,13 +9,13 @@ Current coverage:
 
 Useful commands:
 
-- `npm run check` runs ESLint, TypeScript, and Jest unit tests.
-- `npm run check:full` runs `check`, builds the standalone Next.js app, and runs Playwright E2E tests.
-- `npm run preview` builds the app and starts the local production server.
-- `npm run test:unit:watch` starts Jest in watch mode for local development.
-- `npm run test:e2e:ui`, `npm run test:e2e:debug`, and `npm run test:e2e:report` support local Playwright inspection.
+- `pnpm run check` runs ESLint, TypeScript, and Jest unit tests.
+- `pnpm run check:full` runs `check`, builds the standalone Next.js app, and runs Playwright E2E tests.
+- `pnpm run preview` builds the app and starts the local production server.
+- `pnpm run test:unit:watch` starts Jest in watch mode for local development.
+- `pnpm run test:e2e:ui`, `pnpm run test:e2e:debug`, and `pnpm run test:e2e:report` support local Playwright inspection.
 
-CI runs Jest in jsdom for component tests. CI runs Playwright after `npm run build` so the tests use the production Next.js output.
+CI runs Jest in jsdom for component tests. CI runs Playwright after `pnpm run build` so the tests use the production Next.js output.
 
 Future preference:
 
