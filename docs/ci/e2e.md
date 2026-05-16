@@ -10,4 +10,4 @@ The job:
 - Runs `npm run test:e2e:ci`.
 - Uploads `playwright-report` as a workflow artifact.
 
-`npm run test:e2e:ci` builds the Next app, starts it through the Playwright `webServer` config, and runs the browser checks against the homepage.
+`npm run test:e2e:ci` builds the Next app, starts it through the Playwright `webServer` config, and runs the browser checks against the homepage, including the `@axe-core/playwright` accessibility scan.
