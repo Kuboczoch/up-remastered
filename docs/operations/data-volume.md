@@ -23,3 +23,5 @@ Backups should include both SQLite files and uploads. If SQLite WAL mode is enab
 - `uploads/`
 
 Do not commit local data files.
+
+The Drizzle migration history table is stored inside `/data/app.db`; migration SQL files remain in the repository under `drizzle/`.

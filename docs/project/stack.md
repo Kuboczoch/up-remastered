@@ -8,7 +8,7 @@ Use:
 - Tailwind CSS for styling.
 - shadcn/ui for reusable UI components.
 - SQLite for metadata.
-- Drizzle ORM for future schema, migrations, and queries.
+- Drizzle ORM and `better-sqlite3` for schema, migrations, and queries.
 - Local filesystem for uploaded bytes.
 - Docker with `/data` mounted from the host.
 

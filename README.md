@@ -1,8 +1,8 @@
 # up - remastered
 
-`up` is a small self-hosted temporary file hosting service. This repo currently contains only the project foundation: Next.js, TypeScript, Tailwind CSS, shadcn/ui, linting, Docker, docs, and Cursor guidance.
+`up` is a small self-hosted temporary file hosting service. This repo currently contains the project foundation: Next.js, TypeScript, Tailwind CSS, shadcn/ui, linting, Docker, docs, Cursor guidance, and SQLite metadata persistence.
 
-Feature work is intentionally deferred. Do not implement upload, share, download, cleanup, Drizzle schema, or database behavior as part of this setup step.
+Upload, share, download, and cleanup behavior is intentionally deferred.
 
 ## Stack
 
@@ -11,10 +11,11 @@ Feature work is intentionally deferred. Do not implement upload, share, download
 - Tailwind CSS
 - shadcn/ui
 - ESLint with Prettier plugin
+- SQLite metadata with Drizzle ORM
 - pnpm with committed `pnpm-lock.yaml`
 - Docker with a mounted `/data` volume
 
-Planned later: SQLite metadata with Drizzle ORM, local filesystem uploads under `/data/uploads`, password hashing, streamed uploads/downloads, and cleanup by script.
+Planned later: local filesystem uploads under `/data/uploads`, password hashing, streamed uploads/downloads, and cleanup by script.
 
 ## Development
 
@@ -33,18 +34,27 @@ pnpm run lint
 pnpm run build
 ```
 
+## Database
+
+```bash
+pnpm run db:generate
+pnpm run db:migrate
+```
+
+SQLite stores metadata only at `DATABASE_URL=file:/data/app.db`. Uploaded bytes stay on the local filesystem under `/data/uploads`.
+
 ## Runtime Config
 
-Copy `.env.example` to `.env` for local development when feature work starts.
+Copy `.env.example` to `.env` for local development.
 
-Required future variables:
+Runtime variables:
 
 - `DATA_DIR=/data`
 - `UPLOAD_DIR=/data/uploads`
 - `DATABASE_URL=file:/data/app.db`
-- `MAX_UPLOAD_SIZE`
-- `DEFAULT_EXPIRATION_HOURS`
-- `BASE_URL`
+- `MAX_UPLOAD_SIZE=1073741824`
+- `DEFAULT_EXPIRATION_HOURS=24`
+- `BASE_URL=http://localhost:3000`
 
 Future config validation belongs in `src/server/config/env.ts` with Zod.
 
