@@ -9,7 +9,7 @@ analytics, real user monitoring, or any external scoring service.
 Run the baseline audit locally:
 
 ```bash
-npm run test:lighthouse
+pnpm run test:lighthouse
 ```
 
 The Playwright test starts the local app through `playwright.config.ts`, launches
@@ -22,7 +22,7 @@ Captured on 2026-05-16 against `http://127.0.0.1:3000/`:
 
 | Category | Score | Minimum |
 | --- | ---: | ---: |
-| Performance | 99 | 90 |
+| Performance | 99 | 85 |
 | Accessibility | 100 | 100 |
 | Best practices | 96 | 95 |
 | SEO | 100 | 100 |

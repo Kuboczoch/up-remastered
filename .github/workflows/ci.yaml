@@ -73,7 +73,7 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Run ESLint
-        run: npm run lint
+        run: pnpm run lint
 
   typescript:
     name: TypeScript
@@ -93,7 +93,7 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Run TypeScript
-        run: npm run typecheck
+        run: pnpm run typecheck
 
   jest:
     name: Jest unit tests
@@ -113,7 +113,7 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Run Jest unit tests
-        run: npm run test:unit:ci
+        run: pnpm run test:unit:ci
 
   build:
     name: Next.js build
@@ -133,7 +133,7 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Build Next.js
-        run: npm run build
+        run: pnpm run build
 
       - name: Archive Next.js build
         run: tar -czf next-build.tar.gz .next
@@ -171,10 +171,7 @@ jobs:
         run: tar -xzf next-build.tar.gz
 
       - name: Get Playwright version
-        run: |
-          echo "PLAYWRIGHT_VERSION=$(npm ls @playwright/test --depth=0 \
-            | grep @playwright/test \
-            | sed 's/.*@//')" >> "$GITHUB_ENV"
+        run: echo "PLAYWRIGHT_VERSION=$(node -p 'require(\"./node_modules/@playwright/test/package.json\").version')" >> "$GITHUB_ENV"
 
       - name: Cache Playwright browsers
         id: playwright-cache
@@ -185,14 +182,14 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Install Playwright system dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+        run: pnpm exec playwright install-deps chromium
 
       - name: Run Playwright E2E
-        run: npm run test:e2e:ci
+        run: pnpm run test:e2e:ci
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v7

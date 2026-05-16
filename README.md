@@ -11,7 +11,7 @@ Feature work is intentionally deferred. Do not implement upload, share, download
 - Tailwind CSS
 - shadcn/ui
 - ESLint with Prettier plugin
-- npm with committed `package-lock.json`
+- pnpm with committed `pnpm-lock.yaml`
 - Docker with a mounted `/data` volume
 
 Planned later: SQLite metadata with Drizzle ORM, local filesystem uploads under `/data/uploads`, password hashing, streamed uploads/downloads, and cleanup by script.
@@ -19,8 +19,9 @@ Planned later: SQLite metadata with Drizzle ORM, local filesystem uploads under 
 ## Development
 
 ```bash
-npm install
-npm run dev
+corepack enable
+pnpm install
+pnpm run dev
 ```
 
 Open `http://localhost:3000`.
@@ -28,8 +29,8 @@ Open `http://localhost:3000`.
 ## Validation
 
 ```bash
-npm run lint
-npm run build
+pnpm run lint
+pnpm run build
 ```
 
 ## Runtime Config

@@ -5,6 +5,7 @@ Docker is the primary deployment target.
 Requirements:
 
 - Use Node 24.14.
+- Build dependencies with pnpm and the committed `pnpm-lock.yaml`.
 - Build Next.js with `output: "standalone"`.
 - Mount host `./data` to container `/data`.
 - Keep SQLite database at `/data/app.db`.

@@ -1,0 +1,8 @@
+minimumReleaseAge: 2880
+minimumReleaseAgeExclude:
+  - resolve
+overrides:
+  resolve: 2.0.0-next.6
+allowBuilds:
+  sharp: true
+  unrs-resolver: true

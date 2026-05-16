@@ -7,7 +7,8 @@ alwaysApply: true
 
 - Keep `up` small, boring, and self-hosting-friendly.
 - Use TypeScript for all project code.
-- Use npm only. Keep `package-lock.json` committed.
+- Use pnpm only. Keep `pnpm-lock.yaml` committed.
+- Keep pnpm `minimumReleaseAge` set to 2880 minutes.
 - Prefer correctness, durability, and simple operations over cloud-scale abstractions.
 - Do not implement deferred features while doing setup-only tasks.
 - Add comments only when they clarify non-obvious logic.

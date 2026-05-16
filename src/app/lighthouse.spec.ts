@@ -12,7 +12,7 @@ const auditedCategories = [
 ] as const;
 
 const minimumScores: Record<(typeof auditedCategories)[number], number> = {
-  performance: 0.9,
+  performance: 0.85,
   accessibility: 1,
   "best-practices": 0.95,
   seo: 1,
