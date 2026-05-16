@@ -95,6 +95,26 @@ jobs:
       - name: Run TypeScript
         run: npm run typecheck
 
+  jest:
+    name: Jest unit tests
+    needs: [install-node-modules]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Install and cache node_modules
+        uses: ./.github/actions/workflow-install-node_modules
+        with:
+          fail-on-cache-miss: true
+
+      - name: Run Jest unit tests
+        run: npm run test:unit:ci
+
   build:
     name: Next.js build
     needs: [install-node-modules]

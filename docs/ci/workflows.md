@@ -23,6 +23,7 @@ Checks:
 - The dependency action also checks out the repository, then sets up Node.js and restores `node_modules`.
 - Run ESLint in its own job with `npm run lint`.
 - Run TypeScript in its own job with `npm run typecheck`.
+- Run Jest unit tests in their own job with `npm run test:unit:ci`.
 - Run Next.js build in its own job with `npm run build`, then upload the `.next` build as an artifact.
 - Run Playwright E2E in its own job after the build job succeeds.
 
@@ -32,6 +33,12 @@ Pull request title job:
 - Re-runs when the pull request title is edited.
 - Uses `.github/pr-title-checker.config.json`.
 - Requires titles like `feat: add upload expiry cleanup` or `fix(api): reject invalid download tokens`.
+
+Jest job:
+
+- Restores the shared dependency cache.
+- Runs unit tests with `npm run test:unit:ci`.
+- Picks up unit tests named `*.test.ts` or `*.test.tsx` under `src/`.
 
 Playwright job:
 
@@ -44,7 +51,4 @@ Playwright job:
 CI does not:
 
 - Deploy anywhere.
-- Run unit tests yet.
 - Target branches other than `master`.
-
-Unit tests should be added later with Vitest once server utilities exist.

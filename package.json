@@ -11,6 +11,8 @@
     "start": "next start",
     "lint": "eslint .",
     "format": "eslint . --fix",
+    "test:unit": "jest",
+    "test:unit:ci": "jest --ci",
     "test:e2e": "playwright test",
     "test:e2e:ci": "playwright test",
     "typecheck": "tsc --noEmit"
@@ -34,6 +36,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^25.8.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -41,6 +44,7 @@
     "eslint-config-next": "^16.2.6",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
+    "jest": "^30.4.2",
     "prettier": "^3.8.3",
     "typescript": "^6.0.3"
   }
