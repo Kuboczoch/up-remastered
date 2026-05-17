@@ -16,9 +16,9 @@ POST /api/upload
 
 Supported request bodies:
 
-- Multipart form data with one `file` part, e.g. `curl -F file=@example.zip http://localhost:3000/api/upload`.
-- Multipart form data with a text field when no file part exists, e.g. `curl -F text='hello' http://localhost:3000/api/upload`.
-- Raw request bodies for terminal uploads, e.g. `curl --data-binary @example.zip -H 'Content-Type: application/octet-stream' -H 'X-File-Name: example.zip' http://localhost:3000/api/upload`.
+- Multipart form data with one `file` part named `file`, e.g. `curl -F file=@example.zip http://localhost:3000/api/upload`.
+- Multipart form data with one small text field named `text` when no file part exists, e.g. `curl -F text='hello' http://localhost:3000/api/upload`.
+- Raw request bodies for terminal uploads. Non-text raw uploads must include `X-File-Name`, e.g. `curl --data-binary @example.zip -H 'Content-Type: application/octet-stream' -H 'X-File-Name: example.zip' http://localhost:3000/api/upload`.
 
 Response success shape:
 
@@ -46,6 +46,7 @@ Rules:
 - Store uploaded bytes under `UPLOAD_DIR`; never store file bytes in SQLite.
 - Generate stored filenames on the server and never trust client-provided paths.
 - Write SQLite metadata only after storage succeeds.
+- Multipart metadata fields are intentionally small; use raw uploads for large text payloads.
 - Default expiration is `DEFAULT_EXPIRATION_HOURS`, currently 24h in production config.
 - Requested expiration can use strict UTC ISO `expiresAt`, `expiresInHours`, `expiresInMinutes`, or `expiresInSeconds`.
 - Reject requested expiration beyond `MAX_EXPIRATION_HOURS`, currently 24h in production config.

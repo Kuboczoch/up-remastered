@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createWriteStream } from "node:fs";
-import { mkdir, rename, rm } from "node:fs/promises";
+import { link, mkdir, rm, unlink } from "node:fs/promises";
 import { basename, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -84,7 +84,8 @@ export async function commitPendingUploadFile(
   pendingFile: PendingUploadFile,
 ): Promise<void> {
   assertAssignedUploadFile(pendingFile);
-  await rename(pendingFile.tempPath, pendingFile.storagePath);
+  await link(pendingFile.tempPath, pendingFile.storagePath);
+  await unlink(pendingFile.tempPath);
 }
 
 export async function discardPendingUploadFile(

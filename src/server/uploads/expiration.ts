@@ -4,6 +4,8 @@ import { UploadRequestError } from "@/server/uploads/errors";
 type UploadFields = ReadonlyMap<string, string>;
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+const INVALID_EXPIRES_AT_MESSAGE =
+  "expiresAt must be a valid future UTC ISO date ending in Z.";
 
 function parseDurationField(fields: UploadFields): number | undefined {
   const seconds = fields.get("expiresInSeconds");
@@ -58,7 +60,7 @@ export function resolveUploadExpiration(
   if (requestedExpiresAt) {
     if (!ISO_DATE_PATTERN.test(requestedExpiresAt)) {
       throw new UploadRequestError(
-        "expiresAt must be a valid future ISO date.",
+        INVALID_EXPIRES_AT_MESSAGE,
         400,
         "invalid_expiration",
       );
@@ -68,7 +70,7 @@ export function resolveUploadExpiration(
 
     if (Number.isNaN(expiresAt.getTime()) || expiresAt <= now) {
       throw new UploadRequestError(
-        "expiresAt must be a valid future ISO date.",
+        INVALID_EXPIRES_AT_MESSAGE,
         400,
         "invalid_expiration",
       );

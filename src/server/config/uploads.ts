@@ -26,7 +26,7 @@ function readPositiveInteger(name: string, defaultValue: number): number {
 
   const parsedValue = Number(rawValue);
 
-  if (!Number.isFinite(parsedValue) || !Number.isInteger(parsedValue)) {
+  if (!Number.isInteger(parsedValue)) {
     throw new Error(`${name} must be an integer number of bytes.`);
   }
 

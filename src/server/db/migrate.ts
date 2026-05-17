@@ -7,7 +7,6 @@ import { getDatabasePath } from "@/server/config/database";
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 
 const DEFAULT_MIGRATIONS_FOLDER = join(process.cwd(), "drizzle");
-let migratedDatabasePath: string | undefined;
 
 export function migrateDatabase(
   databasePath?: string,
@@ -26,12 +25,5 @@ export function migrateDatabase(
 export function ensureDatabaseMigrated(): void {
   const databasePath = getDatabasePath();
 
-  if (migratedDatabasePath === databasePath) {
-    return;
-  }
-
-  // This cache assumes the database file is not replaced under the same path.
-  // Tests use different paths when they need a fresh migration target.
   migrateDatabase(databasePath);
-  migratedDatabasePath = databasePath;
 }

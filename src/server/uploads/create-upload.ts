@@ -13,7 +13,6 @@ import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import {
   deleteUploadMetadata,
   getTotalStoredUploadBytes,
-  hasUploadId,
   insertUploadMetadataWithinQuota,
 } from "@/server/db/uploads";
 import { ensureDatabaseMigrated } from "@/server/db/migrate";
@@ -37,6 +36,7 @@ type UploadContent = {
   size: number;
 };
 type UploadLimitKind = "stored-bytes" | "upload-size";
+type BetterSqliteError = Error & { code?: string };
 
 export type CreatedUpload = {
   expiresAt: string;
@@ -48,6 +48,8 @@ export type CreatedUpload = {
 };
 
 const TEXT_FIELD_NAME = "text";
+const FILE_FIELD_NAME = "file";
+const MAX_MULTIPART_FIELD_BYTES = 8 * 1024;
 const UPLOAD_ID_ALPHABET =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const UPLOAD_ID_LENGTH = 5;
@@ -61,18 +63,6 @@ function createUploadId(): string {
   }
 
   return id;
-}
-
-function createUniqueUploadId(db: ReturnType<typeof createDbClient>) {
-  for (let attempt = 0; attempt < MAX_UPLOAD_ID_ATTEMPTS; attempt += 1) {
-    const uploadId = createUploadId();
-
-    if (!hasUploadId(db, uploadId)) {
-      return uploadId;
-    }
-  }
-
-  throw new Error("Could not generate an available upload ID.");
 }
 
 function toNodeHeaders(headers: Headers): IncomingHttpHeaders {
@@ -145,12 +135,21 @@ async function writeTextToPendingFile(
 }
 
 function getRawUploadName(request: Request): string {
-  return sanitizeOriginalName(
-    request.headers.get("x-file-name") ??
-      request.headers.get("x-filename") ??
-      (request.headers.get("content-type")?.startsWith("text/")
-        ? "upload.txt"
-        : "upload.bin"),
+  const fileName =
+    request.headers.get("x-file-name") ?? request.headers.get("x-filename");
+
+  if (fileName) {
+    return sanitizeOriginalName(fileName);
+  }
+
+  if (request.headers.get("content-type")?.startsWith("text/")) {
+    return "upload.txt";
+  }
+
+  throw new UploadRequestError(
+    "Raw uploads must include an X-File-Name header.",
+    400,
+    "missing_file_name",
   );
 }
 
@@ -212,6 +211,37 @@ function getTextUploadField(fields: UploadFieldMap) {
   return { name: TEXT_FIELD_NAME, value: textUpload };
 }
 
+function validateMultipartFields(
+  fields: UploadFieldMap,
+  hasFileUpload: boolean,
+): void {
+  const allowedFields = new Set([
+    "expiresAt",
+    "expiresInHours",
+    "expiresInMinutes",
+    "expiresInSeconds",
+    TEXT_FIELD_NAME,
+  ]);
+
+  for (const fieldName of fields.keys()) {
+    if (!allowedFields.has(fieldName)) {
+      throw new UploadRequestError(
+        "Unsupported multipart form field.",
+        400,
+        "unsupported_form_field",
+      );
+    }
+  }
+
+  if (hasFileUpload && fields.has(TEXT_FIELD_NAME)) {
+    throw new UploadRequestError(
+      "Provide either a file part or a text field, not both.",
+      400,
+      "ambiguous_upload",
+    );
+  }
+}
+
 async function parseMultipartUpload(
   request: Request,
   pendingFile: PendingUploadFile,
@@ -231,7 +261,7 @@ async function parseMultipartUpload(
     headers: toNodeHeaders(request.headers),
     limits: {
       fields: 50,
-      fieldSize: byteLimit,
+      fieldSize: MAX_MULTIPART_FIELD_BYTES,
       fileSize: byteLimit,
       files: 1,
       parts: 60,
@@ -241,12 +271,12 @@ async function parseMultipartUpload(
   let parsedContent: UploadContent | undefined;
   let uploadError: Error | undefined;
 
-  parser.on("file", (_fieldName, fileStream, fileInfo) => {
-    if (parsedContent) {
+  parser.on("file", (fieldName, fileStream, fileInfo) => {
+    if (fieldName !== FILE_FIELD_NAME) {
       uploadError = new UploadRequestError(
-        "Only one uploaded file is supported.",
+        "File uploads must use the file form field.",
         400,
-        "too_many_files",
+        "invalid_file_field",
       );
       fileStream.resume();
       return;
@@ -286,6 +316,8 @@ async function parseMultipartUpload(
   parser.on("field", (name, value, info) => {
     if (info.valueTruncated) {
       uploadError = getUploadLimitError(limitKind);
+      parser.destroy(uploadError);
+      return;
     }
 
     fields.set(name, value);
@@ -312,17 +344,23 @@ async function parseMultipartUpload(
     );
   });
 
-  await pipeline(
-    Readable.fromWeb(
-      request.body as NodeReadableStream<Uint8Array>,
-    ) as NodeJS.ReadableStream,
-    parser,
+  const source = Readable.fromWeb(
+    request.body as NodeReadableStream<Uint8Array>,
   );
+
+  try {
+    await pipeline(source, parser);
+  } catch (error) {
+    source.destroy(error instanceof Error ? error : undefined);
+    throw error;
+  }
   await Promise.all(fileWrites);
 
   if (uploadError) {
     throw uploadError;
   }
+
+  validateMultipartFields(fields, parsedContent !== undefined);
 
   if (parsedContent) {
     return { content: parsedContent, fields };
@@ -348,7 +386,7 @@ async function parseMultipartUpload(
   return {
     content: {
       mimeType: "text/plain",
-      originalName: sanitizeOriginalName(`${textUpload.name}.txt`),
+      originalName: "text.txt",
       size,
     },
     fields,
@@ -373,8 +411,9 @@ async function parseUploadRequest(
 function isUploadIdCollisionError(error: unknown): boolean {
   return (
     error instanceof Error &&
-    error.message.includes("UNIQUE constraint failed") &&
-    error.message.includes("upload_metadata.id")
+    ["SQLITE_CONSTRAINT_PRIMARYKEY", "SQLITE_CONSTRAINT_UNIQUE"].includes(
+      (error as BetterSqliteError).code ?? "",
+    )
   );
 }
 
@@ -392,7 +431,7 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
 
     if (remainingStoredBytes <= 0) {
       throw new UploadRequestError(
-        "Upload would exceed the total stored data limit.",
+        "Storage is full.",
         413,
         "total_storage_limit_exceeded",
       );
@@ -414,7 +453,7 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
     let uploadId: string | undefined;
 
     for (let attempt = 0; attempt < MAX_UPLOAD_ID_ATTEMPTS; attempt += 1) {
-      const candidateId = createUniqueUploadId(db);
+      const candidateId = createUploadId();
       assignPendingUploadId(pendingFile, candidateId);
 
       if (!pendingFile.storagePath || !pendingFile.storedName) {
