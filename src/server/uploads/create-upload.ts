@@ -404,12 +404,10 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
     try {
       insertUploadMetadata(db, {
         createdAt: now,
-        downloadLimit: null,
         expiresAt,
         id: uploadId,
         mimeType: content.mimeType,
         originalName: content.originalName,
-        passwordHash: null,
         size: content.size,
         storagePath: pendingFile.storagePath,
         storageKey,

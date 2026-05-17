@@ -24,9 +24,6 @@ Current upload metadata fields:
 - `storagePath`
 - `createdAt`
 - `expiresAt`
-- `passwordHash`
-- `downloadLimit`
-- `downloadCount`
 
 Use Drizzle ORM and `better-sqlite3` for schema, migrations, and queries. Do not introduce Prisma or PostgreSQL.
 

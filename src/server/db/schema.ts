@@ -13,9 +13,6 @@ export const uploadMetadata = sqliteTable(
     storagePath: text("storage_path").notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
-    passwordHash: text("password_hash"),
-    downloadLimit: integer("download_limit"),
-    downloadCount: integer("download_count").notNull().default(0),
   },
   (table) => [index("upload_metadata_id_index").on(table.id)],
 );

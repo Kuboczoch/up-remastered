@@ -15,6 +15,13 @@
       "when": 1779028012923,
       "tag": "0001_sleepy_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779028289965,
+      "tag": "0002_unusual_mercury",
+      "breakpoints": true
     }
   ]
 }

@@ -61,8 +61,6 @@ describe("SQLite metadata persistence", () => {
           storagePath: "/data/uploads/storage-key-123.bin",
           createdAt,
           expiresAt,
-          passwordHash: null,
-          downloadLimit: 3,
         })
         .run();
 
@@ -81,9 +79,6 @@ describe("SQLite metadata persistence", () => {
         size: 12345,
         storageKey: "storage-key-123",
         storagePath: "/data/uploads/storage-key-123.bin",
-        passwordHash: null,
-        downloadLimit: 3,
-        downloadCount: 0,
       });
       expect(storedUpload?.createdAt).toEqual(createdAt);
       expect(storedUpload?.expiresAt).toEqual(expiresAt);
