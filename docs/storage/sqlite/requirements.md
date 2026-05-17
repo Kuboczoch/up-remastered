@@ -15,7 +15,6 @@ Database helpers create the SQLite parent directory before opening or migrating 
 Current upload metadata fields:
 
 - `id`
-- `token`
 - `originalName`
 - `storedName`
 - `mimeType`
@@ -23,11 +22,17 @@ Current upload metadata fields:
 - `storagePath`
 - `createdAt`
 - `expiresAt`
-- `passwordHash`
-- `downloadLimit`
-- `downloadCount`
 
 Use Drizzle ORM and `better-sqlite3` for schema, migrations, and queries. Do not introduce Prisma or PostgreSQL.
+
+Upload API behavior:
+
+- Metadata rows are inserted only after uploaded bytes are stored successfully.
+- `size` participates in total stored-data quota checks.
+- `expiresAt` is set on upload creation so future download and cleanup paths can enforce availability.
+- `id` is the only upload identifier, the SQLite primary key, and the basis for the stored filename.
+- `id` can be reused after cleanup or another deletion path removes the previous metadata row and stored file.
+- Expiration alone does not release an `id`; the row must be deleted first.
 
 Useful commands:
 

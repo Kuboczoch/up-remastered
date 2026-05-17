@@ -8,6 +8,7 @@ import { getDatabasePath } from "@/server/config/database";
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { migrateDatabase } from "@/server/db/migrate";
 import { uploadMetadata } from "@/server/db/schema";
+import { hasUploadId } from "@/server/db/uploads";
 
 let tempDir: string | undefined;
 
@@ -50,37 +51,30 @@ describe("SQLite metadata persistence", () => {
     try {
       db.insert(uploadMetadata)
         .values({
-          id: "upload_123",
-          token: "share-token",
+          id: "A7k2Q",
           originalName: "photo.png",
-          storedName: "upload_123.bin",
+          storedName: "A7k2Q.bin",
           mimeType: "image/png",
           size: 12345,
-          storagePath: "/data/uploads/upload_123.bin",
+          storagePath: "/data/uploads/A7k2Q.bin",
           createdAt,
           expiresAt,
-          passwordHash: null,
-          downloadLimit: 3,
         })
         .run();
 
       const storedUpload = db
         .select()
         .from(uploadMetadata)
-        .where(eq(uploadMetadata.token, "share-token"))
+        .where(eq(uploadMetadata.id, "A7k2Q"))
         .get();
 
       expect(storedUpload).toMatchObject({
-        id: "upload_123",
-        token: "share-token",
+        id: "A7k2Q",
         originalName: "photo.png",
-        storedName: "upload_123.bin",
+        storedName: "A7k2Q.bin",
         mimeType: "image/png",
         size: 12345,
-        storagePath: "/data/uploads/upload_123.bin",
-        passwordHash: null,
-        downloadLimit: 3,
-        downloadCount: 0,
+        storagePath: "/data/uploads/A7k2Q.bin",
       });
       expect(storedUpload?.createdAt).toEqual(createdAt);
       expect(storedUpload?.expiresAt).toEqual(expiresAt);
@@ -99,6 +93,40 @@ describe("SQLite metadata persistence", () => {
 
     try {
       await expect(access(databasePath)).resolves.toBeUndefined();
+    } finally {
+      connection.close();
+    }
+  });
+
+  it("treats upload IDs as reusable after metadata deletion", async () => {
+    const databasePath = await createTempDatabasePath();
+
+    migrateDatabase(databasePath);
+
+    const connection = createSqliteConnection(databasePath);
+    const db = createDbClient(connection);
+
+    try {
+      db.insert(uploadMetadata)
+        .values([
+          {
+            id: "A7k2Q",
+            originalName: "photo.txt",
+            storedName: "A7k2Q.bin",
+            mimeType: "text/plain",
+            size: 10,
+            storagePath: "/data/uploads/A7k2Q.bin",
+            createdAt: new Date("2026-01-01T00:00:00.000Z"),
+            expiresAt: new Date("2026-01-02T00:00:00.000Z"),
+          },
+        ])
+        .run();
+
+      expect(hasUploadId(db, "A7k2Q")).toBe(true);
+
+      db.delete(uploadMetadata).where(eq(uploadMetadata.id, "A7k2Q")).run();
+
+      expect(hasUploadId(db, "A7k2Q")).toBe(false);
     } finally {
       connection.close();
     }

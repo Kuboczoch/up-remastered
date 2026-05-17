@@ -11,3 +11,14 @@ The job:
 - Uploads `playwright-report` as a workflow artifact.
 
 `pnpm run test:e2e:ci` builds the Next app, starts it through the Playwright `webServer` config, and runs the browser checks against the homepage, including the `@axe-core/playwright` accessibility scan.
+
+The Playwright web server defaults upload-related env vars to small local values when they are not already set:
+
+- `DATABASE_URL=file://<repo>/.playwright-data/app.db`
+- `UPLOAD_DIR=<repo>/.playwright-data/uploads`
+- `MAX_UPLOAD_SIZE=64`
+- `MAX_STORED_BYTES=1048576`
+- `DEFAULT_EXPIRATION_HOURS=1`
+- `MAX_EXPIRATION_HOURS=24`
+
+These defaults keep upload endpoint E2E checks fast while production config can keep the 1 GiB per-upload limit.
