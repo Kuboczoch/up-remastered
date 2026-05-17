@@ -8,6 +8,7 @@ import { getDatabasePath } from "@/server/config/database";
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { migrateDatabase } from "@/server/db/migrate";
 import { uploadMetadata } from "@/server/db/schema";
+import { hasActiveUploadId } from "@/server/db/uploads";
 
 let tempDir: string | undefined;
 
@@ -50,13 +51,14 @@ describe("SQLite metadata persistence", () => {
     try {
       db.insert(uploadMetadata)
         .values({
-          id: "upload_123",
+          id: "A7k2Q",
           token: "share-token",
           originalName: "photo.png",
-          storedName: "upload_123.bin",
+          storedName: "storage-key-123.bin",
           mimeType: "image/png",
           size: 12345,
-          storagePath: "/data/uploads/upload_123.bin",
+          storageKey: "storage-key-123",
+          storagePath: "/data/uploads/storage-key-123.bin",
           createdAt,
           expiresAt,
           passwordHash: null,
@@ -71,13 +73,14 @@ describe("SQLite metadata persistence", () => {
         .get();
 
       expect(storedUpload).toMatchObject({
-        id: "upload_123",
+        id: "A7k2Q",
         token: "share-token",
         originalName: "photo.png",
-        storedName: "upload_123.bin",
+        storedName: "storage-key-123.bin",
         mimeType: "image/png",
         size: 12345,
-        storagePath: "/data/uploads/upload_123.bin",
+        storageKey: "storage-key-123",
+        storagePath: "/data/uploads/storage-key-123.bin",
         passwordHash: null,
         downloadLimit: 3,
         downloadCount: 0,
@@ -99,6 +102,52 @@ describe("SQLite metadata persistence", () => {
 
     try {
       await expect(access(databasePath)).resolves.toBeUndefined();
+    } finally {
+      connection.close();
+    }
+  });
+
+  it("treats public upload IDs as reusable after expiration", async () => {
+    const databasePath = await createTempDatabasePath();
+    const activeDate = new Date("2026-01-01T12:00:00.000Z");
+
+    migrateDatabase(databasePath);
+
+    const connection = createSqliteConnection(databasePath);
+    const db = createDbClient(connection);
+
+    try {
+      db.insert(uploadMetadata)
+        .values([
+          {
+            id: "A7k2Q",
+            token: "expired-token",
+            originalName: "expired.txt",
+            storedName: "expired-storage.bin",
+            mimeType: "text/plain",
+            size: 10,
+            storageKey: "expired-storage",
+            storagePath: "/data/uploads/expired-storage.bin",
+            createdAt: new Date("2026-01-01T00:00:00.000Z"),
+            expiresAt: new Date("2026-01-01T01:00:00.000Z"),
+          },
+          {
+            id: "B8m3R",
+            token: "active-token",
+            originalName: "active.txt",
+            storedName: "active-storage.bin",
+            mimeType: "text/plain",
+            size: 10,
+            storageKey: "active-storage",
+            storagePath: "/data/uploads/active-storage.bin",
+            createdAt: new Date("2026-01-01T00:00:00.000Z"),
+            expiresAt: new Date("2026-01-02T00:00:00.000Z"),
+          },
+        ])
+        .run();
+
+      expect(hasActiveUploadId(db, "A7k2Q", activeDate)).toBe(false);
+      expect(hasActiveUploadId(db, "B8m3R", activeDate)).toBe(true);
     } finally {
       connection.close();
     }

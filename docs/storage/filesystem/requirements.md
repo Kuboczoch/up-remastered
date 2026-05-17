@@ -12,6 +12,7 @@ Rules:
 
 - Never trust client-provided paths.
 - Generate stored filenames on the server.
+- Base stored filenames on internal storage keys, not reusable public upload IDs.
 - Sanitize original filenames for display and `Content-Disposition`.
 - Prevent path traversal by resolving paths under `UPLOAD_DIR`.
 - Stream large file reads and writes; do not buffer whole files in memory.

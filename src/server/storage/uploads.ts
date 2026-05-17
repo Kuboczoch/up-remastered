@@ -35,12 +35,12 @@ export function sanitizeOriginalName(originalName: string): string {
 }
 
 export async function createPendingUploadFile(
-  uploadId: string,
+  storageKey: string,
 ): Promise<PendingUploadFile> {
   const uploadDirectory = getUploadDirectory();
   await mkdir(uploadDirectory, { recursive: true });
 
-  const storedName = `${uploadId}.bin`;
+  const storedName = `${storageKey}.bin`;
   const storagePath = resolve(uploadDirectory, storedName);
   const tempPath = resolve(uploadDirectory, `${storedName}.tmp`);
 

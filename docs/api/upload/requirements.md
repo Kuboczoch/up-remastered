@@ -25,7 +25,7 @@ Response success shape:
 ```json
 {
   "upload": {
-    "id": "upload_<uuid>",
+    "id": "A7k2Q",
     "token": "<share-token>",
     "originalName": "example.zip",
     "mimeType": "application/zip",
@@ -39,6 +39,8 @@ Response success shape:
 Rules:
 
 - No authentication or authorization is required.
+- `id` is a 5-character alphanumeric value with no prefix.
+- `id` must be unique only while an upload exists and has not expired; expired or deleted uploads release the ID for future reuse.
 - Store uploaded bytes under `UPLOAD_DIR`; never store file bytes in SQLite.
 - Generate stored filenames on the server and never trust client-provided paths.
 - Write SQLite metadata only after storage succeeds.

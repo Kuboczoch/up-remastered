@@ -14,6 +14,7 @@ Database helpers create the SQLite parent directory before opening or migrating 
 
 Current upload metadata fields:
 
+- `storageKey`
 - `id`
 - `token`
 - `originalName`
@@ -34,6 +35,8 @@ Upload API behavior:
 - Metadata rows are inserted only after uploaded bytes are stored successfully.
 - `size` participates in total stored-data quota checks.
 - `expiresAt` is set on upload creation so future download and cleanup paths can enforce availability.
+- `storageKey` is the internal primary key used for durable file storage names.
+- `id` is the short public upload ID and is reusable after the previous upload expires or is deleted.
 
 Useful commands:
 

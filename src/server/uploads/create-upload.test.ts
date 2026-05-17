@@ -86,6 +86,7 @@ describe("createUpload", () => {
       shareUrl: `http://localhost:3000/api/download/${upload.token}`,
       size: 5,
     });
+    expect(upload.id).toMatch(/^[0-9A-Za-z]{5}$/);
     expect(row).toMatchObject({
       id: upload.id,
       originalName: "hello.txt",
