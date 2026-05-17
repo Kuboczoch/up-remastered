@@ -3,10 +3,12 @@ import { UploadRequestError } from "@/server/uploads/errors";
 
 type UploadFields = ReadonlyMap<string, string>;
 
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+
 function parseDurationField(fields: UploadFields): number | undefined {
   const seconds = fields.get("expiresInSeconds");
   const minutes = fields.get("expiresInMinutes");
-  const hours = fields.get("expiresInHours") ?? fields.get("expirationHours");
+  const hours = fields.get("expiresInHours");
   const suppliedFields = [seconds, minutes, hours].filter(
     (value) => value !== undefined,
   );
@@ -54,6 +56,14 @@ export function resolveUploadExpiration(
   const requestedExpiresAt = fields.get("expiresAt");
 
   if (requestedExpiresAt) {
+    if (!ISO_DATE_PATTERN.test(requestedExpiresAt)) {
+      throw new UploadRequestError(
+        "expiresAt must be a valid future ISO date.",
+        400,
+        "invalid_expiration",
+      );
+    }
+
     const expiresAt = new Date(requestedExpiresAt);
 
     if (Number.isNaN(expiresAt.getTime()) || expiresAt <= now) {

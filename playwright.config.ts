@@ -49,6 +49,7 @@ export default defineConfig({
         ? "pnpm run build && node .next/standalone/server.js"
         : "pnpm run dev",
     env: {
+      ...process.env,
       DATABASE_URL: process.env.DATABASE_URL,
       DEFAULT_EXPIRATION_HOURS: process.env.DEFAULT_EXPIRATION_HOURS,
       MAX_EXPIRATION_HOURS: process.env.MAX_EXPIRATION_HOURS,

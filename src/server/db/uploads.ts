@@ -23,6 +23,34 @@ export function insertUploadMetadata(
   db.insert(uploadMetadata).values(metadata).run();
 }
 
+export function insertUploadMetadataWithinQuota(
+  db: DbClient,
+  metadata: NewUploadMetadata,
+  maxStoredBytes: number,
+): boolean {
+  return db.transaction((tx) => {
+    const row = tx
+      .select({
+        totalBytes: sql<number>`coalesce(sum(${uploadMetadata.size}), 0)`,
+      })
+      .from(uploadMetadata)
+      .get();
+    const totalBytes = Number(row?.totalBytes ?? 0);
+
+    if (totalBytes + metadata.size > maxStoredBytes) {
+      return false;
+    }
+
+    tx.insert(uploadMetadata).values(metadata).run();
+
+    return true;
+  });
+}
+
+export function deleteUploadMetadata(db: DbClient, id: string): void {
+  db.delete(uploadMetadata).where(eq(uploadMetadata.id, id)).run();
+}
+
 export function hasUploadId(db: DbClient, id: string): boolean {
   const row = db
     .select({ id: uploadMetadata.id })

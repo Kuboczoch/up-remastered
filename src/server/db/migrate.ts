@@ -30,6 +30,8 @@ export function ensureDatabaseMigrated(): void {
     return;
   }
 
+  // This cache assumes the database file is not replaced under the same path.
+  // Tests use different paths when they need a fresh migration target.
   migrateDatabase(databasePath);
   migratedDatabasePath = databasePath;
 }

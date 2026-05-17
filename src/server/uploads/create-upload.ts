@@ -9,19 +9,19 @@ import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 
 import { getPublicUrl } from "@/server/config/public-url";
 import { getUploadLimits } from "@/server/config/uploads";
-import type { UploadLimits } from "@/server/config/uploads";
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import {
+  deleteUploadMetadata,
   getTotalStoredUploadBytes,
   hasUploadId,
-  insertUploadMetadata,
+  insertUploadMetadataWithinQuota,
 } from "@/server/db/uploads";
 import { ensureDatabaseMigrated } from "@/server/db/migrate";
 import {
+  assignPendingUploadId,
   commitPendingUploadFile,
   createPendingUploadFile,
   createPendingUploadWriteStream,
-  deleteStoredUploadFile,
   discardPendingUploadFile,
   sanitizeOriginalName,
   type PendingUploadFile,
@@ -36,6 +36,7 @@ type UploadContent = {
   originalName: string;
   size: number;
 };
+type UploadLimitKind = "stored-bytes" | "upload-size";
 
 export type CreatedUpload = {
   expiresAt: string;
@@ -46,13 +47,7 @@ export type CreatedUpload = {
   size: number;
 };
 
-const EXPIRATION_FIELD_NAMES = new Set([
-  "expiresAt",
-  "expiresInHours",
-  "expiresInMinutes",
-  "expiresInSeconds",
-  "expirationHours",
-]);
+const TEXT_FIELD_NAME = "text";
 const UPLOAD_ID_ALPHABET =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const UPLOAD_ID_LENGTH = 5;
@@ -90,8 +85,8 @@ function toNodeHeaders(headers: Headers): IncomingHttpHeaders {
   return nodeHeaders;
 }
 
-function getUploadLimitError(byteLimit: number, limits: UploadLimits) {
-  if (byteLimit < limits.maxUploadBytes) {
+function getUploadLimitError(limitKind: UploadLimitKind) {
+  if (limitKind === "stored-bytes") {
     return new UploadRequestError(
       "Upload would exceed the total stored data limit.",
       413,
@@ -110,7 +105,7 @@ async function writeStreamToPendingFile(
   source: NodeJS.ReadableStream,
   pendingFile: PendingUploadFile,
   byteLimit: number,
-  limits: UploadLimits,
+  limitKind: UploadLimitKind,
 ): Promise<number> {
   let size = 0;
   const byteCounter = new Transform({
@@ -118,7 +113,7 @@ async function writeStreamToPendingFile(
       size += chunk.byteLength;
 
       if (size > byteLimit) {
-        callback(getUploadLimitError(byteLimit, limits));
+        callback(getUploadLimitError(limitKind));
         return;
       }
 
@@ -139,13 +134,13 @@ async function writeTextToPendingFile(
   text: string,
   pendingFile: PendingUploadFile,
   byteLimit: number,
-  limits: UploadLimits,
+  limitKind: UploadLimitKind,
 ): Promise<number> {
   return writeStreamToPendingFile(
     Readable.from([Buffer.from(text)]),
     pendingFile,
     byteLimit,
-    limits,
+    limitKind,
   );
 }
 
@@ -170,7 +165,7 @@ async function parseRawUpload(
   request: Request,
   pendingFile: PendingUploadFile,
   byteLimit: number,
-  limits: UploadLimits,
+  limitKind: UploadLimitKind,
 ): Promise<{ content: UploadContent; fields: UploadFieldMap }> {
   if (!request.body) {
     throw new UploadRequestError(
@@ -186,8 +181,16 @@ async function parseRawUpload(
     ) as NodeJS.ReadableStream,
     pendingFile,
     byteLimit,
-    limits,
+    limitKind,
   );
+
+  if (size === 0) {
+    throw new UploadRequestError(
+      "Upload request body must not be empty.",
+      400,
+      "missing_upload",
+    );
+  }
 
   return {
     content: {
@@ -200,20 +203,20 @@ async function parseRawUpload(
 }
 
 function getTextUploadField(fields: UploadFieldMap) {
-  for (const [name, value] of fields) {
-    if (!EXPIRATION_FIELD_NAMES.has(name)) {
-      return { name, value };
-    }
+  const textUpload = fields.get(TEXT_FIELD_NAME);
+
+  if (textUpload === undefined) {
+    return undefined;
   }
 
-  return undefined;
+  return { name: TEXT_FIELD_NAME, value: textUpload };
 }
 
 async function parseMultipartUpload(
   request: Request,
   pendingFile: PendingUploadFile,
   byteLimit: number,
-  limits: UploadLimits,
+  limitKind: UploadLimitKind,
 ): Promise<{ content: UploadContent; fields: UploadFieldMap }> {
   if (!request.body) {
     throw new UploadRequestError(
@@ -228,6 +231,7 @@ async function parseMultipartUpload(
     headers: toNodeHeaders(request.headers),
     limits: {
       fields: 50,
+      fieldSize: byteLimit,
       fileSize: byteLimit,
       files: 1,
       parts: 60,
@@ -254,14 +258,15 @@ async function parseMultipartUpload(
       size: 0,
     };
     fileStream.on("limit", () => {
-      uploadError = getUploadLimitError(byteLimit, limits);
+      uploadError = getUploadLimitError(limitKind);
+      parser.destroy(uploadError);
     });
 
     const writePromise = writeStreamToPendingFile(
       fileStream,
       pendingFile,
       byteLimit,
-      limits,
+      limitKind,
     )
       .then((size) => {
         if (parsedContent) {
@@ -278,7 +283,11 @@ async function parseMultipartUpload(
     fileWrites.push(writePromise);
   });
 
-  parser.on("field", (name, value) => {
+  parser.on("field", (name, value, info) => {
+    if (info.valueTruncated) {
+      uploadError = getUploadLimitError(limitKind);
+    }
+
     fields.set(name, value);
   });
   parser.on("filesLimit", () => {
@@ -333,7 +342,7 @@ async function parseMultipartUpload(
     textUpload.value,
     pendingFile,
     byteLimit,
-    limits,
+    limitKind,
   );
 
   return {
@@ -350,15 +359,23 @@ async function parseUploadRequest(
   request: Request,
   pendingFile: PendingUploadFile,
   byteLimit: number,
-  limits: UploadLimits,
+  limitKind: UploadLimitKind,
 ) {
   const contentType = request.headers.get("content-type") ?? "";
 
   if (contentType.toLowerCase().startsWith("multipart/form-data")) {
-    return parseMultipartUpload(request, pendingFile, byteLimit, limits);
+    return parseMultipartUpload(request, pendingFile, byteLimit, limitKind);
   }
 
-  return parseRawUpload(request, pendingFile, byteLimit, limits);
+  return parseRawUpload(request, pendingFile, byteLimit, limitKind);
+}
+
+function isUploadIdCollisionError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes("UNIQUE constraint failed") &&
+    error.message.includes("upload_metadata.id")
+  );
 }
 
 export async function createUpload(request: Request): Promise<CreatedUpload> {
@@ -367,8 +384,7 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
 
   const connection = createSqliteConnection();
   const db = createDbClient(connection);
-  const uploadId = createUniqueUploadId(db);
-  const pendingFile = await createPendingUploadFile(uploadId);
+  const pendingFile = await createPendingUploadFile();
 
   try {
     const totalStoredBytes = getTotalStoredUploadBytes(db);
@@ -383,30 +399,71 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
     }
 
     const byteLimit = Math.min(limits.maxUploadBytes, remainingStoredBytes);
+    const limitKind =
+      remainingStoredBytes <= limits.maxUploadBytes
+        ? "stored-bytes"
+        : "upload-size";
     const { content, fields } = await parseUploadRequest(
       request,
       pendingFile,
       byteLimit,
-      limits,
+      limitKind,
     );
     const now = new Date();
     const expiresAt = resolveUploadExpiration(fields, limits, now);
+    let uploadId: string | undefined;
 
-    await commitPendingUploadFile(pendingFile);
+    for (let attempt = 0; attempt < MAX_UPLOAD_ID_ATTEMPTS; attempt += 1) {
+      const candidateId = createUniqueUploadId(db);
+      assignPendingUploadId(pendingFile, candidateId);
+
+      if (!pendingFile.storagePath || !pendingFile.storedName) {
+        throw new Error("Pending upload file must have an assigned upload ID.");
+      }
+
+      try {
+        const inserted = insertUploadMetadataWithinQuota(
+          db,
+          {
+            createdAt: now,
+            expiresAt,
+            id: candidateId,
+            mimeType: content.mimeType,
+            originalName: content.originalName,
+            size: content.size,
+            storagePath: pendingFile.storagePath,
+            storedName: pendingFile.storedName,
+          },
+          limits.maxStoredBytes,
+        );
+
+        if (!inserted) {
+          throw new UploadRequestError(
+            "Upload would exceed the total stored data limit.",
+            413,
+            "total_storage_limit_exceeded",
+          );
+        }
+
+        uploadId = candidateId;
+        break;
+      } catch (error) {
+        if (isUploadIdCollisionError(error)) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    if (!uploadId) {
+      throw new Error("Could not generate an available upload ID.");
+    }
 
     try {
-      insertUploadMetadata(db, {
-        createdAt: now,
-        expiresAt,
-        id: uploadId,
-        mimeType: content.mimeType,
-        originalName: content.originalName,
-        size: content.size,
-        storagePath: pendingFile.storagePath,
-        storedName: pendingFile.storedName,
-      });
+      await commitPendingUploadFile(pendingFile);
     } catch (error) {
-      await deleteStoredUploadFile(pendingFile);
+      deleteUploadMetadata(db, uploadId);
       throw error;
     }
 

@@ -3,12 +3,13 @@ import "server-only";
 import { createWriteStream } from "node:fs";
 import { mkdir, rename, rm } from "node:fs/promises";
 import { basename, resolve, sep } from "node:path";
+import { randomUUID } from "node:crypto";
 
 import { getUploadDirectory } from "@/server/config/uploads";
 
 export type PendingUploadFile = {
-  storagePath: string;
-  storedName: string;
+  storagePath?: string;
+  storedName?: string;
   tempPath: string;
 };
 
@@ -31,27 +32,48 @@ export function sanitizeOriginalName(originalName: string): string {
     return "upload";
   }
 
-  return trimmedName.replaceAll(/[\r\n"]/g, "_");
+  const sanitizedName = trimmedName
+    .replaceAll(/[^0-9A-Za-z._ -]/g, "_")
+    .replaceAll(/^\.+/g, "_");
+
+  return sanitizedName || "upload";
 }
 
-export async function createPendingUploadFile(
-  uploadId: string,
-): Promise<PendingUploadFile> {
+export async function createPendingUploadFile(): Promise<PendingUploadFile> {
   const uploadDirectory = getUploadDirectory();
   await mkdir(uploadDirectory, { recursive: true });
 
-  const storedName = `${uploadId}.bin`;
-  const storagePath = resolve(uploadDirectory, storedName);
-  const tempPath = resolve(uploadDirectory, `${storedName}.tmp`);
-
-  assertPathWithinDirectory(storagePath, uploadDirectory);
+  const tempPath = resolve(uploadDirectory, `.upload-${randomUUID()}.tmp`);
   assertPathWithinDirectory(tempPath, uploadDirectory);
 
   return {
-    storagePath,
-    storedName,
     tempPath,
   };
+}
+
+export function assignPendingUploadId(
+  pendingFile: PendingUploadFile,
+  uploadId: string,
+): void {
+  const uploadDirectory = getUploadDirectory();
+  const storedName = `${uploadId}.bin`;
+  const storagePath = resolve(uploadDirectory, storedName);
+
+  assertPathWithinDirectory(storagePath, uploadDirectory);
+
+  pendingFile.storagePath = storagePath;
+  pendingFile.storedName = storedName;
+}
+
+function assertAssignedUploadFile(
+  pendingFile: PendingUploadFile,
+): asserts pendingFile is PendingUploadFile & {
+  storagePath: string;
+  storedName: string;
+} {
+  if (!pendingFile.storagePath || !pendingFile.storedName) {
+    throw new Error("Pending upload file must have an assigned upload ID.");
+  }
 }
 
 export function createPendingUploadWriteStream(pendingFile: PendingUploadFile) {
@@ -61,6 +83,7 @@ export function createPendingUploadWriteStream(pendingFile: PendingUploadFile) {
 export async function commitPendingUploadFile(
   pendingFile: PendingUploadFile,
 ): Promise<void> {
+  assertAssignedUploadFile(pendingFile);
   await rename(pendingFile.tempPath, pendingFile.storagePath);
 }
 
@@ -73,5 +96,6 @@ export async function discardPendingUploadFile(
 export async function deleteStoredUploadFile(
   pendingFile: PendingUploadFile,
 ): Promise<void> {
+  assertAssignedUploadFile(pendingFile);
   await rm(pendingFile.storagePath, { force: true });
 }

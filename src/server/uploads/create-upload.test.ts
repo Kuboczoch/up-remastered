@@ -11,10 +11,21 @@ import { createUpload } from "@/server/uploads/create-upload";
 import { UploadRequestError } from "@/server/uploads/errors";
 
 let tempDir: string;
-let originalEnv: NodeJS.ProcessEnv;
+let originalEnv: Record<string, string | undefined>;
+const TEST_ENV_KEYS = [
+  "DATABASE_URL",
+  "UPLOAD_DIR",
+  "UP_PUBLIC_ORIGIN",
+  "DEFAULT_EXPIRATION_HOURS",
+  "MAX_EXPIRATION_HOURS",
+  "MAX_STORED_BYTES",
+  "MAX_UPLOAD_SIZE",
+] as const;
 
 beforeEach(async () => {
-  originalEnv = { ...process.env };
+  originalEnv = Object.fromEntries(
+    TEST_ENV_KEYS.map((key) => [key, process.env[key]]),
+  );
   tempDir = await mkdtemp(join(tmpdir(), "up-upload-"));
 
   process.env.DATABASE_URL = pathToFileURL(join(tempDir, "app.db")).toString();
@@ -27,7 +38,16 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  process.env = originalEnv;
+  for (const key of TEST_ENV_KEYS) {
+    const value = originalEnv[key];
+
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+
   await rm(tempDir, { force: true, recursive: true });
 });
 
@@ -111,6 +131,13 @@ describe("createUpload", () => {
     );
   });
 
+  it("rejects empty raw uploads", async () => {
+    await expect(createUpload(createRawRequest(""))).rejects.toMatchObject({
+      code: "missing_upload",
+      status: 400,
+    } satisfies Partial<UploadRequestError>);
+  });
+
   it("rejects uploads larger than the configured single upload limit", async () => {
     process.env.MAX_UPLOAD_SIZE = "4";
 
@@ -138,6 +165,17 @@ describe("createUpload", () => {
       createUpload(createMultipartRequest("hello", { expiresInHours: "25" })),
     ).rejects.toMatchObject({
       code: "expiration_too_large",
+      status: 400,
+    } satisfies Partial<UploadRequestError>);
+  });
+
+  it("rejects non-ISO expiresAt values", async () => {
+    await expect(
+      createUpload(
+        createMultipartRequest("hello", { expiresAt: "Jan 1 2026" }),
+      ),
+    ).rejects.toMatchObject({
+      code: "invalid_expiration",
       status: 400,
     } satisfies Partial<UploadRequestError>);
   });

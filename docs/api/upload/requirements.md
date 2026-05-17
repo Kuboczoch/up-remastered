@@ -47,7 +47,7 @@ Rules:
 - Generate stored filenames on the server and never trust client-provided paths.
 - Write SQLite metadata only after storage succeeds.
 - Default expiration is `DEFAULT_EXPIRATION_HOURS`, currently 24h in production config.
-- Requested expiration can use `expiresAt`, `expiresInHours`, `expiresInMinutes`, `expiresInSeconds`, or `expirationHours`.
+- Requested expiration can use strict UTC ISO `expiresAt`, `expiresInHours`, `expiresInMinutes`, or `expiresInSeconds`.
 - Reject requested expiration beyond `MAX_EXPIRATION_HOURS`, currently 24h in production config.
 - Enforce `MAX_UPLOAD_SIZE`, currently 1 GiB in production config.
 - Enforce `MAX_STORED_BYTES`, currently 10 GiB in production config.

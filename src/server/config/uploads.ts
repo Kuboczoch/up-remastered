@@ -26,8 +26,18 @@ function readPositiveInteger(name: string, defaultValue: number): number {
 
   const parsedValue = Number(rawValue);
 
-  if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
+  if (!Number.isFinite(parsedValue) || !Number.isInteger(parsedValue)) {
+    throw new Error(`${name} must be an integer number of bytes.`);
+  }
+
+  if (parsedValue <= 0) {
     throw new Error(`${name} must be a positive integer.`);
+  }
+
+  if (!Number.isSafeInteger(parsedValue)) {
+    throw new Error(
+      `${name} must be less than or equal to Number.MAX_SAFE_INTEGER.`,
+    );
   }
 
   return parsedValue;
