@@ -16,14 +16,6 @@ process.env.MAX_UPLOAD_SIZE ??= "64";
 process.env.UPLOAD_DIR ??= join(e2eDataDir, "uploads");
 process.env.UP_PUBLIC_ORIGIN ??= baseURL;
 
-const webServerEnv: Record<string, string> = {};
-
-for (const [key, value] of Object.entries(process.env)) {
-  if (value !== undefined) {
-    webServerEnv[key] = value;
-  }
-}
-
 const isCiRun =
   !!process.env.CI || process.env.npm_lifecycle_event === "test:e2e:ci";
 const isLighthouseRun = process.env.npm_lifecycle_event === "test:lighthouse";
@@ -56,7 +48,6 @@ export default defineConfig({
       : isLighthouseRun
         ? "pnpm run build && node .next/standalone/server.js"
         : "pnpm run dev",
-    env: webServerEnv,
     url: baseURL,
     reuseExistingServer: !usesProductionServer,
     timeout: 180_000,

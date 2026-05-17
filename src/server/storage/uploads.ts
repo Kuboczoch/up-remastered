@@ -1,7 +1,7 @@
 import "server-only";
 
-import { createWriteStream } from "node:fs";
-import { link, mkdir, rm, unlink } from "node:fs/promises";
+import { constants, createWriteStream } from "node:fs";
+import { copyFile, link, mkdir, rm, unlink } from "node:fs/promises";
 import { basename, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -34,7 +34,7 @@ export function sanitizeOriginalName(originalName: string): string {
 
   const sanitizedName = trimmedName
     .replaceAll(/[^0-9A-Za-z._ -]/g, "_")
-    .replaceAll(/^\.+/g, "_");
+    .replace(/^\.+/, "_");
 
   return sanitizedName || "upload";
 }
@@ -54,7 +54,7 @@ export async function createPendingUploadFile(): Promise<PendingUploadFile> {
 export function assignPendingUploadId(
   pendingFile: PendingUploadFile,
   uploadId: string,
-): void {
+): { storagePath: string; storedName: string } {
   const uploadDirectory = getUploadDirectory();
   const storedName = `${uploadId}.bin`;
   const storagePath = resolve(uploadDirectory, storedName);
@@ -63,6 +63,8 @@ export function assignPendingUploadId(
 
   pendingFile.storagePath = storagePath;
   pendingFile.storedName = storedName;
+
+  return { storagePath, storedName };
 }
 
 function assertAssignedUploadFile(
@@ -84,8 +86,33 @@ export async function commitPendingUploadFile(
   pendingFile: PendingUploadFile,
 ): Promise<void> {
   assertAssignedUploadFile(pendingFile);
-  await link(pendingFile.tempPath, pendingFile.storagePath);
-  await unlink(pendingFile.tempPath);
+  let storedFileCreated = false;
+
+  try {
+    await link(pendingFile.tempPath, pendingFile.storagePath);
+    storedFileCreated = true;
+  } catch (error) {
+    if (!isNodeError(error) || error.code !== "EXDEV") {
+      throw error;
+    }
+
+    await copyFile(
+      pendingFile.tempPath,
+      pendingFile.storagePath,
+      constants.COPYFILE_EXCL,
+    );
+    storedFileCreated = true;
+  }
+
+  try {
+    await unlink(pendingFile.tempPath);
+  } catch (error) {
+    if (storedFileCreated) {
+      await rm(pendingFile.storagePath, { force: true });
+    }
+
+    throw error;
+  }
 }
 
 export async function discardPendingUploadFile(
@@ -94,9 +121,6 @@ export async function discardPendingUploadFile(
   await rm(pendingFile.tempPath, { force: true });
 }
 
-export async function deleteStoredUploadFile(
-  pendingFile: PendingUploadFile,
-): Promise<void> {
-  assertAssignedUploadFile(pendingFile);
-  await rm(pendingFile.storagePath, { force: true });
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }

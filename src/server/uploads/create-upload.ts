@@ -50,6 +50,13 @@ export type CreatedUpload = {
 const TEXT_FIELD_NAME = "text";
 const FILE_FIELD_NAME = "file";
 const MAX_MULTIPART_FIELD_BYTES = 8 * 1024;
+const ALLOWED_MULTIPART_FIELD_NAMES = new Set([
+  "expiresAt",
+  "expiresInHours",
+  "expiresInMinutes",
+  "expiresInSeconds",
+  TEXT_FIELD_NAME,
+]);
 const UPLOAD_ID_ALPHABET =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const UPLOAD_ID_LENGTH = 5;
@@ -142,12 +149,12 @@ function getRawUploadName(request: Request): string {
     return sanitizeOriginalName(fileName);
   }
 
-  if (request.headers.get("content-type")?.startsWith("text/")) {
+  if (request.headers.get("content-type")?.startsWith("text/plain")) {
     return "upload.txt";
   }
 
   throw new UploadRequestError(
-    "Raw uploads must include an X-File-Name header.",
+    "Raw uploads must include an X-File-Name header unless they are text/plain.",
     400,
     "missing_file_name",
   );
@@ -173,6 +180,8 @@ async function parseRawUpload(
       "empty_body",
     );
   }
+  const originalName = getRawUploadName(request);
+  const mimeType = getRawUploadMimeType(request);
 
   const size = await writeStreamToPendingFile(
     Readable.fromWeb(
@@ -193,8 +202,8 @@ async function parseRawUpload(
 
   return {
     content: {
-      mimeType: getRawUploadMimeType(request),
-      originalName: getRawUploadName(request),
+      mimeType,
+      originalName,
       size,
     },
     fields: new Map(),
@@ -209,37 +218,6 @@ function getTextUploadField(fields: UploadFieldMap) {
   }
 
   return { name: TEXT_FIELD_NAME, value: textUpload };
-}
-
-function validateMultipartFields(
-  fields: UploadFieldMap,
-  hasFileUpload: boolean,
-): void {
-  const allowedFields = new Set([
-    "expiresAt",
-    "expiresInHours",
-    "expiresInMinutes",
-    "expiresInSeconds",
-    TEXT_FIELD_NAME,
-  ]);
-
-  for (const fieldName of fields.keys()) {
-    if (!allowedFields.has(fieldName)) {
-      throw new UploadRequestError(
-        "Unsupported multipart form field.",
-        400,
-        "unsupported_form_field",
-      );
-    }
-  }
-
-  if (hasFileUpload && fields.has(TEXT_FIELD_NAME)) {
-    throw new UploadRequestError(
-      "Provide either a file part or a text field, not both.",
-      400,
-      "ambiguous_upload",
-    );
-  }
 }
 
 async function parseMultipartUpload(
@@ -278,7 +256,17 @@ async function parseMultipartUpload(
         400,
         "invalid_file_field",
       );
-      fileStream.resume();
+      parser.destroy(uploadError);
+      return;
+    }
+
+    if (fields.has(TEXT_FIELD_NAME)) {
+      uploadError = new UploadRequestError(
+        "Provide either a file part or a text field, not both.",
+        400,
+        "ambiguous_upload",
+      );
+      parser.destroy(uploadError);
       return;
     }
 
@@ -314,6 +302,26 @@ async function parseMultipartUpload(
   });
 
   parser.on("field", (name, value, info) => {
+    if (!ALLOWED_MULTIPART_FIELD_NAMES.has(name)) {
+      uploadError = new UploadRequestError(
+        "Unsupported multipart form field.",
+        400,
+        "unsupported_form_field",
+      );
+      parser.destroy(uploadError);
+      return;
+    }
+
+    if (name === TEXT_FIELD_NAME && parsedContent) {
+      uploadError = new UploadRequestError(
+        "Provide either a file part or a text field, not both.",
+        400,
+        "ambiguous_upload",
+      );
+      parser.destroy(uploadError);
+      return;
+    }
+
     if (info.valueTruncated) {
       uploadError = getUploadLimitError(limitKind);
       parser.destroy(uploadError);
@@ -352,6 +360,7 @@ async function parseMultipartUpload(
     await pipeline(source, parser);
   } catch (error) {
     source.destroy(error instanceof Error ? error : undefined);
+    await Promise.allSettled(fileWrites);
     throw error;
   }
   await Promise.all(fileWrites);
@@ -359,8 +368,6 @@ async function parseMultipartUpload(
   if (uploadError) {
     throw uploadError;
   }
-
-  validateMultipartFields(fields, parsedContent !== undefined);
 
   if (parsedContent) {
     return { content: parsedContent, fields };
@@ -454,11 +461,7 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
 
     for (let attempt = 0; attempt < MAX_UPLOAD_ID_ATTEMPTS; attempt += 1) {
       const candidateId = createUploadId();
-      assignPendingUploadId(pendingFile, candidateId);
-
-      if (!pendingFile.storagePath || !pendingFile.storedName) {
-        throw new Error("Pending upload file must have an assigned upload ID.");
-      }
+      const assignedFile = assignPendingUploadId(pendingFile, candidateId);
 
       try {
         const inserted = insertUploadMetadataWithinQuota(
@@ -470,8 +473,8 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
             mimeType: content.mimeType,
             originalName: content.originalName,
             size: content.size,
-            storagePath: pendingFile.storagePath,
-            storedName: pendingFile.storedName,
+            storagePath: assignedFile.storagePath,
+            storedName: assignedFile.storedName,
           },
           limits.maxStoredBytes,
         );

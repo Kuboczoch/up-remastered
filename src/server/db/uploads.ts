@@ -16,13 +16,6 @@ export function getTotalStoredUploadBytes(db: DbClient): number {
   return Number(row?.totalBytes ?? 0);
 }
 
-export function insertUploadMetadata(
-  db: DbClient,
-  metadata: NewUploadMetadata,
-): void {
-  db.insert(uploadMetadata).values(metadata).run();
-}
-
 export function insertUploadMetadataWithinQuota(
   db: DbClient,
   metadata: NewUploadMetadata,

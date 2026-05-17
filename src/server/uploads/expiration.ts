@@ -8,9 +8,9 @@ const INVALID_EXPIRES_AT_MESSAGE =
   "expiresAt must be a valid future UTC ISO date ending in Z.";
 
 function parseDurationField(fields: UploadFields): number | undefined {
-  const seconds = fields.get("expiresInSeconds");
-  const minutes = fields.get("expiresInMinutes");
-  const hours = fields.get("expiresInHours");
+  const seconds = normalizeOptionalField(fields.get("expiresInSeconds"));
+  const minutes = normalizeOptionalField(fields.get("expiresInMinutes"));
+  const hours = normalizeOptionalField(fields.get("expiresInHours"));
   const suppliedFields = [seconds, minutes, hours].filter(
     (value) => value !== undefined,
   );
@@ -48,6 +48,14 @@ function parseDurationField(fields: UploadFields): number | undefined {
   }
 
   return parsedDuration * 60 * 60 * 1000;
+}
+
+function normalizeOptionalField(value: string | undefined): string | undefined {
+  if (value === undefined || value.trim() === "") {
+    return undefined;
+  }
+
+  return value;
 }
 
 export function resolveUploadExpiration(
