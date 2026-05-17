@@ -14,14 +14,19 @@ test("POST /api/upload accepts multipart files", async ({ request }) => {
   expect(response.status()).toBe(201);
 
   const body = (await response.json()) as {
-    upload: { originalName: string; shareUrl: string; size: number };
+    upload: {
+      id: string;
+      originalName: string;
+      shareUrl: string;
+      size: number;
+    };
   };
 
   expect(body.upload).toMatchObject({
     originalName: "ok.txt",
     size: 2,
   });
-  expect(body.upload.shareUrl).toContain("/api/download/");
+  expect(body.upload.shareUrl).toContain(`/api/download/${body.upload.id}`);
 });
 
 test("POST /api/upload rejects files above the e2e upload limit", async ({

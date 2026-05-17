@@ -60,7 +60,7 @@ function createMultipartRequest(
   });
 }
 
-function readUploadRow(token: string) {
+function readUploadRow(id: string) {
   const connection = createSqliteConnection();
   const db = createDbClient(connection);
 
@@ -68,7 +68,7 @@ function readUploadRow(token: string) {
     return db
       .select()
       .from(uploadMetadata)
-      .where(eq(uploadMetadata.token, token))
+      .where(eq(uploadMetadata.id, id))
       .get();
   } finally {
     connection.close();
@@ -78,12 +78,12 @@ function readUploadRow(token: string) {
 describe("createUpload", () => {
   it("streams multipart files to disk and writes SQLite metadata", async () => {
     const upload = await createUpload(createMultipartRequest("hello"));
-    const row = readUploadRow(upload.token);
+    const row = readUploadRow(upload.id);
 
     expect(upload).toMatchObject({
       mimeType: "text/plain",
       originalName: "hello.txt",
-      shareUrl: `http://localhost:3000/api/download/${upload.token}`,
+      shareUrl: `http://localhost:3000/api/download/${upload.id}`,
       size: 5,
     });
     expect(upload.id).toMatch(/^[0-9A-Za-z]{5}$/);
@@ -91,7 +91,6 @@ describe("createUpload", () => {
       id: upload.id,
       originalName: "hello.txt",
       size: 5,
-      token: upload.token,
     });
     await expect(readFile(row?.storagePath ?? "", "utf8")).resolves.toBe(
       "hello",
@@ -100,7 +99,7 @@ describe("createUpload", () => {
 
   it("accepts raw text uploads", async () => {
     const upload = await createUpload(createRawRequest("hello from cli"));
-    const row = readUploadRow(upload.token);
+    const row = readUploadRow(upload.id);
 
     expect(upload).toMatchObject({
       mimeType: "text/plain",

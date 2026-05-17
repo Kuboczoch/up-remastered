@@ -1,7 +1,7 @@
 import "server-only";
 
 import Busboy from "busboy";
-import { randomBytes, randomInt } from "node:crypto";
+import { randomInt } from "node:crypto";
 import type { IncomingHttpHeaders } from "node:http";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -44,7 +44,6 @@ export type CreatedUpload = {
   originalName: string;
   shareUrl: string;
   size: number;
-  token: string;
 };
 
 const EXPIRATION_FIELD_NAMES = new Set([
@@ -58,10 +57,6 @@ const UPLOAD_ID_ALPHABET =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const UPLOAD_ID_LENGTH = 5;
 const MAX_UPLOAD_ID_ATTEMPTS = 20;
-
-function createToken(): string {
-  return randomBytes(18).toString("base64url");
-}
 
 function createUploadId(): string {
   let id = "";
@@ -373,7 +368,6 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
   const connection = createSqliteConnection();
   const db = createDbClient(connection);
   const uploadId = createUniqueUploadId(db);
-  const token = createToken();
   const pendingFile = await createPendingUploadFile(uploadId);
 
   try {
@@ -410,7 +404,6 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
         size: content.size,
         storagePath: pendingFile.storagePath,
         storedName: pendingFile.storedName,
-        token,
       });
     } catch (error) {
       await deleteStoredUploadFile(pendingFile);
@@ -422,9 +415,8 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
       id: uploadId,
       mimeType: content.mimeType,
       originalName: content.originalName,
-      shareUrl: getPublicUrl(`/api/download/${token}`),
+      shareUrl: getPublicUrl(`/api/download/${uploadId}`),
       size: content.size,
-      token,
     };
   } catch (error) {
     await discardPendingUploadFile(pendingFile);

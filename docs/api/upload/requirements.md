@@ -26,12 +26,11 @@ Response success shape:
 {
   "upload": {
     "id": "A7k2Q",
-    "token": "<share-token>",
     "originalName": "example.zip",
     "mimeType": "application/zip",
     "size": 123,
     "expiresAt": "2026-05-17T14:00:00.000Z",
-    "shareUrl": "http://localhost:3000/api/download/<share-token>"
+    "shareUrl": "http://localhost:3000/api/download/A7k2Q"
   }
 }
 ```

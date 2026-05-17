@@ -52,7 +52,6 @@ describe("SQLite metadata persistence", () => {
       db.insert(uploadMetadata)
         .values({
           id: "A7k2Q",
-          token: "share-token",
           originalName: "photo.png",
           storedName: "A7k2Q.bin",
           mimeType: "image/png",
@@ -66,12 +65,11 @@ describe("SQLite metadata persistence", () => {
       const storedUpload = db
         .select()
         .from(uploadMetadata)
-        .where(eq(uploadMetadata.token, "share-token"))
+        .where(eq(uploadMetadata.id, "A7k2Q"))
         .get();
 
       expect(storedUpload).toMatchObject({
         id: "A7k2Q",
-        token: "share-token",
         originalName: "photo.png",
         storedName: "A7k2Q.bin",
         mimeType: "image/png",
@@ -113,7 +111,6 @@ describe("SQLite metadata persistence", () => {
         .values([
           {
             id: "A7k2Q",
-            token: "share-token",
             originalName: "photo.txt",
             storedName: "A7k2Q.bin",
             mimeType: "text/plain",
