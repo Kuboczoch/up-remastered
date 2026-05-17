@@ -10,6 +10,7 @@ Current setup scope:
 - TypeScript enforced.
 - One hello-world homepage.
 - Docker baseline with `/data` persistence.
+- SQLite metadata schema and Drizzle migrations.
 - Scoped docs and Cursor rules for future work.
 
 Deferred:
@@ -17,5 +18,4 @@ Deferred:
 - Upload UI and API.
 - Share pages.
 - Download authorization and streaming.
-- SQLite schema and Drizzle migrations.
 - Cleanup script.

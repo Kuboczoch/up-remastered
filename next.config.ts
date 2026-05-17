@@ -23,6 +23,7 @@ const baselineSecurityHeaders = [
 const nextConfig: NextConfig = {
   output: "standalone",
   reactCompiler: true,
+  serverExternalPackages: ["better-sqlite3"],
   async headers() {
     return [
       {
