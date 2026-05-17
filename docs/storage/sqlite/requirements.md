@@ -29,6 +29,12 @@ Current upload metadata fields:
 
 Use Drizzle ORM and `better-sqlite3` for schema, migrations, and queries. Do not introduce Prisma or PostgreSQL.
 
+Upload API behavior:
+
+- Metadata rows are inserted only after uploaded bytes are stored successfully.
+- `size` participates in total stored-data quota checks.
+- `expiresAt` is set on upload creation so future download and cleanup paths can enforce availability.
+
 Useful commands:
 
 ```bash

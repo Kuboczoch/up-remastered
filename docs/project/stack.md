@@ -10,6 +10,7 @@ Use:
 - SQLite for metadata.
 - Drizzle ORM and `better-sqlite3` for schema, migrations, and queries.
 - Local filesystem for uploaded bytes.
+- Busboy for streaming multipart upload parsing.
 - Docker with `/data` mounted from the host.
 
 Avoid unless explicitly requested:

@@ -20,8 +20,16 @@ const config = async () => {
       modulePathIgnorePatterns: ["<rootDir>/.next/"],
       roots: ["<rootDir>/src"],
       testEnvironment: "jsdom",
-      testMatch: ["**/src/**/*.test.ts", "**/src/**/*.test.tsx"],
-      testPathIgnorePatterns: ["<rootDir>/src/server/"],
+      testMatch: [
+        "**/src/app/**/*.test.ts",
+        "**/src/app/**/*.test.tsx",
+        "**/src/components/**/*.test.ts",
+        "**/src/components/**/*.test.tsx",
+        "**/src/config/**/*.test.ts",
+        "**/src/config/**/*.test.tsx",
+        "**/src/lib/**/*.test.ts",
+        "**/src/lib/**/*.test.tsx",
+      ],
     }),
     createProjectConfig({
       displayName: "server",

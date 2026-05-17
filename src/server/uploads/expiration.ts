@@ -1,0 +1,90 @@
+import type { UploadLimits } from "@/server/config/uploads";
+import { UploadRequestError } from "@/server/uploads/errors";
+
+type UploadFields = ReadonlyMap<string, string>;
+
+function parseDurationField(fields: UploadFields): number | undefined {
+  const seconds = fields.get("expiresInSeconds");
+  const minutes = fields.get("expiresInMinutes");
+  const hours = fields.get("expiresInHours") ?? fields.get("expirationHours");
+  const suppliedFields = [seconds, minutes, hours].filter(
+    (value) => value !== undefined,
+  );
+
+  if (suppliedFields.length > 1) {
+    throw new UploadRequestError(
+      "Provide only one expiration duration field.",
+      400,
+      "invalid_expiration",
+    );
+  }
+
+  const rawDuration = seconds ?? minutes ?? hours;
+
+  if (rawDuration === undefined) {
+    return undefined;
+  }
+
+  const parsedDuration = Number(rawDuration);
+
+  if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) {
+    throw new UploadRequestError(
+      "Expiration duration must be a positive number.",
+      400,
+      "invalid_expiration",
+    );
+  }
+
+  if (seconds !== undefined) {
+    return parsedDuration * 1000;
+  }
+
+  if (minutes !== undefined) {
+    return parsedDuration * 60 * 1000;
+  }
+
+  return parsedDuration * 60 * 60 * 1000;
+}
+
+export function resolveUploadExpiration(
+  fields: UploadFields,
+  limits: UploadLimits,
+  now = new Date(),
+): Date {
+  const requestedExpiresAt = fields.get("expiresAt");
+
+  if (requestedExpiresAt) {
+    const expiresAt = new Date(requestedExpiresAt);
+
+    if (Number.isNaN(expiresAt.getTime()) || expiresAt <= now) {
+      throw new UploadRequestError(
+        "expiresAt must be a valid future ISO date.",
+        400,
+        "invalid_expiration",
+      );
+    }
+
+    if (expiresAt.getTime() - now.getTime() > limits.maxExpirationMs) {
+      throw new UploadRequestError(
+        "Requested expiration exceeds the maximum allowed expiration.",
+        400,
+        "expiration_too_large",
+      );
+    }
+
+    return expiresAt;
+  }
+
+  const requestedDurationMs =
+    parseDurationField(fields) ?? limits.defaultExpirationMs;
+
+  if (requestedDurationMs > limits.maxExpirationMs) {
+    throw new UploadRequestError(
+      "Requested expiration exceeds the maximum allowed expiration.",
+      400,
+      "expiration_too_large",
+    );
+  }
+
+  return new Date(now.getTime() + requestedDurationMs);
+}

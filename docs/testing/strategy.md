@@ -5,8 +5,8 @@ Use small, focused test tooling as features need it.
 Current coverage:
 
 - Jest for component-level homepage checks, including `jest-axe` accessibility scans.
-- Jest for server utility and SQLite metadata tests under `src/server/**` in a Node environment.
-- Playwright for browser-level homepage and future upload, share, and download flows, including `@axe-core/playwright` accessibility scans.
+- Jest for server utility, SQLite metadata, and upload persistence/quota tests under `src/server/**` in a Node environment.
+- Playwright for browser-level homepage and upload endpoint smoke checks, plus future share and download flows, including `@axe-core/playwright` accessibility scans.
 
 Useful commands:
 
@@ -17,6 +17,7 @@ Useful commands:
 - `pnpm run test:lighthouse` runs the Playwright-backed Lighthouse homepage baseline from `docs/testing/lighthouse-baseline.md`.
 - `pnpm run test:e2e:ui`, `pnpm run test:e2e:debug`, and `pnpm run test:e2e:report` support local Playwright inspection.
 - `pnpm exec jest --selectProjects server src/server/db/database.test.ts --runInBand` runs the focused SQLite migration and insert/read verification path.
+- `pnpm exec jest --selectProjects server src/server/uploads/create-upload.test.ts --runInBand` runs focused upload streaming, quota, and expiration checks.
 
 CI runs Jest with separate app and server projects: app/component tests use jsdom, while `src/server/**/*.test.ts` runs in Node. CI runs Playwright after `pnpm run build` so the tests use the production Next.js output.
 

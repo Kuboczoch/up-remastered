@@ -24,6 +24,7 @@ pnpm-debug.log*
 /playwright-report
 /test-results
 /blob-report
+/.playwright-data
 
 # local persistent data
 /data
