@@ -8,7 +8,7 @@ import { getDatabasePath } from "@/server/config/database";
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { migrateDatabase } from "@/server/db/migrate";
 import { uploadMetadata } from "@/server/db/schema";
-import { hasActiveUploadId } from "@/server/db/uploads";
+import { hasUploadId } from "@/server/db/uploads";
 
 let tempDir: string | undefined;
 
@@ -54,11 +54,10 @@ describe("SQLite metadata persistence", () => {
           id: "A7k2Q",
           token: "share-token",
           originalName: "photo.png",
-          storedName: "storage-key-123.bin",
+          storedName: "A7k2Q.bin",
           mimeType: "image/png",
           size: 12345,
-          storageKey: "storage-key-123",
-          storagePath: "/data/uploads/storage-key-123.bin",
+          storagePath: "/data/uploads/A7k2Q.bin",
           createdAt,
           expiresAt,
         })
@@ -74,11 +73,10 @@ describe("SQLite metadata persistence", () => {
         id: "A7k2Q",
         token: "share-token",
         originalName: "photo.png",
-        storedName: "storage-key-123.bin",
+        storedName: "A7k2Q.bin",
         mimeType: "image/png",
         size: 12345,
-        storageKey: "storage-key-123",
-        storagePath: "/data/uploads/storage-key-123.bin",
+        storagePath: "/data/uploads/A7k2Q.bin",
       });
       expect(storedUpload?.createdAt).toEqual(createdAt);
       expect(storedUpload?.expiresAt).toEqual(expiresAt);
@@ -102,9 +100,8 @@ describe("SQLite metadata persistence", () => {
     }
   });
 
-  it("treats public upload IDs as reusable after expiration", async () => {
+  it("treats upload IDs as reusable after metadata deletion", async () => {
     const databasePath = await createTempDatabasePath();
-    const activeDate = new Date("2026-01-01T12:00:00.000Z");
 
     migrateDatabase(databasePath);
 
@@ -116,33 +113,23 @@ describe("SQLite metadata persistence", () => {
         .values([
           {
             id: "A7k2Q",
-            token: "expired-token",
-            originalName: "expired.txt",
-            storedName: "expired-storage.bin",
+            token: "share-token",
+            originalName: "photo.txt",
+            storedName: "A7k2Q.bin",
             mimeType: "text/plain",
             size: 10,
-            storageKey: "expired-storage",
-            storagePath: "/data/uploads/expired-storage.bin",
-            createdAt: new Date("2026-01-01T00:00:00.000Z"),
-            expiresAt: new Date("2026-01-01T01:00:00.000Z"),
-          },
-          {
-            id: "B8m3R",
-            token: "active-token",
-            originalName: "active.txt",
-            storedName: "active-storage.bin",
-            mimeType: "text/plain",
-            size: 10,
-            storageKey: "active-storage",
-            storagePath: "/data/uploads/active-storage.bin",
+            storagePath: "/data/uploads/A7k2Q.bin",
             createdAt: new Date("2026-01-01T00:00:00.000Z"),
             expiresAt: new Date("2026-01-02T00:00:00.000Z"),
           },
         ])
         .run();
 
-      expect(hasActiveUploadId(db, "A7k2Q", activeDate)).toBe(false);
-      expect(hasActiveUploadId(db, "B8m3R", activeDate)).toBe(true);
+      expect(hasUploadId(db, "A7k2Q")).toBe(true);
+
+      db.delete(uploadMetadata).where(eq(uploadMetadata.id, "A7k2Q")).run();
+
+      expect(hasUploadId(db, "A7k2Q")).toBe(false);
     } finally {
       connection.close();
     }

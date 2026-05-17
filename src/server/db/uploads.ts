@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, gt, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/server/db/client";
 import { type NewUploadMetadata, uploadMetadata } from "@/server/db/schema";
@@ -23,15 +23,11 @@ export function insertUploadMetadata(
   db.insert(uploadMetadata).values(metadata).run();
 }
 
-export function hasActiveUploadId(
-  db: DbClient,
-  id: string,
-  now = new Date(),
-): boolean {
+export function hasUploadId(db: DbClient, id: string): boolean {
   const row = db
     .select({ id: uploadMetadata.id })
     .from(uploadMetadata)
-    .where(and(eq(uploadMetadata.id, id), gt(uploadMetadata.expiresAt, now)))
+    .where(eq(uploadMetadata.id, id))
     .get();
 
   return row !== undefined;

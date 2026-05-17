@@ -39,8 +39,11 @@ Response success shape:
 Rules:
 
 - No authentication or authorization is required.
-- `id` is a 5-character alphanumeric value with no prefix.
-- `id` must be unique only while an upload exists and has not expired; expired or deleted uploads release the ID for future reuse.
+- `id` is the only upload identifier used by API, SQLite metadata, and filesystem storage.
+- `id` is a 5-character alphanumeric value with no prefix, e.g. `A7k2Q`.
+- `id` is the SQLite primary key and the basis for the stored filename.
+- `id` is reusable only after the previous upload's metadata row and stored file are deleted.
+- Expiration alone does not release an `id`; cleanup or another deletion path must remove the metadata row.
 - Store uploaded bytes under `UPLOAD_DIR`; never store file bytes in SQLite.
 - Generate stored filenames on the server and never trust client-provided paths.
 - Write SQLite metadata only after storage succeeds.

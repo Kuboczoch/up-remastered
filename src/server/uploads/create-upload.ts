@@ -1,7 +1,7 @@
 import "server-only";
 
 import Busboy from "busboy";
-import { randomBytes, randomInt, randomUUID } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import type { IncomingHttpHeaders } from "node:http";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -13,7 +13,7 @@ import type { UploadLimits } from "@/server/config/uploads";
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import {
   getTotalStoredUploadBytes,
-  hasActiveUploadId,
+  hasUploadId,
   insertUploadMetadata,
 } from "@/server/db/uploads";
 import { ensureDatabaseMigrated } from "@/server/db/migrate";
@@ -73,11 +73,11 @@ function createUploadId(): string {
   return id;
 }
 
-function createUniqueActiveUploadId(db: ReturnType<typeof createDbClient>) {
+function createUniqueUploadId(db: ReturnType<typeof createDbClient>) {
   for (let attempt = 0; attempt < MAX_UPLOAD_ID_ATTEMPTS; attempt += 1) {
     const uploadId = createUploadId();
 
-    if (!hasActiveUploadId(db, uploadId)) {
+    if (!hasUploadId(db, uploadId)) {
       return uploadId;
     }
   }
@@ -372,10 +372,9 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
 
   const connection = createSqliteConnection();
   const db = createDbClient(connection);
-  const uploadId = createUniqueActiveUploadId(db);
-  const storageKey = randomUUID();
+  const uploadId = createUniqueUploadId(db);
   const token = createToken();
-  const pendingFile = await createPendingUploadFile(storageKey);
+  const pendingFile = await createPendingUploadFile(uploadId);
 
   try {
     const totalStoredBytes = getTotalStoredUploadBytes(db);
@@ -410,7 +409,6 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
         originalName: content.originalName,
         size: content.size,
         storagePath: pendingFile.storagePath,
-        storageKey,
         storedName: pendingFile.storedName,
         token,
       });
