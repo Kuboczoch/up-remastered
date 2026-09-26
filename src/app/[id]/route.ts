@@ -6,19 +6,19 @@ import {
 export const runtime = "nodejs";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
-  return createDownloadResponse(id);
+  return createDownloadResponse(id, request.headers.get("range"));
 }
 
 export async function HEAD(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
-  return createDownloadHeadResponse(id);
+  return createDownloadHeadResponse(id, request.headers.get("range"));
 }
