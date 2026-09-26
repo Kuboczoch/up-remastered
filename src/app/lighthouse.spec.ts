@@ -71,6 +71,15 @@ test("tracks the homepage Lighthouse baseline", async ({
               Math.round(score * 100),
             ]),
           ),
+          performanceAudits: lhr?.categories.performance.auditRefs
+            .filter(({ weight }) => weight > 0)
+            .map(({ id, weight }) => ({
+              id,
+              score: Math.round((lhr.audits[id]?.score ?? 0) * 100),
+              title: lhr.audits[id]?.title,
+              value: lhr.audits[id]?.displayValue,
+              weight,
+            })),
         },
         null,
         2,
