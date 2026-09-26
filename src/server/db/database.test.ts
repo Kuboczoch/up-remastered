@@ -51,12 +51,12 @@ describe("SQLite metadata persistence", () => {
     try {
       db.insert(uploadMetadata)
         .values({
-          id: "A7k2Q",
+          id: "A7K2Q",
           originalName: "photo.png",
-          storedName: "A7k2Q.bin",
+          storedName: "A7K2Q.bin",
           mimeType: "image/png",
           size: 12345,
-          storagePath: "/data/uploads/A7k2Q.bin",
+          storagePath: "/data/uploads/A7K2Q.bin",
           createdAt,
           expiresAt,
         })
@@ -65,16 +65,16 @@ describe("SQLite metadata persistence", () => {
       const storedUpload = db
         .select()
         .from(uploadMetadata)
-        .where(eq(uploadMetadata.id, "A7k2Q"))
+        .where(eq(uploadMetadata.id, "A7K2Q"))
         .get();
 
       expect(storedUpload).toMatchObject({
-        id: "A7k2Q",
+        id: "A7K2Q",
         originalName: "photo.png",
-        storedName: "A7k2Q.bin",
+        storedName: "A7K2Q.bin",
         mimeType: "image/png",
         size: 12345,
-        storagePath: "/data/uploads/A7k2Q.bin",
+        storagePath: "/data/uploads/A7K2Q.bin",
       });
       expect(storedUpload?.createdAt).toEqual(createdAt);
       expect(storedUpload?.expiresAt).toEqual(expiresAt);
@@ -110,23 +110,23 @@ describe("SQLite metadata persistence", () => {
       db.insert(uploadMetadata)
         .values([
           {
-            id: "A7k2Q",
+            id: "A7K2Q",
             originalName: "photo.txt",
-            storedName: "A7k2Q.bin",
+            storedName: "A7K2Q.bin",
             mimeType: "text/plain",
             size: 10,
-            storagePath: "/data/uploads/A7k2Q.bin",
+            storagePath: "/data/uploads/A7K2Q.bin",
             createdAt: new Date("2026-01-01T00:00:00.000Z"),
             expiresAt: new Date("2026-01-02T00:00:00.000Z"),
           },
         ])
         .run();
 
-      expect(hasUploadId(db, "A7k2Q")).toBe(true);
+      expect(hasUploadId(db, "A7K2Q")).toBe(true);
 
-      db.delete(uploadMetadata).where(eq(uploadMetadata.id, "A7k2Q")).run();
+      db.delete(uploadMetadata).where(eq(uploadMetadata.id, "A7K2Q")).run();
 
-      expect(hasUploadId(db, "A7k2Q")).toBe(false);
+      expect(hasUploadId(db, "A7K2Q")).toBe(false);
     } finally {
       connection.close();
     }

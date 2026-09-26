@@ -1,24 +1,23 @@
 # Download Streaming
 
-Future download API routes must use the Node.js runtime:
+`GET /[id]` and `HEAD /[id]` use the Node.js runtime:
 
 ```ts
 export const runtime = "nodejs";
 ```
 
-Do not use the Edge runtime for file downloads.
+The server authorizes the request, opens the stored file, and adapts its Node.js read stream to the web response body. It never reads the complete file into memory.
 
-Support both future serving modes:
+`HEAD` performs the same availability and metadata checks, closes the file handle immediately, and returns the download headers without creating a response stream.
 
-- Mode A: Next.js authorizes and streams files directly using Node.js streams.
-- Mode B: Next.js authorizes, then delegates physical serving to Nginx with `X-Accel-Redirect`.
+Successful responses set:
 
-Direct streaming requirements:
+- `Content-Type` from safe stored metadata, falling back to `application/octet-stream`.
+- `Content-Length` from the opened file's stat result.
+- `Content-Disposition: attachment` with a sanitized original filename.
+- `Cache-Control: private, no-store`.
+- `X-Content-Type-Options: nosniff`.
 
-- Do not read full files into memory.
-- Set `Content-Type`.
-- Set `Content-Length`.
-- Set safe `Content-Disposition`.
-- Use filesystem paths resolved from trusted metadata, never from client input.
+The open file descriptor backs both the stat and stream, avoiding a path-swap window between validation and streaming. The stored path is resolved from server metadata under `UPLOAD_DIR`, never from the public route value.
 
-`X-Accel-Redirect` is optional and should not be required for basic Docker deployments.
+Nginx `X-Accel-Redirect` remains a possible future serving mode and is not required for basic Docker deployments.

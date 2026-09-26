@@ -30,7 +30,8 @@ Upload API behavior:
 - Metadata rows are inserted only after uploaded bytes are stored successfully.
 - `size` participates in total stored-data quota checks.
 - `expiresAt` is set on upload creation so future download and cleanup paths can enforce availability.
-- `id` is the only upload identifier, the SQLite primary key, and the basis for the stored filename.
+- `id` is the only upload identifier, the SQLite primary key that enforces uniqueness, and the basis for the stored filename.
+- Upload IDs are exactly five characters from `0-9A-Z`; creation uses Node crypto and retries a metadata insert when a collision occurs.
 - `id` can be reused after cleanup or another deletion path removes the previous metadata row and stored file.
 - Expiration alone does not release an `id`; the row must be deleted first.
 

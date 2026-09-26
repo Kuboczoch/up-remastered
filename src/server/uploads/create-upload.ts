@@ -1,7 +1,6 @@
 import "server-only";
 
 import Busboy from "busboy";
-import { randomInt } from "node:crypto";
 import type { IncomingHttpHeaders } from "node:http";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -27,6 +26,7 @@ import {
 } from "@/server/storage/uploads";
 import { UploadRequestError } from "@/server/uploads/errors";
 import { resolveUploadExpiration } from "@/server/uploads/expiration";
+import { createPublicUploadId } from "@/server/uploads/public-id";
 
 type UploadFieldMap = Map<string, string>;
 
@@ -57,20 +57,7 @@ const ALLOWED_MULTIPART_FIELD_NAMES = new Set([
   "expiresInSeconds",
   TEXT_FIELD_NAME,
 ]);
-const UPLOAD_ID_ALPHABET =
-  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const UPLOAD_ID_LENGTH = 5;
 const MAX_UPLOAD_ID_ATTEMPTS = 20;
-
-function createUploadId(): string {
-  let id = "";
-
-  for (let index = 0; index < UPLOAD_ID_LENGTH; index += 1) {
-    id += UPLOAD_ID_ALPHABET[randomInt(UPLOAD_ID_ALPHABET.length)];
-  }
-
-  return id;
-}
 
 function toNodeHeaders(headers: Headers): IncomingHttpHeaders {
   const nodeHeaders: IncomingHttpHeaders = {};
@@ -417,14 +404,19 @@ async function parseUploadRequest(
 
 function isUploadIdCollisionError(error: unknown): boolean {
   return (
-    error instanceof Error &&
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
     ["SQLITE_CONSTRAINT_PRIMARYKEY", "SQLITE_CONSTRAINT_UNIQUE"].includes(
-      (error as BetterSqliteError).code ?? "",
+      String((error as BetterSqliteError).code),
     )
   );
 }
 
-export async function createUpload(request: Request): Promise<CreatedUpload> {
+export async function createUpload(
+  request: Request,
+  createId: () => string = createPublicUploadId,
+): Promise<CreatedUpload> {
   const limits = getUploadLimits();
   ensureDatabaseMigrated();
 
@@ -460,7 +452,7 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
     let uploadId: string | undefined;
 
     for (let attempt = 0; attempt < MAX_UPLOAD_ID_ATTEMPTS; attempt += 1) {
-      const candidateId = createUploadId();
+      const candidateId = createId();
       const assignedFile = assignPendingUploadId(pendingFile, candidateId);
 
       try {
@@ -514,7 +506,7 @@ export async function createUpload(request: Request): Promise<CreatedUpload> {
       id: uploadId,
       mimeType: content.mimeType,
       originalName: content.originalName,
-      shareUrl: getPublicUrl(`/api/download/${uploadId}`),
+      shareUrl: getPublicUrl(`/${uploadId}`),
       size: content.size,
     };
   } catch (error) {

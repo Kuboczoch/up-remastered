@@ -25,6 +25,18 @@ function assertPathWithinDirectory(path: string, directory: string): void {
   }
 }
 
+export function resolveStoredUploadPath(storedName: string): string {
+  if (basename(storedName) !== storedName) {
+    throw new Error("Stored upload name must not contain a path.");
+  }
+
+  const uploadDirectory = getUploadDirectory();
+  const storagePath = resolve(uploadDirectory, storedName);
+  assertPathWithinDirectory(storagePath, uploadDirectory);
+
+  return storagePath;
+}
+
 export function sanitizeOriginalName(originalName: string): string {
   const trimmedName = basename(originalName.replaceAll("\\", "/")).trim();
 
