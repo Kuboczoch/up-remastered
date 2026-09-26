@@ -31,7 +31,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Check pull request title
-        uses: thehanimo/pr-title-checker@v1.4.2
+        uses: thehanimo/pr-title-checker@v1.4.3
         env:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
