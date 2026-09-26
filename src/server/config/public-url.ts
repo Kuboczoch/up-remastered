@@ -1,21 +1,9 @@
 import "server-only";
 
-const DEFAULT_PUBLIC_ORIGIN = "http://localhost:3000";
+import { getServerEnv } from "@/env";
 
 export function getPublicOrigin(): string {
-  const configuredOrigin = process.env.UP_PUBLIC_ORIGIN?.trim();
-
-  if (!configuredOrigin) {
-    return DEFAULT_PUBLIC_ORIGIN;
-  }
-
-  const url = new URL(configuredOrigin);
-
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("UP_PUBLIC_ORIGIN must be an absolute HTTP(S) URL.");
-  }
-
-  return url.origin;
+  return getServerEnv().UP_PUBLIC_ORIGIN;
 }
 
 export function getPublicUrl(pathname: string): string {
