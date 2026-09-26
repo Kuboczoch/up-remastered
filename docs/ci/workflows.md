@@ -27,6 +27,7 @@ Checks:
 - Run Next.js build in its own job with `pnpm run build`, then upload the `.next` build as an artifact.
 - Build the production Docker image in its own job with `docker build --pull --tag up-remastered:ci .`.
 - Run Playwright E2E in its own job after the build job succeeds.
+- Publish the latest Playwright and Lighthouse summary through one updatable pull request comment.
 
 Pull request title job:
 

@@ -1,0 +1,1 @@
+ALTER TABLE `upload_metadata` ADD `access_token_hash` text;
