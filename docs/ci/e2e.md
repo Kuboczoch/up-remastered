@@ -9,6 +9,9 @@ The job:
 - Installs Chromium and required system dependencies.
 - Runs `pnpm run test:e2e:ci`.
 - Uploads `playwright-report` as a workflow artifact.
+- Uploads a Markdown summary even when Playwright or Lighthouse fails.
+
+For pull requests, `.github/workflows/pr-e2e-comment.yaml` downloads that summary after CI finishes and creates or replaces one marker-tagged bot comment. The comment contains Playwright totals, Lighthouse category scores when available, the latest failure, and a workflow-run link. The separate `workflow_run` job owns the write token and never checks out or executes pull-request code.
 
 `pnpm run test:e2e:ci` builds the Next app, starts it through the Playwright `webServer` config, and runs the browser checks against the homepage, including the `@axe-core/playwright` accessibility scan.
 

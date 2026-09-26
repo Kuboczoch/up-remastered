@@ -53,9 +53,6 @@ test("tracks the homepage Lighthouse baseline", async ({
       auditedCategories.map((category) => {
         const score = lhr?.categories[category]?.score;
 
-        expect(score).not.toBeNull();
-        expect(score ?? 0).toBeGreaterThanOrEqual(minimumScores[category]);
-
         return [category, Math.round((score ?? 0) * 100)];
       }),
     );
@@ -83,6 +80,13 @@ test("tracks the homepage Lighthouse baseline", async ({
       path: outputPath,
       contentType: "application/json",
     });
+
+    for (const category of auditedCategories) {
+      const score = lhr?.categories[category]?.score;
+
+      expect(score).not.toBeNull();
+      expect(score ?? 0).toBeGreaterThanOrEqual(minimumScores[category]);
+    }
   } finally {
     await browser.close();
   }
