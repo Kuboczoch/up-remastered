@@ -90,7 +90,7 @@ Every GitHub issue is listed once. Pull requests are evidence, not separate prod
 | [#58](https://github.com/Starchasers/up/issues/58) Login button and page | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#59](https://github.com/Starchasers/up/issues/59) Forgot password functionality | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#60](https://github.com/Starchasers/up/issues/60) Display maximum allowed upload size when 413 received | closed | Implemented in remastered with automated coverage |
-| [#64](https://github.com/Starchasers/up/issues/64) Upload history for anonymous users | open | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#64](https://github.com/Starchasers/up/issues/64) Upload history for anonymous users | closed | Implemented in remastered with session-scoped persistence and automated deletion coverage |
 | [#65](https://github.com/Starchasers/up/issues/65) Auth user upload history | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#66](https://github.com/Starchasers/up/issues/66) Change status code to user friendly message | closed | Implemented in remastered with automated coverage |
 | [#68](https://github.com/Starchasers/up/issues/68) Handle errors right after file input | closed | Implemented in remastered with automated coverage |
@@ -161,7 +161,7 @@ Every GitHub issue is listed once. Pull requests are evidence, not separate prod
 | [#201](https://github.com/Starchasers/up/issues/201) Failed login attempts should return 401 | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#203](https://github.com/Starchasers/up/issues/203) mysqld.exe is still running after stopping bootRunDev | closed | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |
 | [#204](https://github.com/Starchasers/up/issues/204) Add user type to the login response | closed | Superseded: behavior is absent from current upstream `develop` |
-| [#207](https://github.com/Starchasers/up/issues/207) Inline files sandox | open | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#207](https://github.com/Starchasers/up/issues/207) Inline files sandox | open | Implemented safer: every user-controlled file uses attachment disposition plus `nosniff`; active-content regression coverage prevents same-origin execution. |
 | [#210](https://github.com/Starchasers/up/issues/210) Possible 413 when file size limit from application.properties is smaller than limit from dynamic configuration | open | Implemented in remastered with automated coverage |
 | [#211](https://github.com/Starchasers/up/issues/211) Get rid fo LocalDateTime | open | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |
 | [#212](https://github.com/Starchasers/up/issues/212) Migrate to postgres | closed | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |
@@ -171,7 +171,7 @@ Every GitHub issue is listed once. Pull requests are evidence, not separate prod
 | [#216](https://github.com/Starchasers/up/issues/216) Endpoint /api/upload mistake in documentation | open | Implemented in remastered with automated coverage |
 | [#217](https://github.com/Starchasers/up/issues/217) Add error response to the documentation | open | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
 | [#218](https://github.com/Starchasers/up/issues/218) Add README.md with required envs to the spring-app | open | Implemented in remastered with automated coverage |
-| [#219](https://github.com/Starchasers/up/issues/219) Add support for .mov files | open | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#219](https://github.com/Starchasers/up/issues/219) Add support for .mov files | open | Implemented safely: `video/quicktime`, byte ranges, attachment disposition, and automated download coverage. |
 | [#220](https://github.com/Starchasers/up/issues/220) Update kotlin to version 1.7 | closed | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |
 | [#221](https://github.com/Starchasers/up/issues/221) Update spring boot to version 3 | closed | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |
 | [#222](https://github.com/Starchasers/up/issues/222) migrate to springdoc-openapi | closed | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |

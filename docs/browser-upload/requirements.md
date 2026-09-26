@@ -14,7 +14,7 @@ The homepage is a single-file upload client backed by `POST /api/upload`.
 
 The client exposes idle, uploading, error, and success states. Upload progress is announced and mirrored in the document title. Errors receive focus and provide a reset path. A successful upload shows the public URL, copy/open actions, QR code, size, expiration countdown, and an upload-another action.
 
-The one-time access token returned by the upload endpoint remains only in component memory. It is not rendered, logged, or persisted in browser storage.
+The one-time access token returned by the upload endpoint is never rendered or logged. Successful uploads, including their deletion tokens, are kept in versioned `sessionStorage` so history survives reloads in the same tab and is discarded when that tab closes; it is never copied to `localStorage`. This is convenience storage, not an XSS boundary: script executing on this origin can read the history and tokens, so the application must maintain its Content Security Policy and avoid unsafe script injection. Deleting a history entry sends its token to `DELETE /api/u/{id}`; a successful deletion, or a `404` for an already-missing file, removes the local entry.
 
 ## Verification
 

@@ -142,3 +142,69 @@ test("shows upload percentage in the title and supports mobile text upload", asy
   ).toBeVisible();
   await expect(page).toHaveTitle("up - remastered");
 });
+
+test("keeps upload history for the tab and deletes with its access token", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.locator("#file-picker").setInputFiles({
+    buffer: Buffer.from("history"),
+    mimeType: "text/plain",
+    name: "history.txt",
+  });
+  const shareUrl = await page.locator(".result-url").inputValue();
+  const stored = await page.evaluate(() =>
+    sessionStorage.getItem("up-remastered:upload-history:v1"),
+  );
+  expect(stored).toContain('"accessToken"');
+
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Your uploads" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "history.txt" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: shareUrl })).toBeVisible();
+  expect(await page.locator("body").innerText()).not.toContain("accessToken");
+
+  const [deleted] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === "DELETE" &&
+        response.url().includes("/api/u/"),
+    ),
+    page.getByRole("button", { name: "Delete history.txt" }).click(),
+  ]);
+  expect(deleted.status()).toBe(200);
+  expect(deleted.request().postDataJSON()).toMatchObject({
+    accessToken: expect.any(String),
+  });
+  await expect(
+    page.getByRole("heading", { name: "Your uploads" }),
+  ).toBeHidden();
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem("up-remastered:upload-history:v1"),
+    ),
+  ).toBe("[]");
+
+  await page.evaluate((value) => {
+    if (value) {
+      sessionStorage.setItem("up-remastered:upload-history:v1", value);
+    }
+  }, stored);
+  await page.reload();
+  const [missing] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === "DELETE" &&
+        response.url().includes("/api/u/"),
+    ),
+    page.getByRole("button", { name: "Delete history.txt" }).click(),
+  ]);
+  expect(missing.status()).toBe(404);
+  await expect(
+    page.getByRole("heading", { name: "Your uploads" }),
+  ).toBeHidden();
+});

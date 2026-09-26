@@ -15,6 +15,12 @@ import {
   uploadFile,
   type UploadResult,
 } from "@/components/upload/client-upload";
+import {
+  readUploadHistory,
+  removeUploadHistoryEntry,
+  saveUploadHistoryEntry,
+  type UploadHistoryEntry,
+} from "@/components/upload/upload-history";
 
 type PublicConfiguration = {
   maxTemporaryFileSize: number;
@@ -61,6 +67,11 @@ export function UploadExperience({
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
   const [qrSvg, setQrSvg] = useState("");
+  const [history, setHistory] = useState<UploadHistoryEntry[]>([]);
+  const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(
+    null,
+  );
+  const [historyStatus, setHistoryStatus] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
   const errorHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -106,6 +117,13 @@ export function UploadExperience({
       abortRef.current?.();
       document.title = originalTitle.current;
     };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setHistory(readUploadHistory(window.sessionStorage));
+    });
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -180,6 +198,7 @@ export function UploadExperience({
         }
         setProgress(100);
         setResult(upload);
+        setHistory(saveUploadHistoryEntry(window.sessionStorage, upload));
         setNow(Date.now());
         setPhase("success");
       } catch (uploadError) {
@@ -325,6 +344,34 @@ export function UploadExperience({
       setCopied(true);
     } catch {
       setCopied(false);
+    }
+  }
+
+  async function deleteHistoryEntry(entry: UploadHistoryEntry) {
+    setDeletingHistoryId(entry.id);
+    setHistoryStatus("");
+    try {
+      const response = await fetch(`/api/u/${encodeURIComponent(entry.id)}`, {
+        body: JSON.stringify({ accessToken: entry.accessToken }),
+        headers: { "content-type": "application/json" },
+        method: "DELETE",
+      });
+      if (!response.ok && response.status !== 404) {
+        throw new Error("Delete failed.");
+      }
+
+      setHistory(removeUploadHistoryEntry(window.sessionStorage, entry.id));
+      setHistoryStatus(
+        response.status === 404
+          ? `${entry.originalName} was already unavailable and has been forgotten.`
+          : `${entry.originalName} was deleted.`,
+      );
+    } catch {
+      setHistoryStatus(
+        `${entry.originalName} could not be deleted. Try again.`,
+      );
+    } finally {
+      setDeletingHistoryId(null);
     }
   }
 
@@ -488,6 +535,47 @@ export function UploadExperience({
           </button>
         </section>
       )}
+
+      {phase === "idle" && history.length > 0 && (
+        <section
+          className="upload-card history-card"
+          aria-labelledby="history-heading"
+        >
+          <p className="eyebrow">This tab</p>
+          <h2 id="history-heading">Your uploads</h2>
+          <p className="history-intro">
+            Available in this browser tab until it is closed.
+          </p>
+          <ul className="history-list">
+            {history.map((entry) => (
+              <li key={entry.id}>
+                <div>
+                  <h3>{entry.originalName}</h3>
+                  <a href={entry.shareUrl}>{entry.shareUrl}</a>
+                  <p>
+                    {formatBytes(entry.size)} · Expires{" "}
+                    <time dateTime={entry.expiresAt}>
+                      {new Date(entry.expiresAt).toLocaleString()}
+                    </time>
+                  </p>
+                </div>
+                <button
+                  aria-label={`Delete ${entry.originalName}`}
+                  className="secondary-action"
+                  disabled={deletingHistoryId === entry.id}
+                  onClick={() => void deleteHistoryEntry(entry)}
+                  type="button"
+                >
+                  {deletingHistoryId === entry.id ? "Deleting…" : "Delete"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <p className="visually-hidden" aria-live="polite">
+        {historyStatus}
+      </p>
     </div>
   );
 }

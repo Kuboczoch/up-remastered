@@ -199,6 +199,52 @@ describe("createDownloadResponse", () => {
     expect(response.status).toBe(404);
   });
 
+  it("forces active browser content to download instead of executing inline", async () => {
+    const { id, storedName } = insertUpload({
+      mimeType: "text/html",
+      originalName: "page.html",
+    });
+    await writeFile(
+      join(process.env.UPLOAD_DIR!, storedName),
+      "<script>alert(1)</script>",
+    );
+
+    const response = await createDownloadResponse(
+      id,
+      null,
+      new Date("2026-01-02T00:00:00.000Z"),
+    );
+
+    expect(response.headers.get("content-type")).toBe("text/html");
+    expect(response.headers.get("content-disposition")).toBe(
+      'attachment; filename="page.html"',
+    );
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    await response.body?.cancel();
+  });
+
+  it("delivers QuickTime movies with ranges and a safe attachment disposition", async () => {
+    const { id, storedName } = insertUpload({
+      mimeType: "video/quicktime",
+      originalName: "clip.mov",
+    });
+    await writeFile(join(process.env.UPLOAD_DIR!, storedName), "movie");
+
+    const response = await createDownloadResponse(
+      id,
+      "bytes=1-3",
+      new Date("2026-01-02T00:00:00.000Z"),
+    );
+
+    expect(response.status).toBe(206);
+    expect(response.headers.get("content-type")).toBe("video/quicktime");
+    expect(response.headers.get("content-range")).toBe("bytes 1-3/5");
+    expect(response.headers.get("content-disposition")).toBe(
+      'attachment; filename="clip.mov"',
+    );
+    await expect(response.text()).resolves.toBe("ovi");
+  });
+
   it("falls back from unsafe media types without injecting headers", async () => {
     const { id, storedName } = insertUpload({
       mimeType: "text/html\r\nX-Unsafe: yes",

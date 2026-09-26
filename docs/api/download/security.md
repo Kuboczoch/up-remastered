@@ -12,6 +12,7 @@ Download rules:
 - Return the same unavailable response for malformed IDs, unknown IDs, expiration, unsafe paths, and missing files.
 - Sanitize original filenames before building `Content-Disposition`.
 - Accept only syntactically safe `type/subtype` media types in `Content-Type`; otherwise use `application/octet-stream`.
-- Send downloads as attachments with `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-store`.
+- Send every user-controlled file as an attachment with `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`. This intentionally rejects same-origin inline rendering: HTML, SVG, or browser-sniffed content cannot execute with future application credentials.
+- Preserve safe media types and byte-range support for downloads, including `.mov` files reported as `video/quicktime`; attachment disposition hands playback to the browser or operating system without weakening inline-content isolation.
 
 Password protection and download limits are not implemented yet. Download URLs remain excluded from `sitemap.xml` and must not be made indexable without an explicit crawler review.
