@@ -48,13 +48,13 @@ Run fast checks while working:
 pnpm run check
 ```
 
-Run the full local CI equivalent before opening a pull request:
+Run the full local validation suite before opening a pull request:
 
 ```bash
 pnpm run check:full
 ```
 
-`check:full` covers linting, type checking, unit tests, the production build, and Playwright/Lighthouse tests.
+`check:full` covers formatting, the no-JVM guard, linting, type checking, unit tests, the production build, and Playwright/Lighthouse tests. CI additionally validates the PR title and builds the Docker image.
 
 ## Runtime configuration
 
@@ -107,6 +107,8 @@ Compose bind-mounts `./data:/data`. Container recreation and `docker compose dow
 data/app.db
 data/uploads/
 ```
+
+The one-shot `init-data` service safely prepares a fresh bind mount for the non-root app. Set `UP_DATA_DIR=/absolute/path` to use another host directory.
 
 Back up both the SQLite files and uploads. See [`docs/operations/data-volume.md`](docs/operations/data-volume.md).
 

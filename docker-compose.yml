@@ -1,9 +1,20 @@
 services:
+  init-data:
+    build:
+      context: .
+    user: "0:0"
+    volumes:
+      - ${UP_DATA_DIR:-./data}:/data
+    command: ["sh", "-c", "mkdir -p /data/uploads && chown -R 1000:1000 /data"]
+
   up:
     build:
       context: .
     container_name: up-remastered
     restart: unless-stopped
+    depends_on:
+      init-data:
+        condition: service_completed_successfully
     ports:
       - "3000:3000"
     environment:
@@ -14,15 +25,30 @@ services:
       DEFAULT_EXPIRATION_HOURS: "24"
       UP_PUBLIC_ORIGIN: http://localhost:3000
     volumes:
-      - ./data:/data
+      - ${UP_DATA_DIR:-./data}:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   cleanup:
     profiles: ["maintenance"]
     build:
       context: .
+    depends_on:
+      init-data:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: file:/data/app.db
       UPLOAD_DIR: /data/uploads
     volumes:
-      - ./data:/data
+      - ${UP_DATA_DIR:-./data}:/data
     command: ["node", "scripts/cleanup-expired-files.mjs"]

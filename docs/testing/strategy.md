@@ -10,7 +10,7 @@ Current coverage:
 
 Useful commands:
 
-- `pnpm run check` runs ESLint, TypeScript, and Jest unit tests.
+- `pnpm run check` verifies formatting and JVM absence, then runs ESLint, TypeScript, and unit tests.
 - `pnpm run check:full` runs `check`, builds the standalone Next.js app, and runs Playwright E2E tests.
 - `pnpm run preview` builds the app and starts the local production server.
 - `pnpm run test:unit:watch` starts Jest in watch mode for local development.

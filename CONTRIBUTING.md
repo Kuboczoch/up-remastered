@@ -20,13 +20,13 @@ Run fast checks while working:
 pnpm run check
 ```
 
-Before opening a pull request, run the complete local CI equivalent:
+Before opening a pull request, run the complete local validation suite:
 
 ```bash
 pnpm run check:full
 ```
 
-`check:full` covers linting, type checking, unit tests, the production build, and Playwright/Lighthouse tests. CI details live in [`docs/ci/workflows.md`](docs/ci/workflows.md) and [`docs/ci/e2e.md`](docs/ci/e2e.md).
+`check:full` covers formatting, the no-JVM guard, linting, type checking, unit tests, the production build, and Playwright/Lighthouse tests. CI additionally validates the PR title and builds the Docker image. CI details live in [`docs/ci/workflows.md`](docs/ci/workflows.md) and [`docs/ci/e2e.md`](docs/ci/e2e.md).
 
 ## Pull requests
 
