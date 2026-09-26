@@ -15,6 +15,18 @@ import {
   uploadFile,
   type UploadResult,
 } from "@/components/upload/client-upload";
+import {
+  createTextFile,
+  DEFAULT_TEXT_ENCODING,
+  TEXT_ENCODINGS,
+  type TextEncoding,
+} from "@/components/upload/text-encoding";
+import {
+  readUploadHistory,
+  removeUploadHistoryEntry,
+  saveUploadHistoryEntry,
+  type UploadHistoryEntry,
+} from "@/components/upload/upload-history";
 
 type PublicConfiguration = {
   maxTemporaryFileSize: number;
@@ -58,9 +70,17 @@ export function UploadExperience({
   const [maxBytes, setMaxBytes] = useState<number | null>(initialMaxBytes);
   const [configurationWarning, setConfigurationWarning] = useState("");
   const [text, setText] = useState("");
+  const [textEncoding, setTextEncoding] = useState<TextEncoding>(
+    DEFAULT_TEXT_ENCODING,
+  );
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
   const [qrSvg, setQrSvg] = useState("");
+  const [history, setHistory] = useState<UploadHistoryEntry[]>([]);
+  const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(
+    null,
+  );
+  const [historyStatus, setHistoryStatus] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
   const errorHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -106,6 +126,13 @@ export function UploadExperience({
       abortRef.current?.();
       document.title = originalTitle.current;
     };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setHistory(readUploadHistory(window.sessionStorage));
+    });
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -180,6 +207,7 @@ export function UploadExperience({
         }
         setProgress(100);
         setResult(upload);
+        setHistory(saveUploadHistoryEntry(window.sessionStorage, upload));
         setNow(Date.now());
         setPhase("success");
       } catch (uploadError) {
@@ -228,16 +256,14 @@ export function UploadExperience({
       if (pastedText) {
         event.preventDefault();
         void beginUpload(
-          new File([pastedText], "pasted-text.txt", {
-            type: "text/plain;charset=utf-8",
-          }),
+          createTextFile(pastedText, "pasted-text.txt", textEncoding),
         );
       }
     };
 
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
-  }, [beginUpload, phase]);
+  }, [beginUpload, phase, textEncoding]);
 
   function reset() {
     requestSequence.current += 1;
@@ -296,9 +322,7 @@ export function UploadExperience({
     if (pastedText) {
       event.preventDefault();
       void beginUpload(
-        new File([pastedText], "pasted-text.txt", {
-          type: "text/plain;charset=utf-8",
-        }),
+        createTextFile(pastedText, "pasted-text.txt", textEncoding),
       );
     }
   }
@@ -310,9 +334,7 @@ export function UploadExperience({
       return;
     }
     void beginUpload(
-      new File([text], `text-${Date.now()}.txt`, {
-        type: "text/plain;charset=utf-8",
-      }),
+      createTextFile(text, `text-${Date.now()}.txt`, textEncoding),
     );
   }
 
@@ -325,6 +347,34 @@ export function UploadExperience({
       setCopied(true);
     } catch {
       setCopied(false);
+    }
+  }
+
+  async function deleteHistoryEntry(entry: UploadHistoryEntry) {
+    setDeletingHistoryId(entry.id);
+    setHistoryStatus("");
+    try {
+      const response = await fetch(`/api/u/${encodeURIComponent(entry.id)}`, {
+        body: JSON.stringify({ accessToken: entry.accessToken }),
+        headers: { "content-type": "application/json" },
+        method: "DELETE",
+      });
+      if (!response.ok && response.status !== 404) {
+        throw new Error("Delete failed.");
+      }
+
+      setHistory(removeUploadHistoryEntry(window.sessionStorage, entry.id));
+      setHistoryStatus(
+        response.status === 404
+          ? `${entry.originalName} was already unavailable and has been forgotten.`
+          : `${entry.originalName} was deleted.`,
+      );
+    } catch {
+      setHistoryStatus(
+        `${entry.originalName} could not be deleted. Try again.`,
+      );
+    } finally {
+      setDeletingHistoryId(null);
     }
   }
 
@@ -367,6 +417,22 @@ export function UploadExperience({
 
           <div className="text-upload">
             <label htmlFor="text-upload">Or upload text</label>
+            <div className="text-encoding">
+              <label htmlFor="text-encoding">Text encoding</label>
+              <select
+                id="text-encoding"
+                onChange={(event) =>
+                  setTextEncoding(event.target.value as TextEncoding)
+                }
+                value={textEncoding}
+              >
+                {TEXT_ENCODINGS.map((encoding) => (
+                  <option key={encoding.value} value={encoding.value}>
+                    {encoding.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <textarea
               id="text-upload"
               onChange={(event) => setText(event.target.value)}
@@ -488,6 +554,47 @@ export function UploadExperience({
           </button>
         </section>
       )}
+
+      {phase === "idle" && history.length > 0 && (
+        <section
+          className="upload-card history-card"
+          aria-labelledby="history-heading"
+        >
+          <p className="eyebrow">This tab</p>
+          <h2 id="history-heading">Your uploads</h2>
+          <p className="history-intro">
+            Available in this browser tab until it is closed.
+          </p>
+          <ul className="history-list">
+            {history.map((entry) => (
+              <li key={entry.id}>
+                <div>
+                  <h3>{entry.originalName}</h3>
+                  <a href={entry.shareUrl}>{entry.shareUrl}</a>
+                  <p>
+                    {formatBytes(entry.size)} · Expires{" "}
+                    <time dateTime={entry.expiresAt}>
+                      {new Date(entry.expiresAt).toLocaleString()}
+                    </time>
+                  </p>
+                </div>
+                <button
+                  aria-label={`Delete ${entry.originalName}`}
+                  className="secondary-action"
+                  disabled={deletingHistoryId === entry.id}
+                  onClick={() => void deleteHistoryEntry(entry)}
+                  type="button"
+                >
+                  {deletingHistoryId === entry.id ? "Deleting…" : "Delete"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <p className="visually-hidden" aria-live="polite">
+        {historyStatus}
+      </p>
     </div>
   );
 }

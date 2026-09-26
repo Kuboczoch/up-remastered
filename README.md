@@ -5,7 +5,8 @@
 Implemented today:
 
 - streamed anonymous uploads through `POST /api/upload`;
-- responsive picker, drop, clipboard, text, progress, recovery, QR, and result UI;
+- responsive picker, drop, clipboard, UTF-8/UTF-16 text, progress, recovery, QR, history, and result UI;
+- expiring, single-use requested-upload links with separate uploader/owner capabilities;
 - five-character share IDs and streamed/ranged downloads from `/{ID}` and `/u/{ID}`;
 - one-time hashed access tokens with details, verify, and delete routes;
 - public configuration plus generated ShareX and POSIX shell clients;
@@ -108,6 +109,8 @@ Start with [`docs/ai/context.md`](docs/ai/context.md), then read only the narrow
 
 - [`docs/project/upstream-parity.md`](docs/project/upstream-parity.md)
 - [`docs/api/upload/requirements.md`](docs/api/upload/requirements.md)
+- [`docs/api/upload-requests.md`](docs/api/upload-requests.md)
+- [`docs/api/errors.md`](docs/api/errors.md)
 - [`docs/api/configuration-and-clients.md`](docs/api/configuration-and-clients.md)
 - [`docs/api/download/security.md`](docs/api/download/security.md)
 - [`docs/pages/route-boundaries.md`](docs/pages/route-boundaries.md)

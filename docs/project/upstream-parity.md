@@ -60,7 +60,7 @@ Every GitHub issue is listed once. Pull requests are evidence, not separate prod
 | [#12](https://github.com/Starchasers/up/issues/12) Upload file to the backend | closed | Implemented in remastered with automated coverage |
 | [#13](https://github.com/Starchasers/up/issues/13) Loading bar | closed | Implemented in remastered with automated coverage |
 | [#14](https://github.com/Starchasers/up/issues/14) After upload menu | closed | Implemented in remastered with automated coverage |
-| [#17](https://github.com/Starchasers/up/issues/17) Fix cross origin only for development | closed | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#17](https://github.com/Starchasers/up/issues/17) Fix cross origin only for development                                                                            | closed | Implemented by same-origin defaults; production E2E verifies no wildcard CORS on pages or public configuration.                                                                       |
 | [#18](https://github.com/Starchasers/up/issues/18) Axios problem, 413 is returning "Error: Network Error" | closed | Implemented in remastered with automated coverage |
 | [#20](https://github.com/Starchasers/up/issues/20) Paste on a website to upload | closed | Implemented in remastered with automated coverage |
 | [#21](https://github.com/Starchasers/up/issues/21) Error handling | closed | Implemented in remastered with automated coverage |
@@ -74,7 +74,7 @@ Every GitHub issue is listed once. Pull requests are evidence, not separate prod
 | [#40](https://github.com/Starchasers/up/issues/40) Display file details from response | closed | Implemented in remastered with automated coverage |
 | [#41](https://github.com/Starchasers/up/issues/41) Create an endpoint to check if file is too big | closed | Implemented in remastered with automated coverage |
 | [#42](https://github.com/Starchasers/up/issues/42) Send a request to an endpoint to check if a file is too big | closed | Implemented in remastered with automated coverage |
-| [#45](https://github.com/Starchasers/up/issues/45) Upload request link | open | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#45](https://github.com/Starchasers/up/issues/45) Upload request link                                                                                              | open   | Implemented with separate 256-bit uploader/owner capabilities, strict expiration and byte caps, atomic single use, revocation, streaming quota enforcement, and service/E2E coverage. |
 | [#46](https://github.com/Starchasers/up/issues/46) User login form | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#47](https://github.com/Starchasers/up/issues/47) Initial admin user creation | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#48](https://github.com/Starchasers/up/issues/48) Init react-admin | closed | Superseded: behavior is absent from current upstream `develop` |
@@ -90,7 +90,7 @@ Every GitHub issue is listed once. Pull requests are evidence, not separate prod
 | [#58](https://github.com/Starchasers/up/issues/58) Login button and page | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#59](https://github.com/Starchasers/up/issues/59) Forgot password functionality | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#60](https://github.com/Starchasers/up/issues/60) Display maximum allowed upload size when 413 received | closed | Implemented in remastered with automated coverage |
-| [#64](https://github.com/Starchasers/up/issues/64) Upload history for anonymous users | open | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#64](https://github.com/Starchasers/up/issues/64) Upload history for anonymous users                                                                               | closed | Implemented in remastered with session-scoped persistence and automated deletion coverage                                                                                             |
 | [#65](https://github.com/Starchasers/up/issues/65) Auth user upload history | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#66](https://github.com/Starchasers/up/issues/66) Change status code to user friendly message | closed | Implemented in remastered with automated coverage |
 | [#68](https://github.com/Starchasers/up/issues/68) Handle errors right after file input | closed | Implemented in remastered with automated coverage |
@@ -101,7 +101,7 @@ Every GitHub issue is listed once. Pull requests are evidence, not separate prod
 | [#75](https://github.com/Starchasers/up/issues/75) file names truncated on space character | closed | Implemented in remastered with automated coverage |
 | [#77](https://github.com/Starchasers/up/issues/77) database connection broken when handling multiple upload requests at once | closed | Implemented in remastered with automated coverage |
 | [#78](https://github.com/Starchasers/up/issues/78) Application works offline | closed | Superseded: behavior is absent from current upstream `develop` |
-| [#79](https://github.com/Starchasers/up/issues/79) Favicon doesn't load when viewing iniline content | closed | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#79](https://github.com/Starchasers/up/issues/79) Favicon doesn't load when viewing iniline content                                                                | closed | Implemented with generated favicon/app/Apple/manifest icons and production response coverage; user files intentionally never render inline.                                           |
 | [#82](https://github.com/Starchasers/up/issues/82) info box hard to notice | closed | Implemented in remastered with automated coverage |
 | [#83](https://github.com/Starchasers/up/issues/83) Up/logo square looks like a button | closed | Implemented in remastered with automated coverage |
 | [#84](https://github.com/Starchasers/up/issues/84) Wrong url bar color on mobile browsers | closed | Implemented in remastered with automated coverage |
@@ -110,8 +110,8 @@ Every GitHub issue is listed once. Pull requests are evidence, not separate prod
 | [#92](https://github.com/Starchasers/up/issues/92) Missing default encoding | closed | Implemented in remastered with automated coverage |
 | [#93](https://github.com/Starchasers/up/issues/93) Google analytics | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#94](https://github.com/Starchasers/up/issues/94) Allow to rewind video in a browser | closed | Implemented in remastered with automated coverage |
-| [#95](https://github.com/Starchasers/up/issues/95) Redirect 404 to error page | open | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
-| [#96](https://github.com/Starchasers/up/issues/96) Display error page based on request parameters | closed | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#95](https://github.com/Starchasers/up/issues/95) Redirect 404 to error page                                                                                       | open   | Implemented with an intentional accessible browser 404; download misses retain a uniform non-disclosing plain-text 404.                                                               |
+| [#96](https://github.com/Starchasers/up/issues/96) Display error page based on request parameters                                                                   | closed | Superseded safely: browser 404 content derives from trusted routing state, not attacker-controlled query parameters.                                                                  |
 | [#97](https://github.com/Starchasers/up/issues/97) Open Graph width and height | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#100](https://github.com/Starchasers/up/issues/100) ctrl + c, isn't working correctly | closed | Implemented in remastered with automated coverage |
 | [#101](https://github.com/Starchasers/up/issues/101) Update names in manifest | closed | Implemented in remastered with automated coverage |
@@ -138,9 +138,9 @@ Every GitHub issue is listed once. Pull requests are evidence, not separate prod
 | [#150](https://github.com/Starchasers/up/issues/150) Percentage in title | open | Implemented in remastered with automated coverage |
 | [#151](https://github.com/Starchasers/up/issues/151) Enable text compression | open | Implemented in remastered with automated coverage |
 | [#153](https://github.com/Starchasers/up/issues/153) Upload text from clipboard on mobile | open | Implemented in remastered with automated coverage |
-| [#154](https://github.com/Starchasers/up/issues/154) List of encodings | open | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#154](https://github.com/Starchasers/up/issues/154) List of encodings                                                                                              | open   | Implemented with accessible UTF-8, UTF-16LE, and UTF-16BE text-upload choices; UTF-8 remains default.                                                                                 |
 | [#156](https://github.com/Starchasers/up/issues/156) Specify content type from file | closed | Implemented in remastered with automated coverage |
-| [#157](https://github.com/Starchasers/up/issues/157) Specify file encoding | closed | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#157](https://github.com/Starchasers/up/issues/157) Specify file encoding                                                                                          | closed | Implemented: browser-generated text bytes and `text/plain;charset=…` metadata match the selected encoding with unit and E2E coverage.                                                 |
 | [#158](https://github.com/Starchasers/up/issues/158) More clear responses | closed | Implemented in remastered with automated coverage |
 | [#159](https://github.com/Starchasers/up/issues/159) Make `username` field updatable | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#163](https://github.com/Starchasers/up/issues/163) Refactor data validation | closed | Implemented in remastered with automated coverage |
@@ -161,7 +161,7 @@ Every GitHub issue is listed once. Pull requests are evidence, not separate prod
 | [#201](https://github.com/Starchasers/up/issues/201) Failed login attempts should return 401 | closed | Superseded: behavior is absent from current upstream `develop` |
 | [#203](https://github.com/Starchasers/up/issues/203) mysqld.exe is still running after stopping bootRunDev | closed | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |
 | [#204](https://github.com/Starchasers/up/issues/204) Add user type to the login response | closed | Superseded: behavior is absent from current upstream `develop` |
-| [#207](https://github.com/Starchasers/up/issues/207) Inline files sandox | open | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#207](https://github.com/Starchasers/up/issues/207) Inline files sandox                                                                                            | open   | Implemented safer: every user-controlled file uses attachment disposition plus `nosniff`; active-content regression coverage prevents same-origin execution.                          |
 | [#210](https://github.com/Starchasers/up/issues/210) Possible 413 when file size limit from application.properties is smaller than limit from dynamic configuration | open | Implemented in remastered with automated coverage |
 | [#211](https://github.com/Starchasers/up/issues/211) Get rid fo LocalDateTime | open | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |
 | [#212](https://github.com/Starchasers/up/issues/212) Migrate to postgres | closed | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |
@@ -169,9 +169,9 @@ Every GitHub issue is listed once. Pull requests are evidence, not separate prod
 | [#214](https://github.com/Starchasers/up/issues/214) Build spring-app with artifact from the next-app build job | closed | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |
 | [#215](https://github.com/Starchasers/up/issues/215) Add spring-app/database to .gitignore | open | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |
 | [#216](https://github.com/Starchasers/up/issues/216) Endpoint /api/upload mistake in documentation | open | Implemented in remastered with automated coverage |
-| [#217](https://github.com/Starchasers/up/issues/217) Add error response to the documentation | open | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#217](https://github.com/Starchasers/up/issues/217) Add error response to the documentation                                                                        | open   | Implemented in `docs/api/errors.md`; upload, management, download, and range failures are mapped to stable status/shape contracts with automated route coverage.                      |
 | [#218](https://github.com/Starchasers/up/issues/218) Add README.md with required envs to the spring-app | open | Implemented in remastered with automated coverage |
-| [#219](https://github.com/Starchasers/up/issues/219) Add support for .mov files | open | Planned/reviewed in target [#64](https://github.com/Kuboczoch/up-remastered/issues/64) |
+| [#219](https://github.com/Starchasers/up/issues/219) Add support for .mov files                                                                                     | open   | Implemented safely: `video/quicktime`, byte ranges, attachment disposition, and automated download coverage.                                                                          |
 | [#220](https://github.com/Starchasers/up/issues/220) Update kotlin to version 1.7 | closed | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |
 | [#221](https://github.com/Starchasers/up/issues/221) Update spring boot to version 3 | closed | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |
 | [#222](https://github.com/Starchasers/up/issues/222) migrate to springdoc-openapi | closed | Not applicable to the TypeScript rewrite or replaced by an intentional architecture choice |

@@ -55,6 +55,10 @@ export type CreatedUpload = {
   size: number;
 };
 
+export type CreateUploadOptions = {
+  maxUploadBytes?: number;
+};
+
 const TEXT_FIELD_NAME = "text";
 const FILE_FIELD_NAME = "file";
 const MAX_MULTIPART_FIELD_BYTES = 8 * 1024;
@@ -466,6 +470,7 @@ export async function createUpload(
   request: Request,
   createId: () => string = createPublicUploadId,
   createAccessToken: () => string = createUploadAccessToken,
+  options: CreateUploadOptions = {},
 ): Promise<CreatedUpload> {
   const limits = getUploadLimits();
   ensureDatabaseMigrated();
@@ -486,9 +491,13 @@ export async function createUpload(
       );
     }
 
-    const byteLimit = Math.min(limits.maxUploadBytes, remainingStoredBytes);
+    const configuredByteLimit = Math.min(
+      limits.maxUploadBytes,
+      options.maxUploadBytes ?? limits.maxUploadBytes,
+    );
+    const byteLimit = Math.min(configuredByteLimit, remainingStoredBytes);
     const limitKind =
-      remainingStoredBytes <= limits.maxUploadBytes
+      remainingStoredBytes <= configuredByteLimit
         ? "stored-bytes"
         : "upload-size";
     const { content, fields } = await parseUploadRequest(

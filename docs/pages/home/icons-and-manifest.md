@@ -8,3 +8,5 @@ Next.js App Router serves:
 - `manifest.webmanifest` for install/share surfaces.
 
 The manifest identifies the service as `up - remastered`, starts at `/`, uses standalone display, and references 192×192 and 512×512 local PNG icons. Assets contain no external URLs and work in offline/self-hosted deployments.
+
+Production browser tests follow the generated icon links and request every manifest icon, verifying successful non-empty image responses rather than only checking metadata.
