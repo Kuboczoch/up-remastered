@@ -57,6 +57,57 @@ test("POST /api/upload accepts multipart files", async ({ request }) => {
   expect(headResponse.status()).toBe(200);
   expect(headResponse.headers()["content-length"]).toBe("2");
   expect(await headResponse.body()).toHaveLength(0);
+
+  const rangeResponse = await request.get(`/u/${body.upload.id}`, {
+    headers: { range: "bytes=0-0" },
+  });
+  expect(rangeResponse.status()).toBe(206);
+  expect(rangeResponse.headers()["content-range"]).toBe("bytes 0-0/2");
+  expect(await rangeResponse.text()).toBe("o");
+
+  const detailsResponse = await request.get(`/api/u/${body.upload.id}/details`);
+  expect(detailsResponse.status()).toBe(200);
+  await expect(detailsResponse.json()).resolves.toMatchObject({
+    key: body.upload.id,
+    name: "ok.txt",
+    permanent: false,
+    size: 2,
+    type: "text/plain; charset=utf-8",
+  });
+
+  const deniedResponse = await request.post(`/api/u/${body.upload.id}/verify`, {
+    data: { accessToken: "wrong" },
+  });
+  expect(deniedResponse.status()).toBe(403);
+
+  const malformedResponse = await request.post(
+    `/api/u/${body.upload.id}/verify`,
+    { data: {} },
+  );
+  expect(malformedResponse.status()).toBe(400);
+
+  const verifyResponse = await request.post(`/api/u/${body.upload.id}/verify`, {
+    data: { accessToken: body.accessToken },
+  });
+  expect(verifyResponse.status()).toBe(200);
+  await expect(verifyResponse.json()).resolves.toEqual({
+    message: null,
+    success: true,
+  });
+
+  const deniedDeleteResponse = await request.delete(
+    `/api/u/${body.upload.id}`,
+    { data: { accessToken: "wrong" } },
+  );
+  expect(deniedDeleteResponse.status()).toBe(403);
+  expect((await request.get(`/u/${body.upload.id}`)).status()).toBe(200);
+
+  const deleteResponse = await request.delete(`/api/u/${body.upload.id}`, {
+    data: { accessToken: body.accessToken },
+  });
+  expect(deleteResponse.status()).toBe(200);
+  expect(await deleteResponse.body()).toHaveLength(0);
+  expect((await request.get(`/u/${body.upload.id}`)).status()).toBe(404);
 });
 
 test("POST /api/upload normalizes malformed multipart requests", async ({

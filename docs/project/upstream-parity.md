@@ -19,11 +19,11 @@ Status meanings:
 | --- | --- | --- | --- |
 | Anonymous multipart upload | `POST /api/upload` | Implemented | Streaming upload plus additive `key`, `accessToken`, and `toDelete` compatibility fields; token hashes stored by migration `0002`; covered by `create-upload.test.ts`, `access-token.test.ts`, and `api/upload.spec.ts`. |
 | MIME, filename, size, expiry persistence | `FileService.kt`, `UploadRepository.kt` | Implemented | `src/server/uploads/create-upload.ts` normalizes fallback/text MIME, sanitizes names, enforces limits, and persists expiry; covered by `create-upload.test.ts`. |
-| Public download | `GET /u/{key}` | Partial | `GET/HEAD /{id}` exists in `src/app/[id]/route.ts`; upstream alias tracked by #61. |
-| Byte ranges | `RequestRangeParser.kt` | Missing | Tracked by #61; current downloader streams full content only. |
-| Public file details | `GET /api/u/{key}/details` | Missing | Tracked by #61. |
-| Access-token verification | `POST /api/u/{key}/verify` | Missing | Tracked by #60 and #61. |
-| Token-protected deletion | `DELETE /api/u/{key}` | Missing | Tracked by #60 and #61. |
+| Public download | `GET /u/{key}` | Implemented | `GET/HEAD /u/{key}` plus retained `GET/HEAD /{id}`; covered by downloader unit tests and `api/upload.spec.ts`. |
+| Byte ranges | `RequestRangeParser.kt` | Implemented | Single-range 206, 416 past EOF, 4 MiB open-range cap, and upstream-compatible fallback behavior in `create-download-response.ts`. |
+| Public file details | `GET /api/u/{key}/details` | Implemented | Public non-secret metadata with expired/missing 404; management unit/API coverage. |
+| Access-token verification | `POST /api/u/{key}/verify` | Implemented | Timing-safe hash verification, structured 400/403/404, and upstream success shape. |
+| Token-protected deletion | `DELETE /api/u/{key}` | Implemented | Tombstone rename, metadata deletion, and failure rollback; unit/API coverage. |
 | Public upload configuration | `GET /api/configuration` | Missing | Tracked by #62. |
 | Admin configuration | `GET/PATCH /api/admin/config` | Superseded/dead upstream path | Current upstream removed authentication in PR #248, leaving these role-guarded routes unreachable. No insecure replacement will be invented; disposition is documented in #62. |
 | ShareX configuration | `GET /sharex` | Missing | Tracked by #62. |
@@ -34,7 +34,7 @@ Status meanings:
 | Expiry enforcement on read | `AutomaticCleanupService.kt` plus current read behavior | Implemented safer | `create-download-response.ts` rejects expired rows at read time; unit/API coverage exists. |
 | Expired-file cleanup | `AutomaticCleanupService.kt` | Missing | Future-only target documentation confirmed the gap; tracked by [#66](https://github.com/Kuboczoch/up-remastered/issues/66). |
 | Local bytes plus relational metadata | repository/migration code | Implemented with intentional substitution | Filesystem bytes plus SQLite metadata, Drizzle migrations, quota/collision safety. PostgreSQL/Kotlin are intentionally replaced. |
-| Anonymous access model | security configuration | Partial | Upload/download are anonymous; per-file mutation authority arrives in #60/#61. User/JWT/password flows were removed upstream by PR #248 and are excluded. |
+| Anonymous access model | security configuration | Implemented | Upload/download are anonymous; per-file mutation uses possession of a returned access token. User/JWT/password flows were removed upstream by PR #248 and are excluded. |
 | Runtime/deployment configuration | `application.yaml`, Dockerfile | Implemented with remastered names | Central Zod environment validation, Compose persistence, non-root standalone Docker, documentation and CI coverage. |
 | Error handling | `ExceptionHandler.kt` | Partial/safer | Structured sanitized upload errors and safe 404s exist; complete route/error parity tracked by #60, #61, and #64. |
 
