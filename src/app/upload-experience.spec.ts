@@ -253,3 +253,14 @@ test("keeps upload history for the tab and deletes with its access token", async
     page.getByRole("heading", { name: "Your uploads" }),
   ).toBeHidden();
 });
+
+test("announces offline status and clears it after reconnection", async ({
+  context,
+  page,
+}) => {
+  await page.goto("/");
+  await context.setOffline(true);
+  await expect(page.getByRole("status")).toHaveText(/offline/i);
+  await context.setOffline(false);
+  await expect(page.getByText(/You are offline/)).toBeHidden();
+});

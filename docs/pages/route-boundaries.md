@@ -11,3 +11,5 @@ Keep route-specific validation errors inside their route flows. Use these bounda
 Unit tests cover recovery, navigation, loading announcements, and accessibility. Playwright verifies the 404 status, public UI, return link, and browser-level accessibility.
 
 Unknown browser page paths use this HTML boundary. Download-shaped paths (`/:id` and `/u/:key`) deliberately do not: an unknown, expired, or inaccessible upload returns the same plain-text `404 File unavailable.` response with no filename or storage details. This prevents a missing download from disclosing whether an identifier ever existed.
+
+`GET /api/health` is an operational readiness endpoint. It returns only `{ "status": "ok" }` after a SQLite query and writable-upload-directory check, or sanitized `{ "status": "unavailable" }` with status 503. Both responses are non-cacheable and disclose no path or exception details.

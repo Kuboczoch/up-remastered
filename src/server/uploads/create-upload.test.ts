@@ -146,6 +146,19 @@ describe("createUpload", () => {
     ).resolves.toBe("second");
   });
 
+  it("persists simultaneous upload requests without breaking SQLite", async () => {
+    const uploads = await Promise.all(
+      Array.from({ length: 8 }, (_, index) =>
+        createUpload(createRawRequest(`parallel-${index}`)),
+      ),
+    );
+
+    expect(new Set(uploads.map(({ id }) => id)).size).toBe(8);
+    for (const upload of uploads) {
+      expect(readUploadRow(upload.id)).toMatchObject({ id: upload.id });
+    }
+  });
+
   it("accepts raw text uploads", async () => {
     const upload = await createUpload(createRawRequest("hello from cli"));
     const row = readUploadRow(upload.id);

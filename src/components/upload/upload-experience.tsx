@@ -81,6 +81,7 @@ export function UploadExperience({
     null,
   );
   const [historyStatus, setHistoryStatus] = useState("");
+  const [isOnline, setIsOnline] = useState(true);
   const [now, setNow] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
   const errorHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -125,6 +126,17 @@ export function UploadExperience({
       controller.abort();
       abortRef.current?.();
       document.title = originalTitle.current;
+    };
+  }, []);
+
+  useEffect(() => {
+    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    updateOnlineStatus();
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
     };
   }, []);
 
@@ -380,6 +392,11 @@ export function UploadExperience({
 
   return (
     <div className="upload-workspace" onPaste={pasteIntoPanel}>
+      {!isOnline && (
+        <p className="connection-warning" role="status">
+          You are offline. Reconnect before uploading.
+        </p>
+      )}
       {phase === "idle" && (
         <section
           className={`upload-card drop-zone${dragActive ? " is-dragging" : ""}`}

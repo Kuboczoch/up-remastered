@@ -30,7 +30,15 @@ pnpm run cleanup:expired
 The command applies checked-in migrations before cleanup. It writes one JSON summary:
 
 ```json
-{"event":"expired_upload_cleanup_complete","examined":3,"claimed":3,"deleted":2,"missing":1,"failed":0,"freedBytes":2048}
+{
+  "event": "expired_upload_cleanup_complete",
+  "examined": 3,
+  "claimed": 3,
+  "deleted": 2,
+  "missing": 1,
+  "failed": 0,
+  "freedBytes": 2048
+}
 ```
 
 Exit status is `0` when `failed` is zero and `1` when any row could not be cleaned or startup failed.
