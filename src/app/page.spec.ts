@@ -1,10 +1,21 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-test("renders the homepage greeting", async ({ page }) => {
+test("renders the homepage greeting and structured data", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByText("hello from up - remastered")).toBeVisible();
+
+  const jsonLd = await page
+    .locator('script[type="application/ld+json"]')
+    .textContent();
+
+  expect(JSON.parse(jsonLd ?? "null")).toMatchObject({
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "up - remastered",
+    url: "http://127.0.0.1:3000/",
+  });
 });
 
 test("has no browser-level accessibility violations", async ({ page }) => {
