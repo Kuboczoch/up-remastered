@@ -25,12 +25,12 @@ Response success shape:
 ```json
 {
   "upload": {
-    "id": "A7k2Q",
+    "id": "A7K2Q",
     "originalName": "example.zip",
     "mimeType": "application/zip",
     "size": 123,
     "expiresAt": "2026-05-17T14:00:00.000Z",
-    "shareUrl": "http://localhost:3000/api/download/A7k2Q"
+    "shareUrl": "http://localhost:3000/A7K2Q"
   }
 }
 ```
@@ -39,8 +39,9 @@ Rules:
 
 - No authentication or authorization is required.
 - `id` is the only upload identifier used by API, SQLite metadata, and filesystem storage.
-- `id` is a 5-character alphanumeric value with no prefix, e.g. `A7k2Q`.
+- `id` is exactly five characters from `0-9A-Z`, e.g. `A7K2Q`.
 - `id` is the SQLite primary key and the basis for the stored filename.
+- Generate `id` with Node crypto and retry metadata insertion on a primary-key collision.
 - `id` is reusable only after the previous upload's metadata row and stored file are deleted.
 - Expiration alone does not release an `id`; cleanup or another deletion path must remove the metadata row.
 - Store uploaded bytes under `UPLOAD_DIR`; never store file bytes in SQLite.

@@ -3,7 +3,11 @@ import "server-only";
 import { eq, sql } from "drizzle-orm";
 
 import type { DbClient } from "@/server/db/client";
-import { type NewUploadMetadata, uploadMetadata } from "@/server/db/schema";
+import {
+  type NewUploadMetadata,
+  type UploadMetadata,
+  uploadMetadata,
+} from "@/server/db/schema";
 
 export function getTotalStoredUploadBytes(db: DbClient): number {
   const row = db
@@ -52,4 +56,15 @@ export function hasUploadId(db: DbClient, id: string): boolean {
     .get();
 
   return row !== undefined;
+}
+
+export function getUploadMetadata(
+  db: DbClient,
+  id: string,
+): UploadMetadata | undefined {
+  return db
+    .select()
+    .from(uploadMetadata)
+    .where(eq(uploadMetadata.id, id))
+    .get();
 }

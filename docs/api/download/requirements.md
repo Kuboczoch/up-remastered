@@ -1,19 +1,22 @@
 # Download API Requirements
 
-Future route shape:
+Current public route:
 
 ```txt
-/api/download/[token]
+GET /[id]
+HEAD /[id]
 ```
 
-Before allowing a download:
+`id` is exactly five characters from `0-9A-Z`. Invalid IDs, missing metadata, expired uploads, unsafe stored paths, and missing physical files all return the same `404 File unavailable` response so availability details are not disclosed.
 
-- Validate token exists.
-- Validate expiration.
-- Validate password if required.
-- Validate download limit.
-- Validate physical file exists under the configured upload directory.
+Before sending bytes, the route must:
 
-Increment `downloadCount` only after authorization succeeds.
+- Validate the public ID shape.
+- Look up metadata by the unique SQLite `id` primary key.
+- Reject uploads whose `expiresAt` is at or before the current time.
+- Resolve the server-generated stored name under `UPLOAD_DIR`.
+- Verify and open a regular physical file without following symlinks.
 
-Cleanup is not enough. Download routes must reject expired or unavailable files even if cleanup has not run.
+The App Router handler exports `runtime = "nodejs"` and only passes the route ID to server-side download logic under `src/server/**`.
+
+Password checks, download limits, cleanup, and Nginx delegation are out of scope. Cleanup is not enough: downloads enforce expiration and availability even when cleanup has not run.

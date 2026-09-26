@@ -103,10 +103,10 @@ describe("createUpload", () => {
     expect(upload).toMatchObject({
       mimeType: "text/plain",
       originalName: "hello.txt",
-      shareUrl: `http://localhost:3000/api/download/${upload.id}`,
+      shareUrl: `http://localhost:3000/${upload.id}`,
       size: 5,
     });
-    expect(upload.id).toMatch(/^[0-9A-Za-z]{5}$/);
+    expect(upload.id).toMatch(/^[0-9A-Z]{5}$/);
     expect(row).toMatchObject({
       id: upload.id,
       originalName: "hello.txt",
@@ -115,6 +115,27 @@ describe("createUpload", () => {
     await expect(readFile(row?.storagePath ?? "", "utf8")).resolves.toBe(
       "hello",
     );
+  });
+
+  it("retries ID collisions before committing metadata and storage", async () => {
+    const firstUpload = await createUpload(
+      createRawRequest("first"),
+      () => "AAAAA",
+    );
+    const candidateIds = ["AAAAA", "BBBBB"];
+    const secondUpload = await createUpload(
+      createRawRequest("second"),
+      () => candidateIds.shift() ?? "CCCCC",
+    );
+
+    expect(firstUpload.id).toBe("AAAAA");
+    expect(secondUpload.id).toBe("BBBBB");
+    await expect(
+      readFile(readUploadRow(firstUpload.id)?.storagePath ?? "", "utf8"),
+    ).resolves.toBe("first");
+    await expect(
+      readFile(readUploadRow(secondUpload.id)?.storagePath ?? "", "utf8"),
+    ).resolves.toBe("second");
   });
 
   it("accepts raw text uploads", async () => {
