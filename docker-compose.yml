@@ -15,3 +15,14 @@ services:
       UP_PUBLIC_ORIGIN: http://localhost:3000
     volumes:
       - ./data:/data
+
+  cleanup:
+    profiles: ["maintenance"]
+    build:
+      context: .
+    environment:
+      DATABASE_URL: file:/data/app.db
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - ./data:/data
+    command: ["node", "scripts/cleanup-expired-files.mjs"]

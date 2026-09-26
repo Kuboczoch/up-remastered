@@ -12,9 +12,10 @@ Implemented today:
 - public configuration plus generated ShareX and POSIX shell clients;
 - SQLite metadata and local filesystem storage;
 - upload-size, total-storage, and expiration limits;
+- lease-safe expired-upload cleanup for cron or Compose;
 - Docker/Compose deployment and automated CI checks.
 
-Password-protected uploads and expired-file cleanup remain planned work. See the [browser upload requirements](docs/browser-upload/requirements.md) and [upstream parity matrix](docs/project/upstream-parity.md).
+Password-protected uploads remain planned work. See the [browser upload requirements](docs/browser-upload/requirements.md) and [upstream parity matrix](docs/project/upstream-parity.md).
 
 ## Stack
 
@@ -88,7 +89,13 @@ docker compose up --build -d
 docker compose logs -f up
 ```
 
-Open `http://localhost:3000`. Stop containers with:
+Open `http://localhost:3000`. Run one-shot expired upload cleanup with:
+
+```bash
+docker compose run --rm cleanup
+```
+
+Stop containers with:
 
 ```bash
 docker compose down
@@ -113,6 +120,7 @@ Start with [`docs/ai/context.md`](docs/ai/context.md), then read only the narrow
 - [`docs/api/errors.md`](docs/api/errors.md)
 - [`docs/api/configuration-and-clients.md`](docs/api/configuration-and-clients.md)
 - [`docs/api/download/security.md`](docs/api/download/security.md)
+- [`docs/scripts/cleanup-expired-files/requirements.md`](docs/scripts/cleanup-expired-files/requirements.md)
 - [`docs/pages/route-boundaries.md`](docs/pages/route-boundaries.md)
 - [`docs/operations/logging.md`](docs/operations/logging.md)
 - [`docs/ci/workflows.md`](docs/ci/workflows.md)

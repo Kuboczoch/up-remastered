@@ -31,6 +31,7 @@ RUN mkdir -p /data/uploads && chown -R node:node /data /app
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 COPY --from=builder --chown=node:node /app/drizzle ./drizzle
+COPY --from=builder --chown=node:node /app/scripts/cleanup-expired-files.mjs ./scripts/cleanup-expired-files.mjs
 
 USER node
 
