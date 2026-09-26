@@ -1,0 +1,321 @@
+import "server-only";
+
+import { getPublicUrl } from "@/server/config/public-url";
+import { getUploadLimits } from "@/server/config/uploads";
+import { createDbClient, createSqliteConnection } from "@/server/db/client";
+import {
+  claimUploadRequest,
+  consumeUploadRequest,
+  getUploadRequestByManagementHash,
+  getUploadRequestByPublicHash,
+  insertUploadRequest,
+  releaseUploadRequestClaim,
+  revokeUploadRequest as revokeStoredUploadRequest,
+} from "@/server/db/upload-requests";
+import { ensureDatabaseMigrated } from "@/server/db/migrate";
+import type { UploadRequest } from "@/server/db/schema";
+import {
+  createUpload,
+  type CreatedUpload,
+} from "@/server/uploads/create-upload";
+import { UploadRequestError } from "@/server/uploads/errors";
+import { deleteUploadWithAccessToken } from "@/server/uploads/manage-upload";
+
+import {
+  createCapabilityToken,
+  hashCapabilityToken,
+  isCapabilityToken,
+} from "./capability-token";
+
+const MAX_TOKEN_GENERATION_ATTEMPTS = 5;
+const STRICT_UTC_ISO_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+
+export type RequestedUploadStatus =
+  | "active"
+  | "consumed"
+  | "expired"
+  | "in_progress"
+  | "revoked";
+
+export type UploadRequestDetails = {
+  createdAt: string;
+  expiresAt: string;
+  maxBytes: number;
+  status: RequestedUploadStatus;
+  uploadId?: string;
+};
+
+export type CreatedUploadRequest = UploadRequestDetails & {
+  managementToken: string;
+  uploadUrl: string;
+};
+
+function statusOf(request: UploadRequest, now: Date): RequestedUploadStatus {
+  if (request.revokedAt) return "revoked";
+  if (request.consumedAt) return "consumed";
+  if (request.expiresAt.getTime() <= now.getTime()) return "expired";
+  if (request.claimId) return "in_progress";
+  return "active";
+}
+
+function toDetails(request: UploadRequest, now: Date): UploadRequestDetails {
+  return {
+    createdAt: request.createdAt.toISOString(),
+    expiresAt: request.expiresAt.toISOString(),
+    maxBytes: request.maxBytes,
+    status: statusOf(request, now),
+    ...(request.uploadId ? { uploadId: request.uploadId } : {}),
+  };
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    String(error.code).startsWith("SQLITE_CONSTRAINT")
+  );
+}
+
+export function validateUploadRequestInput(
+  input: unknown,
+  now = new Date(),
+): { expiresAt: Date; maxBytes: number } {
+  if (
+    typeof input !== "object" ||
+    input === null ||
+    Array.isArray(input) ||
+    Object.keys(input).some((key) => !["expiresAt", "maxBytes"].includes(key))
+  ) {
+    throw new UploadRequestError(
+      "Request body must contain only expiresAt and maxBytes.",
+      400,
+      "invalid_upload_request",
+    );
+  }
+
+  const { expiresAt: rawExpiresAt, maxBytes } = input as Record<
+    string,
+    unknown
+  >;
+  const expiresAt =
+    typeof rawExpiresAt === "string" &&
+    STRICT_UTC_ISO_PATTERN.test(rawExpiresAt)
+      ? new Date(rawExpiresAt)
+      : new Date(NaN);
+  const limits = getUploadLimits();
+
+  if (
+    !Number.isInteger(maxBytes) ||
+    (maxBytes as number) < 1 ||
+    (maxBytes as number) > limits.maxUploadBytes
+  ) {
+    throw new UploadRequestError(
+      `maxBytes must be an integer between 1 and ${limits.maxUploadBytes}.`,
+      400,
+      "invalid_max_bytes",
+    );
+  }
+
+  if (
+    Number.isNaN(expiresAt.getTime()) ||
+    expiresAt.getTime() <= now.getTime() ||
+    expiresAt.getTime() > now.getTime() + limits.maxExpirationMs
+  ) {
+    throw new UploadRequestError(
+      "expiresAt must be in the future and within the server expiration limit.",
+      400,
+      "invalid_expiration",
+    );
+  }
+
+  return { expiresAt, maxBytes: maxBytes as number };
+}
+
+export function createRequestedUpload(
+  input: unknown,
+  now = new Date(),
+  createToken: () => string = createCapabilityToken,
+): CreatedUploadRequest {
+  const validated = validateUploadRequestInput(input, now);
+  ensureDatabaseMigrated();
+  const connection = createSqliteConnection();
+  const db = createDbClient(connection);
+
+  try {
+    for (
+      let attempt = 0;
+      attempt < MAX_TOKEN_GENERATION_ATTEMPTS;
+      attempt += 1
+    ) {
+      const publicToken = createToken();
+      const managementToken = createToken();
+
+      if (
+        !isCapabilityToken(publicToken) ||
+        !isCapabilityToken(managementToken)
+      ) {
+        throw new Error(
+          "Capability token generator returned an invalid token.",
+        );
+      }
+
+      try {
+        const request: UploadRequest = {
+          claimId: null,
+          claimedAt: null,
+          consumedAt: null,
+          createdAt: now,
+          expiresAt: validated.expiresAt,
+          managementTokenHash: hashCapabilityToken(managementToken),
+          maxBytes: validated.maxBytes,
+          publicTokenHash: hashCapabilityToken(publicToken),
+          revokedAt: null,
+          uploadId: null,
+        };
+        insertUploadRequest(db, request);
+
+        return {
+          ...toDetails(request, now),
+          managementToken,
+          uploadUrl: getPublicUrl(`/request/${publicToken}`),
+        };
+      } catch (error) {
+        if (isUniqueConstraintError(error)) continue;
+        throw error;
+      }
+    }
+  } finally {
+    connection.close();
+  }
+
+  throw new Error("Could not generate unique upload request capabilities.");
+}
+
+export function getActiveRequestedUpload(
+  publicToken: string,
+  now = new Date(),
+): UploadRequestDetails | undefined {
+  if (!isCapabilityToken(publicToken)) return undefined;
+  ensureDatabaseMigrated();
+  const connection = createSqliteConnection();
+
+  try {
+    const request = getUploadRequestByPublicHash(
+      createDbClient(connection),
+      hashCapabilityToken(publicToken),
+    );
+    return request && statusOf(request, now) === "active"
+      ? toDetails(request, now)
+      : undefined;
+  } finally {
+    connection.close();
+  }
+}
+
+export function inspectRequestedUpload(
+  managementToken: string,
+  now = new Date(),
+): UploadRequestDetails | undefined {
+  if (!isCapabilityToken(managementToken)) return undefined;
+  ensureDatabaseMigrated();
+  const connection = createSqliteConnection();
+
+  try {
+    const request = getUploadRequestByManagementHash(
+      createDbClient(connection),
+      hashCapabilityToken(managementToken),
+    );
+    return request ? toDetails(request, now) : undefined;
+  } finally {
+    connection.close();
+  }
+}
+
+export function revokeRequestedUpload(
+  managementToken: string,
+  now = new Date(),
+): UploadRequestDetails | undefined {
+  if (!isCapabilityToken(managementToken)) return undefined;
+  ensureDatabaseMigrated();
+  const connection = createSqliteConnection();
+
+  try {
+    const request = revokeStoredUploadRequest(
+      createDbClient(connection),
+      hashCapabilityToken(managementToken),
+      now,
+    );
+    return request ? toDetails(request, now) : undefined;
+  } finally {
+    connection.close();
+  }
+}
+
+export async function fulfillRequestedUpload(
+  publicToken: string,
+  request: Request,
+  now = new Date(),
+): Promise<CreatedUpload> {
+  if (!isCapabilityToken(publicToken)) {
+    throw unavailableRequestError();
+  }
+
+  ensureDatabaseMigrated();
+  const publicTokenHash = hashCapabilityToken(publicToken);
+  const claimId = createCapabilityToken();
+  const connection = createSqliteConnection();
+  const db = createDbClient(connection);
+  const claimed = claimUploadRequest(db, publicTokenHash, claimId, now);
+  connection.close();
+
+  if (!claimed) throw unavailableRequestError();
+
+  try {
+    const upload = await createUpload(request, undefined, undefined, {
+      maxUploadBytes: claimed.maxBytes,
+    });
+    const consumeConnection = createSqliteConnection();
+    let consumed: boolean;
+
+    try {
+      consumed = consumeUploadRequest(
+        createDbClient(consumeConnection),
+        publicTokenHash,
+        claimId,
+        upload.id,
+        new Date(),
+      );
+    } finally {
+      consumeConnection.close();
+    }
+
+    if (!consumed) {
+      await deleteUploadWithAccessToken(upload.id, upload.accessToken);
+      throw unavailableRequestError();
+    }
+
+    return upload;
+  } catch (error) {
+    const releaseConnection = createSqliteConnection();
+    try {
+      releaseUploadRequestClaim(
+        createDbClient(releaseConnection),
+        publicTokenHash,
+        claimId,
+      );
+    } finally {
+      releaseConnection.close();
+    }
+    throw error;
+  }
+}
+
+function unavailableRequestError(): UploadRequestError {
+  return new UploadRequestError(
+    "This upload request is unavailable.",
+    404,
+    "upload_request_unavailable",
+  );
+}

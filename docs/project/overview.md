@@ -1,21 +1,16 @@
 # Project Overview
 
-`up - remastered` (`up` for short) is a small self-hosted temporary file hosting service.
+`up - remastered` (`up`) is a self-hosted temporary file hosting service and a JavaScript/TypeScript rewrite of `Starchasers/up` without a Kotlin/JVM backend.
 
-The goal is boring durability: run on a VPS, home server, NAS, Coolify, Dokku, or Docker Compose without depending on Vercel/serverless filesystem behavior.
+Current capabilities:
 
-Current setup scope:
+- responsive browser upload, drag/drop, clipboard, and encoded text input;
+- streamed uploads with configurable byte, storage, and expiration limits;
+- anonymous tab-lifetime upload history and authenticated deletion;
+- expiring single-use requested-upload links with separate uploader and owner capabilities;
+- five-character share IDs, safe attachment delivery, byte ranges, and management APIs;
+- SQLite metadata with checked-in Drizzle migrations;
+- lease-safe expired-upload cleanup for cron or Docker Compose;
+- standalone Next.js deployment, Docker health checks, persistent `/data`, and automated CI/E2E/Lighthouse coverage.
 
-- Next.js App Router foundation.
-- TypeScript enforced.
-- One hello-world homepage.
-- Docker baseline with `/data` persistence.
-- SQLite metadata schema and Drizzle migrations.
-- Scoped docs and Cursor rules for future work.
-
-Deferred:
-
-- Upload UI and API.
-- Share pages.
-- Download authorization and streaming.
-- Cleanup script.
+The design targets VPS, home server, NAS, Coolify, Dokku, and Docker Compose deployments. It deliberately avoids serverless ephemeral filesystems, cloud storage, queues, account providers, and JVM runtime dependencies.

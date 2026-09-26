@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+
+import { createSiteMetadata } from "@/config/site-metadata";
+import { getPublicOrigin } from "@/server/config/public-url";
+
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "up - remastered",
-  description: "Small self-hosted temporary file hosting service.",
-};
+export function generateMetadata(): Metadata {
+  return createSiteMetadata(getPublicOrigin());
+}
 
 export default function RootLayout({
   children,

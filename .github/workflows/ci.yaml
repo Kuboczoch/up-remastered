@@ -203,7 +203,21 @@ jobs:
         run: pnpm exec playwright install-deps chromium
 
       - name: Run Playwright E2E
+        id: playwright-tests
+        continue-on-error: true
         run: pnpm run test:e2e:ci
+
+      - name: Create pull request report
+        if: always()
+        run: node scripts/ci/create-e2e-report.mjs playwright-report/results.json pr-e2e-report.md
+
+      - name: Upload pull request report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pr-e2e-report
+          path: pr-e2e-report.md
+          retention-days: 7
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v7
@@ -212,3 +226,7 @@ jobs:
           name: playwright-report
           path: playwright-report
           retention-days: 30
+
+      - name: Preserve Playwright result
+        if: always() && steps.playwright-tests.outcome != 'success'
+        run: exit 1

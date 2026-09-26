@@ -31,4 +31,5 @@ Most useful docs:
 - `docs/api/download/requirements.md`
 - `docs/api/download/streaming.md`
 - `docs/api/download/security.md`
+- `docs/operations/logging.md`
 - `.cursor/rules/docs-maintenance.mdc`
