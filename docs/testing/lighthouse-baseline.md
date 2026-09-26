@@ -20,12 +20,12 @@ attaches the score JSON to the Playwright test output under `test-results/`.
 
 Captured on 2026-05-16 against `http://127.0.0.1:3000/`:
 
-| Category       | Score | Minimum |
-| -------------- | ----: | ------: |
-| Performance    |    98 |      95 |
-| Accessibility  |   100 |     100 |
-| Best practices |    96 |      95 |
-| SEO            |   100 |     100 |
+| Category | Score | Minimum |
+| --- | ---: | ---: |
+| Performance | 98 | 95 |
+| Accessibility | 100 | 100 |
+| Best practices | 96 | 95 |
+| SEO | 100 | 100 |
 
 The minimum score thresholds are intentionally small and explicit. Update this
 doc and the matching Playwright threshold in the same change whenever the
