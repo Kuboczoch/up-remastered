@@ -18,10 +18,10 @@ Server modules that access filesystem, database, env vars, password hashing, or 
 import "server-only";
 ```
 
-Future config validation belongs in:
+Server environment validation lives in:
 
 ```txt
-src/server/config/env.ts
+src/env.ts
 ```
 
-Use Zod there later to validate `DATA_DIR`, `UPLOAD_DIR`, `DATABASE_URL`, `MAX_UPLOAD_SIZE`, `DEFAULT_EXPIRATION_HOURS`, and `UP_PUBLIC_ORIGIN`.
+Its Zod schema is the single parsing and defaulting boundary for `DATA_DIR`, `UPLOAD_DIR`, `DATABASE_URL`, upload quotas, expiration limits, and `UP_PUBLIC_ORIGIN`. Server config modules consume the validated values; route handlers must not read `process.env` directly.
