@@ -105,4 +105,5 @@ Start with [`docs/ai/context.md`](docs/ai/context.md), then read only the narrow
 
 - [`docs/api/upload/requirements.md`](docs/api/upload/requirements.md)
 - [`docs/api/download/security.md`](docs/api/download/security.md)
+- [`docs/operations/logging.md`](docs/operations/logging.md)
 - [`docs/ci/workflows.md`](docs/ci/workflows.md)
