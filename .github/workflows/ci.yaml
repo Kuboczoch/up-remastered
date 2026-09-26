@@ -177,7 +177,7 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Download Next.js build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: next-build
 
