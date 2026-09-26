@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+
+import { siteDescription, siteName } from "@/config/site";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "up - remastered",
-  description: "Small self-hosted temporary file hosting service.",
+  title: siteName,
+  description: siteDescription,
 };
 
 export default function RootLayout({
