@@ -60,3 +60,7 @@ CI does not:
 - Deploy anywhere.
 - Publish Docker images.
 - Target branches other than `master`.
+
+## Dependency updates
+
+Dependabot checks pnpm and GitHub Actions dependencies every Monday at 06:00 `Europe/Warsaw`. npm updates use a two-day cooldown to match `pnpm-workspace.yaml`'s `minimumReleaseAge`; the pinned `resolve` override remains excluded from automated updates. Dependency pull requests still pass the same title and CI checks as other pull requests.
