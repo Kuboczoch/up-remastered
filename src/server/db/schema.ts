@@ -10,7 +10,29 @@ export const uploadMetadata = sqliteTable("upload_metadata", {
   storagePath: text("storage_path").notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  cleanupClaimId: text("cleanup_claim_id"),
+  cleanupClaimedAt: integer("cleanup_claimed_at", {
+    mode: "timestamp_ms",
+  }),
 });
 
 export type UploadMetadata = typeof uploadMetadata.$inferSelect;
 export type NewUploadMetadata = typeof uploadMetadata.$inferInsert;
+
+export const uploadRequests = sqliteTable("upload_requests", {
+  publicTokenHash: text("public_token_hash").primaryKey(),
+  managementTokenHash: text("management_token_hash").notNull().unique(),
+  maxBytes: integer("max_bytes").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  claimId: text("claim_id"),
+  claimedAt: integer("claimed_at", { mode: "timestamp_ms" }),
+  consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
+  revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+  uploadId: text("upload_id").references(() => uploadMetadata.id, {
+    onDelete: "set null",
+  }),
+});
+
+export type UploadRequest = typeof uploadRequests.$inferSelect;
+export type NewUploadRequest = typeof uploadRequests.$inferInsert;

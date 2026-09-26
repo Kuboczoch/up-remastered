@@ -53,12 +53,24 @@ test("has no browser-level accessibility violations", async ({ page }) => {
 test("serves browser icons and the web manifest", async ({ page }) => {
   await page.goto("/");
 
-  await expect(
-    page.locator('link[rel="icon"][href*="favicon.ico"]'),
-  ).toHaveCount(1);
-  await expect(
-    page.locator('link[rel="apple-touch-icon"][href*="apple-icon"]'),
-  ).toHaveCount(1);
+  const favicon = page.locator('link[rel="icon"][href*="favicon.ico"]');
+  const appIcon = page.locator('link[rel="icon"][href*="icon"]');
+  const appleIcon = page.locator(
+    'link[rel="apple-touch-icon"][href*="apple-icon"]',
+  );
+
+  await expect(favicon).toHaveCount(1);
+  await expect(appIcon).toHaveCount(2);
+  await expect(appleIcon).toHaveCount(1);
+
+  for (const icon of [favicon, appIcon.last(), appleIcon]) {
+    const href = await icon.getAttribute("href");
+    const iconResponse = await page.request.get(href ?? "");
+
+    expect(iconResponse.ok()).toBe(true);
+    expect(iconResponse.headers()["content-type"]).toMatch(/^image\//);
+    expect((await iconResponse.body()).byteLength).toBeGreaterThan(0);
+  }
 
   const manifestHref = await page
     .locator('link[rel="manifest"]')
@@ -94,4 +106,17 @@ test("renders an intentional not-found page", async ({ page }) => {
 
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
+});
+
+test("keeps missing download responses non-disclosing", async ({ request }) => {
+  for (const path of ["/not-a-public-upload-id", "/u/not-a-public-upload-id"]) {
+    const response = await request.get(path);
+
+    expect(response.status()).toBe(404);
+    expect(response.headers()["content-type"]).toBe(
+      "text/plain; charset=utf-8",
+    );
+    expect(response.headers()["content-disposition"]).toBeUndefined();
+    expect(await response.text()).toBe("File unavailable.\n");
+  }
 });

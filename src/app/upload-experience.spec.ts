@@ -44,6 +44,7 @@ test("uploads a picked file and exposes result actions", async ({
 test("uploads pasted text and clipboard files", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("Maximum 64 B")).toBeVisible();
+  await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
 
   await page.evaluate(() => {
     const data = new DataTransfer();
@@ -69,6 +70,50 @@ test("uploads pasted text and clipboard files", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "clipboard.txt" }),
   ).toBeVisible();
+});
+
+test("uses the selected encoding for pasted text bytes and MIME charset", async ({
+  page,
+}) => {
+  let uploadBody: Buffer | null = null;
+  await page.route("**/api/upload", async (route) => {
+    uploadBody = route.request().postDataBuffer();
+    await route.fulfill({
+      contentType: "application/json",
+      status: 201,
+      body: JSON.stringify({
+        accessToken: "token",
+        upload: {
+          expiresAt: "2099-01-01T00:00:00.000Z",
+          id: "A1B2C",
+          originalName: "pasted-text.txt",
+          shareUrl: "http://127.0.0.1:3000/A1B2C",
+          size: 4,
+        },
+      }),
+    });
+  });
+  await page.goto("/");
+  await page.getByLabel("Text encoding").selectOption("utf-16le");
+
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.setData("text/plain", "Aé");
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", { value: data });
+    document.querySelector(".upload-workspace")?.dispatchEvent(event);
+  });
+
+  await expect(
+    page.getByRole("heading", { name: "pasted-text.txt" }),
+  ).toBeVisible();
+  expect(uploadBody).not.toBeNull();
+  expect(uploadBody!.toString("latin1")).toContain(
+    "Content-Type: text/plain;charset=utf-16le",
+  );
+  expect(uploadBody!.includes(Buffer.from([0x41, 0x00, 0xe9, 0x00]))).toBe(
+    true,
+  );
 });
 
 test("rejects ambiguous drops and oversized files before upload", async ({
@@ -141,4 +186,81 @@ test("shows upload percentage in the title and supports mobile text upload", asy
     page.getByRole("heading", { name: "pasted-text.txt" }),
   ).toBeVisible();
   await expect(page).toHaveTitle("up - remastered");
+});
+
+test("keeps upload history for the tab and deletes with its access token", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.locator("#file-picker").setInputFiles({
+    buffer: Buffer.from("history"),
+    mimeType: "text/plain",
+    name: "history.txt",
+  });
+  const shareUrl = await page.locator(".result-url").inputValue();
+  const stored = await page.evaluate(() =>
+    sessionStorage.getItem("up-remastered:upload-history:v1"),
+  );
+  expect(stored).toContain('"accessToken"');
+
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Your uploads" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "history.txt" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: shareUrl })).toBeVisible();
+  expect(await page.locator("body").innerText()).not.toContain("accessToken");
+
+  const [deleted] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === "DELETE" &&
+        response.url().includes("/api/u/"),
+    ),
+    page.getByRole("button", { name: "Delete history.txt" }).click(),
+  ]);
+  expect(deleted.status()).toBe(200);
+  expect(deleted.request().postDataJSON()).toMatchObject({
+    accessToken: expect.any(String),
+  });
+  await expect(
+    page.getByRole("heading", { name: "Your uploads" }),
+  ).toBeHidden();
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem("up-remastered:upload-history:v1"),
+    ),
+  ).toBe("[]");
+
+  await page.evaluate((value) => {
+    if (value) {
+      sessionStorage.setItem("up-remastered:upload-history:v1", value);
+    }
+  }, stored);
+  await page.reload();
+  const [missing] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === "DELETE" &&
+        response.url().includes("/api/u/"),
+    ),
+    page.getByRole("button", { name: "Delete history.txt" }).click(),
+  ]);
+  expect(missing.status()).toBe(404);
+  await expect(
+    page.getByRole("heading", { name: "Your uploads" }),
+  ).toBeHidden();
+});
+
+test("announces offline status and clears it after reconnection", async ({
+  context,
+  page,
+}) => {
+  await page.goto("/");
+  await context.setOffline(true);
+  await expect(page.getByRole("status")).toHaveText(/offline/i);
+  await context.setOffline(false);
+  await expect(page.getByText(/You are offline/)).toBeHidden();
 });

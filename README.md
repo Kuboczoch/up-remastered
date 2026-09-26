@@ -5,15 +5,17 @@
 Implemented today:
 
 - streamed anonymous uploads through `POST /api/upload`;
-- responsive picker, drop, clipboard, text, progress, recovery, QR, and result UI;
+- responsive picker, drop, clipboard, UTF-8/UTF-16 text, progress, recovery, QR, history, and result UI;
+- expiring, single-use requested-upload links with separate uploader/owner capabilities;
 - five-character share IDs and streamed/ranged downloads from `/{ID}` and `/u/{ID}`;
 - one-time hashed access tokens with details, verify, and delete routes;
 - public configuration plus generated ShareX and POSIX shell clients;
 - SQLite metadata and local filesystem storage;
 - upload-size, total-storage, and expiration limits;
+- lease-safe expired-upload cleanup for cron or Compose;
 - Docker/Compose deployment and automated CI checks.
 
-Password-protected uploads and expired-file cleanup remain planned work. See the [browser upload requirements](docs/browser-upload/requirements.md) and [upstream parity matrix](docs/project/upstream-parity.md).
+Password-protected uploads remain planned work. See the [browser upload requirements](docs/browser-upload/requirements.md) and [upstream parity matrix](docs/project/upstream-parity.md).
 
 ## Stack
 
@@ -46,13 +48,13 @@ Run fast checks while working:
 pnpm run check
 ```
 
-Run the full local CI equivalent before opening a pull request:
+Run the full local validation suite before opening a pull request:
 
 ```bash
 pnpm run check:full
 ```
 
-`check:full` covers linting, type checking, unit tests, the production build, and Playwright/Lighthouse tests.
+`check:full` covers formatting, the no-JVM guard, linting, type checking, unit tests, the production build, and Playwright/Lighthouse tests. CI additionally validates the PR title and builds the Docker image.
 
 ## Runtime configuration
 
@@ -87,7 +89,13 @@ docker compose up --build -d
 docker compose logs -f up
 ```
 
-Open `http://localhost:3000`. Stop containers with:
+Open `http://localhost:3000`. Run one-shot expired upload cleanup with:
+
+```bash
+docker compose run --rm cleanup
+```
+
+Stop containers with:
 
 ```bash
 docker compose down
@@ -100,6 +108,8 @@ data/app.db
 data/uploads/
 ```
 
+The one-shot `init-data` service safely prepares a fresh bind mount for the non-root app. Set `UP_DATA_DIR=/absolute/path` to use another host directory.
+
 Back up both the SQLite files and uploads. See [`docs/operations/data-volume.md`](docs/operations/data-volume.md).
 
 ## Project documentation
@@ -108,8 +118,11 @@ Start with [`docs/ai/context.md`](docs/ai/context.md), then read only the narrow
 
 - [`docs/project/upstream-parity.md`](docs/project/upstream-parity.md)
 - [`docs/api/upload/requirements.md`](docs/api/upload/requirements.md)
+- [`docs/api/upload-requests.md`](docs/api/upload-requests.md)
+- [`docs/api/errors.md`](docs/api/errors.md)
 - [`docs/api/configuration-and-clients.md`](docs/api/configuration-and-clients.md)
 - [`docs/api/download/security.md`](docs/api/download/security.md)
+- [`docs/scripts/cleanup-expired-files/requirements.md`](docs/scripts/cleanup-expired-files/requirements.md)
 - [`docs/pages/route-boundaries.md`](docs/pages/route-boundaries.md)
 - [`docs/operations/logging.md`](docs/operations/logging.md)
 - [`docs/ci/workflows.md`](docs/ci/workflows.md)

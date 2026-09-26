@@ -6,15 +6,15 @@ The homepage is a single-file upload client backed by `POST /api/upload`.
 
 - Choose one file with the native picker.
 - Drop exactly one file. Folder entries and ambiguous multi-file drops are rejected before any request.
-- Paste one clipboard file or UTF-8 plain text anywhere on the page.
-- Enter text explicitly on narrow/mobile layouts when clipboard events are unavailable.
+- Paste one clipboard file or plain text anywhere on the page. Text defaults to UTF-8; selecting UTF-16 little-endian or UTF-16 big-endian in the text-upload controls changes the bytes and `text/plain` MIME charset used for pasted text.
+- Enter text explicitly on narrow/mobile layouts when clipboard events are unavailable. The same encoding selection applies, and the generated text file has no byte-order mark.
 - The server-rendered maximum upload size is refreshed from `GET /api/configuration`; oversized files are rejected before upload.
 
 ## States
 
 The client exposes idle, uploading, error, and success states. Upload progress is announced and mirrored in the document title. Errors receive focus and provide a reset path. A successful upload shows the public URL, copy/open actions, QR code, size, expiration countdown, and an upload-another action.
 
-The one-time access token returned by the upload endpoint remains only in component memory. It is not rendered, logged, or persisted in browser storage.
+The one-time access token returned by the upload endpoint is never rendered or logged. Successful uploads, including their deletion tokens, are kept in versioned `sessionStorage` so history survives reloads in the same tab and is discarded when that tab closes; it is never copied to `localStorage`. This is convenience storage, not an XSS boundary: script executing on this origin can read the history and tokens, so the application must maintain its Content Security Policy and avoid unsafe script injection. Deleting a history entry sends its token to `DELETE /api/u/{id}`; a successful deletion, or a `404` for an already-missing file, removes the local entry.
 
 ## Verification
 

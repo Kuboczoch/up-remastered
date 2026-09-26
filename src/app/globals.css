@@ -77,6 +77,15 @@ summary:focus-visible,
 .upload-workspace {
   display: contents;
 }
+.connection-warning {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid #b45309;
+  border-radius: 0.75rem;
+  background: #fffbeb;
+  color: #78350f;
+  font-weight: 700;
+}
 .brand {
   display: flex;
   align-items: flex-start;
@@ -232,6 +241,23 @@ summary:focus-visible,
   color: var(--foreground);
   line-height: 1.45;
 }
+.text-encoding {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.text-encoding label {
+  font-size: 0.9rem;
+}
+.text-encoding select {
+  min-height: 2.4rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  padding: 0.45rem 2rem 0.45rem 0.65rem;
+  background: var(--surface-strong);
+  color: var(--foreground);
+}
 .upload-help {
   margin-top: 0.7rem;
   color: var(--muted);
@@ -322,6 +348,44 @@ summary:focus-visible,
   display: block;
   width: 100%;
   height: auto;
+}
+.history-card {
+  max-width: 42rem;
+}
+.history-card h2,
+.history-card h3,
+.history-card p {
+  margin: 0;
+}
+.history-intro,
+.history-list p {
+  color: var(--muted);
+}
+.history-list {
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.history-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--line);
+  padding: 1rem 0;
+}
+.history-list li:last-child {
+  padding-bottom: 0;
+}
+.history-list h3 {
+  overflow-wrap: anywhere;
+}
+.history-list a {
+  color: var(--accent-strong);
+  overflow-wrap: anywhere;
+}
+.history-list .secondary-action {
+  flex: 0 0 auto;
 }
 .upload-shell footer {
   color: var(--muted);

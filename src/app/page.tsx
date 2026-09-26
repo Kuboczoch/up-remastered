@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { getPublicUrl } from "@/server/config/public-url";
 import { getUploadLimits } from "@/server/config/uploads";
 import { UploadExperience } from "@/components/upload/upload-experience";
@@ -31,7 +33,7 @@ export default function Home() {
         <UploadExperience initialMaxBytes={maxUploadBytes} />
         <footer>
           Private by obscurity, temporary by design. Keep sensitive data
-          elsewhere.
+          elsewhere. <Link href="/request/new">Request a file</Link>.
         </footer>
       </main>
       <script
