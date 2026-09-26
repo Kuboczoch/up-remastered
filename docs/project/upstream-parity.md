@@ -17,8 +17,8 @@ Status meanings:
 
 | Upstream capability | Upstream evidence | Remastered state | Implementation / coverage |
 | --- | --- | --- | --- |
-| Anonymous multipart upload | `POST /api/upload` | Partial | Existing streaming upload in `src/app/api/upload/route.ts`; compatibility fields and access token tracked by [#60](https://github.com/Kuboczoch/up-remastered/issues/60). |
-| MIME, filename, size, expiry persistence | `FileService.kt`, `UploadRepository.kt` | Partial | `src/server/uploads/create-upload.ts`, SQLite tests; upstream edge cases tracked by #60. |
+| Anonymous multipart upload | `POST /api/upload` | Implemented | Streaming upload plus additive `key`, `accessToken`, and `toDelete` compatibility fields; token hashes stored by migration `0002`; covered by `create-upload.test.ts`, `access-token.test.ts`, and `api/upload.spec.ts`. |
+| MIME, filename, size, expiry persistence | `FileService.kt`, `UploadRepository.kt` | Implemented | `src/server/uploads/create-upload.ts` normalizes fallback/text MIME, sanitizes names, enforces limits, and persists expiry; covered by `create-upload.test.ts`. |
 | Public download | `GET /u/{key}` | Partial | `GET/HEAD /{id}` exists in `src/app/[id]/route.ts`; upstream alias tracked by #61. |
 | Byte ranges | `RequestRangeParser.kt` | Missing | Tracked by #61; current downloader streams full content only. |
 | Public file details | `GET /api/u/{key}/details` | Missing | Tracked by #61. |

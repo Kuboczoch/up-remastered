@@ -24,7 +24,14 @@ import {
   sanitizeOriginalName,
   type PendingUploadFile,
 } from "@/server/storage/uploads";
-import { UploadRequestError } from "@/server/uploads/errors";
+import {
+  createUploadAccessToken,
+  hashUploadAccessToken,
+} from "@/server/uploads/access-token";
+import {
+  isUploadRequestError,
+  UploadRequestError,
+} from "@/server/uploads/errors";
 import { resolveUploadExpiration } from "@/server/uploads/expiration";
 import { createPublicUploadId } from "@/server/uploads/public-id";
 
@@ -39,6 +46,7 @@ type UploadLimitKind = "stored-bytes" | "upload-size";
 type BetterSqliteError = Error & { code?: string };
 
 export type CreatedUpload = {
+  accessToken: string;
   expiresAt: string;
   id: string;
   mimeType: string;
@@ -58,6 +66,29 @@ const ALLOWED_MULTIPART_FIELD_NAMES = new Set([
   TEXT_FIELD_NAME,
 ]);
 const MAX_UPLOAD_ID_ATTEMPTS = 20;
+const MAX_MULTIPART_FILES = 10;
+
+function normalizeUploadMimeType(value: string | undefined): string {
+  const [rawMediaType, ...rawParameters] = (value ?? "").split(";");
+  const mediaType = rawMediaType?.trim().toLowerCase();
+
+  if (!mediaType?.includes("/")) {
+    return "application/octet-stream";
+  }
+
+  if (mediaType !== "text/plain") {
+    return mediaType;
+  }
+
+  const charset = rawParameters
+    .map(
+      (parameter) =>
+        parameter.trim().match(/^charset=([A-Za-z0-9._-]+)$/i)?.[1],
+    )
+    .find(Boolean);
+
+  return `text/plain; charset=${charset?.toLowerCase() ?? "utf-8"}`;
+}
 
 function toNodeHeaders(headers: Headers): IncomingHttpHeaders {
   const nodeHeaders: IncomingHttpHeaders = {};
@@ -148,9 +179,8 @@ function getRawUploadName(request: Request): string {
 }
 
 function getRawUploadMimeType(request: Request): string {
-  return (
-    request.headers.get("content-type")?.split(";")[0]?.trim() ||
-    "application/octet-stream"
+  return normalizeUploadMimeType(
+    request.headers.get("content-type") ?? undefined,
   );
 }
 
@@ -222,28 +252,43 @@ async function parseMultipartUpload(
   }
 
   const fields: UploadFieldMap = new Map();
-  const parser = Busboy({
-    headers: toNodeHeaders(request.headers),
-    limits: {
-      fields: 50,
-      fieldSize: MAX_MULTIPART_FIELD_BYTES,
-      fileSize: byteLimit,
-      files: 1,
-      parts: 60,
-    },
-  });
+  let parser: ReturnType<typeof Busboy>;
+
+  try {
+    parser = Busboy({
+      headers: toNodeHeaders(request.headers),
+      limits: {
+        fields: 50,
+        fieldSize: MAX_MULTIPART_FIELD_BYTES,
+        fileSize: byteLimit,
+        files: MAX_MULTIPART_FILES,
+        parts: 60,
+      },
+    });
+  } catch {
+    throw new UploadRequestError(
+      "Malformed multipart request.",
+      400,
+      "invalid_multipart",
+    );
+  }
   const fileWrites: Promise<void>[] = [];
   let parsedContent: UploadContent | undefined;
   let uploadError: Error | undefined;
 
   parser.on("file", (fieldName, fileStream, fileInfo) => {
     if (fieldName !== FILE_FIELD_NAME) {
+      fileStream.resume();
+      return;
+    }
+
+    if (parsedContent) {
       uploadError = new UploadRequestError(
-        "File uploads must use the file form field.",
+        "Only one uploaded file is supported.",
         400,
-        "invalid_file_field",
+        "too_many_files",
       );
-      parser.destroy(uploadError);
+      fileStream.resume();
       return;
     }
 
@@ -253,18 +298,17 @@ async function parseMultipartUpload(
         400,
         "ambiguous_upload",
       );
-      parser.destroy(uploadError);
+      fileStream.resume();
       return;
     }
 
     parsedContent = {
-      mimeType: fileInfo.mimeType || "application/octet-stream",
+      mimeType: normalizeUploadMimeType(fileInfo.mimeType),
       originalName: sanitizeOriginalName(fileInfo.filename || "upload"),
       size: 0,
     };
     fileStream.on("limit", () => {
       uploadError = getUploadLimitError(limitKind);
-      parser.destroy(uploadError);
     });
 
     const writePromise = writeStreamToPendingFile(
@@ -290,12 +334,6 @@ async function parseMultipartUpload(
 
   parser.on("field", (name, value, info) => {
     if (!ALLOWED_MULTIPART_FIELD_NAMES.has(name)) {
-      uploadError = new UploadRequestError(
-        "Unsupported multipart form field.",
-        400,
-        "unsupported_form_field",
-      );
-      parser.destroy(uploadError);
       return;
     }
 
@@ -305,13 +343,11 @@ async function parseMultipartUpload(
         400,
         "ambiguous_upload",
       );
-      parser.destroy(uploadError);
       return;
     }
 
     if (info.valueTruncated) {
       uploadError = getUploadLimitError(limitKind);
-      parser.destroy(uploadError);
       return;
     }
 
@@ -348,7 +384,20 @@ async function parseMultipartUpload(
   } catch (error) {
     source.destroy(error instanceof Error ? error : undefined);
     await Promise.allSettled(fileWrites);
-    throw error;
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    if (isUploadRequestError(error)) {
+      throw error;
+    }
+
+    throw new UploadRequestError(
+      "Malformed multipart request.",
+      400,
+      "invalid_multipart",
+    );
   }
   await Promise.all(fileWrites);
 
@@ -379,7 +428,7 @@ async function parseMultipartUpload(
 
   return {
     content: {
-      mimeType: "text/plain",
+      mimeType: "text/plain; charset=utf-8",
       originalName: "text.txt",
       size,
     },
@@ -416,6 +465,7 @@ function isUploadIdCollisionError(error: unknown): boolean {
 export async function createUpload(
   request: Request,
   createId: () => string = createPublicUploadId,
+  createAccessToken: () => string = createUploadAccessToken,
 ): Promise<CreatedUpload> {
   const limits = getUploadLimits();
   ensureDatabaseMigrated();
@@ -449,6 +499,8 @@ export async function createUpload(
     );
     const now = new Date();
     const expiresAt = resolveUploadExpiration(fields, limits, now);
+    const accessToken = createAccessToken();
+    const accessTokenHash = hashUploadAccessToken(accessToken);
     let uploadId: string | undefined;
 
     for (let attempt = 0; attempt < MAX_UPLOAD_ID_ATTEMPTS; attempt += 1) {
@@ -459,6 +511,7 @@ export async function createUpload(
         const inserted = insertUploadMetadataWithinQuota(
           db,
           {
+            accessTokenHash,
             createdAt: now,
             expiresAt,
             id: candidateId,
@@ -502,6 +555,7 @@ export async function createUpload(
     }
 
     return {
+      accessToken,
       expiresAt: expiresAt.toISOString(),
       id: uploadId,
       mimeType: content.mimeType,

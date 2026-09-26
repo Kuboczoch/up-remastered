@@ -1,6 +1,7 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const uploadMetadata = sqliteTable("upload_metadata", {
+  accessTokenHash: text("access_token_hash"),
   id: text("id").primaryKey(),
   originalName: text("original_name").notNull(),
   storedName: text("stored_name").notNull(),
