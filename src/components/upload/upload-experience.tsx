@@ -16,6 +16,12 @@ import {
   type UploadResult,
 } from "@/components/upload/client-upload";
 import {
+  createTextFile,
+  DEFAULT_TEXT_ENCODING,
+  TEXT_ENCODINGS,
+  type TextEncoding,
+} from "@/components/upload/text-encoding";
+import {
   readUploadHistory,
   removeUploadHistoryEntry,
   saveUploadHistoryEntry,
@@ -64,6 +70,9 @@ export function UploadExperience({
   const [maxBytes, setMaxBytes] = useState<number | null>(initialMaxBytes);
   const [configurationWarning, setConfigurationWarning] = useState("");
   const [text, setText] = useState("");
+  const [textEncoding, setTextEncoding] = useState<TextEncoding>(
+    DEFAULT_TEXT_ENCODING,
+  );
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
   const [qrSvg, setQrSvg] = useState("");
@@ -247,16 +256,14 @@ export function UploadExperience({
       if (pastedText) {
         event.preventDefault();
         void beginUpload(
-          new File([pastedText], "pasted-text.txt", {
-            type: "text/plain;charset=utf-8",
-          }),
+          createTextFile(pastedText, "pasted-text.txt", textEncoding),
         );
       }
     };
 
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
-  }, [beginUpload, phase]);
+  }, [beginUpload, phase, textEncoding]);
 
   function reset() {
     requestSequence.current += 1;
@@ -315,9 +322,7 @@ export function UploadExperience({
     if (pastedText) {
       event.preventDefault();
       void beginUpload(
-        new File([pastedText], "pasted-text.txt", {
-          type: "text/plain;charset=utf-8",
-        }),
+        createTextFile(pastedText, "pasted-text.txt", textEncoding),
       );
     }
   }
@@ -329,9 +334,7 @@ export function UploadExperience({
       return;
     }
     void beginUpload(
-      new File([text], `text-${Date.now()}.txt`, {
-        type: "text/plain;charset=utf-8",
-      }),
+      createTextFile(text, `text-${Date.now()}.txt`, textEncoding),
     );
   }
 
@@ -414,6 +417,22 @@ export function UploadExperience({
 
           <div className="text-upload">
             <label htmlFor="text-upload">Or upload text</label>
+            <div className="text-encoding">
+              <label htmlFor="text-encoding">Text encoding</label>
+              <select
+                id="text-encoding"
+                onChange={(event) =>
+                  setTextEncoding(event.target.value as TextEncoding)
+                }
+                value={textEncoding}
+              >
+                {TEXT_ENCODINGS.map((encoding) => (
+                  <option key={encoding.value} value={encoding.value}>
+                    {encoding.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <textarea
               id="text-upload"
               onChange={(event) => setText(event.target.value)}

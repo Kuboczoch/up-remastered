@@ -44,6 +44,7 @@ test("uploads a picked file and exposes result actions", async ({
 test("uploads pasted text and clipboard files", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("Maximum 64 B")).toBeVisible();
+  await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
 
   await page.evaluate(() => {
     const data = new DataTransfer();
@@ -69,6 +70,50 @@ test("uploads pasted text and clipboard files", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "clipboard.txt" }),
   ).toBeVisible();
+});
+
+test("uses the selected encoding for pasted text bytes and MIME charset", async ({
+  page,
+}) => {
+  let uploadBody: Buffer | null = null;
+  await page.route("**/api/upload", async (route) => {
+    uploadBody = route.request().postDataBuffer();
+    await route.fulfill({
+      contentType: "application/json",
+      status: 201,
+      body: JSON.stringify({
+        accessToken: "token",
+        upload: {
+          expiresAt: "2099-01-01T00:00:00.000Z",
+          id: "A1B2C",
+          originalName: "pasted-text.txt",
+          shareUrl: "http://127.0.0.1:3000/A1B2C",
+          size: 4,
+        },
+      }),
+    });
+  });
+  await page.goto("/");
+  await page.getByLabel("Text encoding").selectOption("utf-16le");
+
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.setData("text/plain", "Aé");
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", { value: data });
+    document.querySelector(".upload-workspace")?.dispatchEvent(event);
+  });
+
+  await expect(
+    page.getByRole("heading", { name: "pasted-text.txt" }),
+  ).toBeVisible();
+  expect(uploadBody).not.toBeNull();
+  expect(uploadBody!.toString("latin1")).toContain(
+    "Content-Type: text/plain;charset=utf-16le",
+  );
+  expect(uploadBody!.includes(Buffer.from([0x41, 0x00, 0xe9, 0x00]))).toBe(
+    true,
+  );
 });
 
 test("rejects ambiguous drops and oversized files before upload", async ({

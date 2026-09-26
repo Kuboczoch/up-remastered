@@ -6,8 +6,8 @@ The homepage is a single-file upload client backed by `POST /api/upload`.
 
 - Choose one file with the native picker.
 - Drop exactly one file. Folder entries and ambiguous multi-file drops are rejected before any request.
-- Paste one clipboard file or UTF-8 plain text anywhere on the page.
-- Enter text explicitly on narrow/mobile layouts when clipboard events are unavailable.
+- Paste one clipboard file or plain text anywhere on the page. Text defaults to UTF-8; selecting UTF-16 little-endian or UTF-16 big-endian in the text-upload controls changes the bytes and `text/plain` MIME charset used for pasted text.
+- Enter text explicitly on narrow/mobile layouts when clipboard events are unavailable. The same encoding selection applies, and the generated text file has no byte-order mark.
 - The server-rendered maximum upload size is refreshed from `GET /api/configuration`; oversized files are rejected before upload.
 
 ## States

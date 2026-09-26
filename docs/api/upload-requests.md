@@ -1,0 +1,52 @@
+# Requested Upload Links
+
+Requested-upload links let one person invite one anonymous upload without creating accounts.
+
+## Capability model
+
+`POST /api/upload-requests` accepts only:
+
+```json
+{
+  "expiresAt": "2026-09-26T19:00:00.000Z",
+  "maxBytes": 1048576
+}
+```
+
+`expiresAt` must be strict UTC ISO-8601, future, and no later than `MAX_EXPIRATION_HOURS`. `maxBytes` must be an integer from 1 through `MAX_UPLOAD_SIZE`. The JSON body is capped at 1 KiB; unknown fields are rejected.
+
+A successful `201` response returns:
+
+- `uploadUrl`: uploader capability containing a random 256-bit public token;
+- `managementToken`: separate random 256-bit owner capability, shown once;
+- expiration, byte cap, and current status.
+
+Only SHA-256 token hashes are stored. Tokens never appear in logs or redirect parameters.
+
+## Uploader
+
+`GET /request/{publicToken}` displays the request only while active. `POST /api/upload-requests/{publicToken}/upload` accepts one file through the normal streaming upload pipeline. The effective limit is the minimum of request `maxBytes`, global per-upload limit, and remaining global storage quota.
+
+The server atomically claims the request before reading the upload. Concurrent reuse fails with the same non-disclosing `404 upload_request_unavailable` response used for invalid, expired, revoked, consumed, and in-progress links. A failed validation/upload releases the claim for retry. A successful upload consumes the request. If consumption loses a revocation race, the newly created upload is deleted before an unavailable response is returned.
+
+The uploader receives the ordinary upload access token for managing the uploaded file, but never receives the owner management token.
+
+## Owner
+
+Send `Authorization: Bearer {managementToken}` to:
+
+- `GET /api/upload-requests/manage` to inspect status and resulting upload ID;
+- `DELETE /api/upload-requests/manage` to revoke an unused request.
+
+Wrong or malformed owner capabilities receive the same non-disclosing 404 response. Consumed requests cannot be retroactively revoked; the uploader owns the resulting file through its separate upload access token.
+
+## Threat and abuse boundaries
+
+- Single use limits each link to one stored upload.
+- Strict expiration bounds capability lifetime.
+- Per-request and global byte quotas bound storage use.
+- Atomic SQLite claims prevent concurrent double use.
+- Request creation accepts no redirect URL, origin, filename, or executable content.
+- A process crash during an upload can leave that request conservatively locked rather than risk double use. The owner can revoke it and create another request.
+- Capability URLs are bearer secrets. Owners should transmit them over HTTPS and revoke leaked links.
+- Public deployments should additionally rate-limit request creation at the trusted reverse proxy; the app does not trust spoofable client-IP headers.

@@ -96,9 +96,7 @@
       "indexes": {
         "upload_metadata_token_unique": {
           "name": "upload_metadata_token_unique",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         }
       },

@@ -232,6 +232,23 @@ summary:focus-visible,
   color: var(--foreground);
   line-height: 1.45;
 }
+.text-encoding {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.text-encoding label {
+  font-size: 0.9rem;
+}
+.text-encoding select {
+  min-height: 2.4rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  padding: 0.45rem 2rem 0.45rem 0.65rem;
+  background: var(--surface-strong);
+  color: var(--foreground);
+}
 .upload-help {
   margin-top: 0.7rem;
   color: var(--muted);

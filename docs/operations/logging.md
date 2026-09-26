@@ -7,7 +7,13 @@
 Emit one JSON object per line. Use stable machine-readable values rather than prose.
 
 ```json
-{"level":"error","event":"upload_failed","operation":"upload","error_code":"storage_unavailable","status":500}
+{
+  "level": "error",
+  "event": "upload_failed",
+  "operation": "upload",
+  "error_code": "storage_unavailable",
+  "status": 500
+}
 ```
 
 Every application event should include `level`, `event`, and `operation`. Add a stable `error_code` and HTTP `status` when relevant. The container runtime supplies timestamps; do not add a second timestamp unless logs run outside that runtime.
