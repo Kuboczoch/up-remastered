@@ -4,7 +4,9 @@ import { expect, test } from "@playwright/test";
 test("renders the homepage greeting and structured data", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByText("hello from up - remastered")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Share one thing, quickly." }),
+  ).toBeVisible();
 
   const jsonLd = await page
     .locator('script[type="application/ld+json"]')

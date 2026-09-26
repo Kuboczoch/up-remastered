@@ -1,6 +1,13 @@
-import { cp, rm } from "node:fs/promises";
+import { cp, mkdir, rm } from "node:fs/promises";
 
-const destination = ".next/standalone/public";
+const standaloneDirectory = ".next/standalone";
+const publicDestination = `${standaloneDirectory}/public`;
+const staticDestination = `${standaloneDirectory}/.next/static`;
 
-await rm(destination, { force: true, recursive: true });
-await cp("public", destination, { recursive: true });
+await rm(publicDestination, { force: true, recursive: true });
+await rm(staticDestination, { force: true, recursive: true });
+await mkdir(`${standaloneDirectory}/.next`, { recursive: true });
+await Promise.all([
+  cp("public", publicDestination, { recursive: true }),
+  cp(".next/static", staticDestination, { recursive: true }),
+]);
