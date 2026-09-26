@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("POST /api/upload accepts multipart files", async ({ request }) => {
   const response = await request.post("/api/upload", {
     multipart: {
+      client: "upstream-compatible",
       file: {
         buffer: Buffer.from("ok"),
         mimeType: "text/plain",
@@ -14,7 +15,12 @@ test("POST /api/upload accepts multipart files", async ({ request }) => {
   expect(response.status()).toBe(201);
 
   const body = (await response.json()) as {
+    accessToken: string;
+    key: string;
+    toDelete: string;
     upload: {
+      accessToken: string;
+      expiresAt: string;
       id: string;
       originalName: string;
       shareUrl: string;
@@ -27,13 +33,19 @@ test("POST /api/upload accepts multipart files", async ({ request }) => {
     size: 2,
   });
   expect(body.upload.id).toMatch(/^[0-9A-Z]{5}$/);
+  expect(body.accessToken).toMatch(/^[a-f0-9]{128}$/);
+  expect(body.key).toBe(body.upload.id);
+  expect(body.toDelete).toBe(body.upload.expiresAt);
+  expect(body.upload.accessToken).toBe(body.accessToken);
   expect(body.upload.shareUrl).toContain(`/${body.upload.id}`);
   expect(body.upload.shareUrl).not.toContain("/api/download/");
 
   const downloadResponse = await request.get(`/${body.upload.id}`);
 
   expect(downloadResponse.status()).toBe(200);
-  expect(downloadResponse.headers()["content-type"]).toBe("text/plain");
+  expect(downloadResponse.headers()["content-type"]).toBe(
+    "text/plain; charset=utf-8",
+  );
   expect(downloadResponse.headers()["content-length"]).toBe("2");
   expect(downloadResponse.headers()["content-disposition"]).toBe(
     'attachment; filename="ok.txt"',
@@ -45,6 +57,23 @@ test("POST /api/upload accepts multipart files", async ({ request }) => {
   expect(headResponse.status()).toBe(200);
   expect(headResponse.headers()["content-length"]).toBe("2");
   expect(await headResponse.body()).toHaveLength(0);
+});
+
+test("POST /api/upload normalizes malformed multipart requests", async ({
+  request,
+}) => {
+  const response = await request.post("/api/upload", {
+    data: "broken",
+    headers: { "content-type": "multipart/form-data" },
+  });
+
+  expect(response.status()).toBe(400);
+  await expect(response.json()).resolves.toMatchObject({
+    error: {
+      code: "invalid_multipart",
+      message: "Malformed multipart request.",
+    },
+  });
 });
 
 test("POST /api/upload rejects files above the e2e upload limit", async ({

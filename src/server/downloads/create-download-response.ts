@@ -14,7 +14,7 @@ import {
 import { isPublicUploadId } from "@/server/uploads/public-id";
 
 const SAFE_MEDIA_TYPE =
-  /^[!#$%&'*+.^_`|~0-9A-Za-z-]+\/[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+  /^[!#$%&'*+.^_`|~0-9A-Za-z-]+\/[!#$%&'*+.^_`|~0-9A-Za-z-]+(?:;\s*charset=[A-Za-z0-9._-]+)?$/;
 const UNAVAILABLE_BODY = "File unavailable.\n";
 
 function unavailableResponse(): Response {
