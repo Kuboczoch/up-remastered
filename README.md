@@ -103,6 +103,7 @@ Back up both the SQLite files and uploads. See [`docs/operations/data-volume.md`
 
 Start with [`docs/ai/context.md`](docs/ai/context.md), then read only the narrow documentation for the changed scope. Examples:
 
+- [`docs/project/upstream-parity.md`](docs/project/upstream-parity.md)
 - [`docs/api/upload/requirements.md`](docs/api/upload/requirements.md)
 - [`docs/api/download/security.md`](docs/api/download/security.md)
 - [`docs/pages/route-boundaries.md`](docs/pages/route-boundaries.md)
