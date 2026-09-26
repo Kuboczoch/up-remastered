@@ -31,8 +31,12 @@ RUN mkdir -p /data/uploads && chown -R node:node /data /app
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 COPY --from=builder --chown=node:node /app/drizzle ./drizzle
+COPY --from=builder --chown=node:node /app/scripts/cleanup-expired-files.mjs ./scripts/cleanup-expired-files.mjs
 
 USER node
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 
 EXPOSE 3000
 
