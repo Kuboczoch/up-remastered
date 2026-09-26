@@ -35,6 +35,7 @@ test("tracks the homepage Lighthouse baseline", async ({
       onlyCategories: [...auditedCategories],
       output: "json",
       port: remoteDebuggingPort,
+      throttlingMethod: "provided",
       screenEmulation: {
         disabled: false,
         mobile: false,
@@ -80,6 +81,25 @@ test("tracks the homepage Lighthouse baseline", async ({
               value: lhr.audits[id]?.displayValue,
               weight,
             })),
+          lcpDiagnostics: Object.fromEntries(
+            Object.entries(lhr?.audits ?? {})
+              .filter(([id]) => /lcp|largest-contentful-paint/i.test(id))
+              .map(([id, audit]) => [
+                id,
+                {
+                  displayValue: audit.displayValue,
+                  score: audit.score,
+                  details: audit.details,
+                },
+              ]),
+          ),
+          failedInsights: Object.fromEntries(
+            Object.entries(lhr?.audits ?? {})
+              .filter(
+                ([id, audit]) => id.endsWith("-insight") && audit.score !== 1,
+              )
+              .map(([id, audit]) => [id, audit.details]),
+          ),
         },
         null,
         2,
@@ -96,6 +116,19 @@ test("tracks the homepage Lighthouse baseline", async ({
       expect(score).not.toBeNull();
       expect(score ?? 0).toBeGreaterThanOrEqual(minimumScores[category]);
     }
+
+    expect(
+      lhr?.audits["first-contentful-paint"]?.numericValue,
+    ).toBeLessThanOrEqual(1_000);
+    expect(
+      lhr?.audits["largest-contentful-paint"]?.numericValue,
+    ).toBeLessThanOrEqual(1_500);
+    expect(
+      lhr?.audits["total-blocking-time"]?.numericValue,
+    ).toBeLessThanOrEqual(200);
+    expect(
+      lhr?.audits["cumulative-layout-shift"]?.numericValue,
+    ).toBeLessThanOrEqual(0.1);
   } finally {
     await browser.close();
   }

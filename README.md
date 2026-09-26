@@ -5,12 +5,15 @@
 Implemented today:
 
 - streamed anonymous uploads through `POST /api/upload`;
-- five-character share IDs and streamed downloads from `/{ID}`;
+- responsive picker, drop, clipboard, text, progress, recovery, QR, and result UI;
+- five-character share IDs and streamed/ranged downloads from `/{ID}` and `/u/{ID}`;
+- one-time hashed access tokens with details, verify, and delete routes;
+- public configuration plus generated ShareX and POSIX shell clients;
 - SQLite metadata and local filesystem storage;
 - upload-size, total-storage, and expiration limits;
 - Docker/Compose deployment and automated CI checks.
 
-Browser upload UI, authentication/password-protected uploads, and expired-file cleanup remain planned work.
+Password-protected uploads and expired-file cleanup remain planned work. See the [browser upload requirements](docs/browser-upload/requirements.md) and [upstream parity matrix](docs/project/upstream-parity.md).
 
 ## Stack
 
