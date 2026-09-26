@@ -15,6 +15,7 @@ Database helpers create the SQLite parent directory before opening or migrating 
 Current upload metadata fields:
 
 - `id`
+- `accessTokenHash` (nullable only for rows created before the access-token migration)
 - `originalName`
 - `storedName`
 - `mimeType`

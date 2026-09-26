@@ -9,7 +9,15 @@ export async function POST(request: Request) {
   try {
     const upload = await createUpload(request);
 
-    return NextResponse.json({ upload }, { status: 201 });
+    return NextResponse.json(
+      {
+        accessToken: upload.accessToken,
+        key: upload.id,
+        toDelete: upload.expiresAt,
+        upload,
+      },
+      { status: 201 },
+    );
   } catch (error) {
     if (isUploadRequestError(error)) {
       return NextResponse.json(

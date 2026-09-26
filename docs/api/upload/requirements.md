@@ -24,7 +24,11 @@ Response success shape:
 
 ```json
 {
+  "key": "A7K2Q",
+  "accessToken": "opaque 128-character token",
+  "toDelete": "2026-05-17T14:00:00.000Z",
   "upload": {
+    "accessToken": "opaque 128-character token",
     "id": "A7K2Q",
     "originalName": "example.zip",
     "mimeType": "application/zip",
@@ -38,6 +42,9 @@ Response success shape:
 Rules:
 
 - No authentication or authorization is required.
+- Generate a cryptographically random 128-character `accessToken` for each upload. Return it once and store only its SHA-256 hash in SQLite.
+- `key` aliases `upload.id`, and `toDelete` aliases `upload.expiresAt`, for current upstream client compatibility.
+- Successful uploads retain the remastered `201 Created` status and nested `upload` object.
 - `id` is the only upload identifier used by API, SQLite metadata, and filesystem storage.
 - `id` is exactly five characters from `0-9A-Z`, e.g. `A7K2Q`.
 - `id` is the SQLite primary key and the basis for the stored filename.

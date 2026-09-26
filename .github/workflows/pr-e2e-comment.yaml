@@ -46,8 +46,8 @@ jobs:
           Path("comment.json").write_text(json.dumps({"body": body}))
           PY
 
-          comment_id=$(gh api "repos/$REPOSITORY/issues/$PR_NUMBER/comments" --paginate --slurp --jq \
-            'flatten | map(select(.user.login == "github-actions[bot]" and (.body | contains("<!-- up-remastered-e2e-report -->"))))[0].id // empty')
+          comment_id=$(gh api "repos/$REPOSITORY/issues/$PR_NUMBER/comments?per_page=100" --jq \
+            'map(select(.user.login == "github-actions[bot]" and (.body | contains("<!-- up-remastered-e2e-report -->"))))[0].id // empty')
 
           if [ -n "$comment_id" ]; then
             gh api --method PATCH "repos/$REPOSITORY/issues/comments/$comment_id" --input comment.json
