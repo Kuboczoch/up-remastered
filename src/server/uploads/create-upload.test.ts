@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { uploadMetadata } from "@/server/db/schema";
+import { hashUploadAccessToken } from "@/server/uploads/access-token";
 import { createUpload } from "@/server/uploads/create-upload";
 import { UploadRequestError } from "@/server/uploads/errors";
 
@@ -96,18 +97,25 @@ function readUploadRow(id: string) {
 }
 
 describe("createUpload", () => {
-  it("streams multipart files to disk and writes SQLite metadata", async () => {
-    const upload = await createUpload(createMultipartRequest("hello"));
+  it("streams multipart files to disk and writes hashed token metadata", async () => {
+    const accessToken = "a".repeat(128);
+    const upload = await createUpload(
+      createMultipartRequest("hello"),
+      undefined,
+      () => accessToken,
+    );
     const row = readUploadRow(upload.id);
 
     expect(upload).toMatchObject({
-      mimeType: "text/plain",
+      accessToken,
+      mimeType: "text/plain; charset=utf-8",
       originalName: "hello.txt",
       shareUrl: `http://localhost:3000/${upload.id}`,
       size: 5,
     });
     expect(upload.id).toMatch(/^[0-9A-Z]{5}$/);
     expect(row).toMatchObject({
+      accessTokenHash: hashUploadAccessToken(accessToken),
       id: upload.id,
       originalName: "hello.txt",
       size: 5,
@@ -138,18 +146,72 @@ describe("createUpload", () => {
     ).resolves.toBe("second");
   });
 
+  it("persists simultaneous upload requests without breaking SQLite", async () => {
+    const uploads = await Promise.all(
+      Array.from({ length: 8 }, (_, index) =>
+        createUpload(createRawRequest(`parallel-${index}`)),
+      ),
+    );
+
+    expect(new Set(uploads.map(({ id }) => id)).size).toBe(8);
+    for (const upload of uploads) {
+      expect(readUploadRow(upload.id)).toMatchObject({ id: upload.id });
+    }
+  });
+
   it("accepts raw text uploads", async () => {
     const upload = await createUpload(createRawRequest("hello from cli"));
     const row = readUploadRow(upload.id);
 
     expect(upload).toMatchObject({
-      mimeType: "text/plain",
+      mimeType: "text/plain; charset=utf-8",
       originalName: "note.txt",
       size: 14,
     });
     await expect(readFile(row?.storagePath ?? "", "utf8")).resolves.toBe(
       "hello from cli",
     );
+  });
+
+  it("ignores bounded extra multipart fields and file parts", async () => {
+    const form = new FormData();
+    form.set("client", "upstream");
+    form.set("preview", new Blob(["ignored"]), "preview.txt");
+    form.set("file", new Blob(["kept"]), "kept.bin");
+    const request = new Request("http://localhost:3000/api/upload", {
+      body: form,
+      method: "POST",
+    });
+
+    const upload = await createUpload(request);
+
+    expect(upload).toMatchObject({ originalName: "kept.bin", size: 4 });
+  });
+
+  it("falls back to application/octet-stream for missing MIME", async () => {
+    const form = new FormData();
+    form.set("file", new Blob(["data"]), "unknown.bin");
+    const request = new Request("http://localhost:3000/api/upload", {
+      body: form,
+      method: "POST",
+    });
+
+    await expect(createUpload(request)).resolves.toMatchObject({
+      mimeType: "application/octet-stream",
+    });
+  });
+
+  it("normalizes malformed multipart requests", async () => {
+    const request = new Request("http://localhost:3000/api/upload", {
+      body: "broken",
+      headers: { "content-type": "multipart/form-data" },
+      method: "POST",
+    });
+
+    await expect(createUpload(request)).rejects.toMatchObject({
+      code: "invalid_multipart",
+      status: 400,
+    } satisfies Partial<UploadRequestError>);
   });
 
   it("rejects empty raw uploads", async () => {
