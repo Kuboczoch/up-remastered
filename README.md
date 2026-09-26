@@ -105,6 +105,7 @@ Start with [`docs/ai/context.md`](docs/ai/context.md), then read only the narrow
 
 - [`docs/project/upstream-parity.md`](docs/project/upstream-parity.md)
 - [`docs/api/upload/requirements.md`](docs/api/upload/requirements.md)
+- [`docs/api/configuration-and-clients.md`](docs/api/configuration-and-clients.md)
 - [`docs/api/download/security.md`](docs/api/download/security.md)
 - [`docs/pages/route-boundaries.md`](docs/pages/route-boundaries.md)
 - [`docs/operations/logging.md`](docs/operations/logging.md)

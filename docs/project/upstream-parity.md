@@ -24,10 +24,10 @@ Status meanings:
 | Public file details | `GET /api/u/{key}/details` | Implemented | Public non-secret metadata with expired/missing 404; management unit/API coverage. |
 | Access-token verification | `POST /api/u/{key}/verify` | Implemented | Timing-safe hash verification, structured 400/403/404, and upstream success shape. |
 | Token-protected deletion | `DELETE /api/u/{key}` | Implemented | Tombstone rename, metadata deletion, and failure rollback; unit/API coverage. |
-| Public upload configuration | `GET /api/configuration` | Missing | Tracked by #62. |
-| Admin configuration | `GET/PATCH /api/admin/config` | Superseded/dead upstream path | Current upstream removed authentication in PR #248, leaving these role-guarded routes unreachable. No insecure replacement will be invented; disposition is documented in #62. |
-| ShareX configuration | `GET /sharex` | Missing | Tracked by #62. |
-| Shell upload helper | `GET /sh` | Missing | Tracked by #62. |
+| Public upload configuration | `GET /api/configuration` | Implemented | Validated limits exposed in upstream field names/units; generator unit tests and `utilities.spec.ts`. |
+| Admin configuration | `GET/PATCH /api/admin/config` | Explicitly excluded dead upstream path | Current upstream PR #248 removed authentication, leaving these role-guarded routes unreachable; `configuration-and-clients.md` records why environment-owned configuration is retained. |
+| ShareX configuration | `GET /sharex` | Implemented | Generated serialized config targets `/api/upload` and `/u/$json:key$`; unit/E2E coverage. |
+| Shell upload helper | `GET /sh` | Implemented safer | POSIX helper quotes paths, fails on HTTP errors, validates response keys, and has syntax/execution/E2E coverage. |
 | Upload chooser and drag/drop UI | `next-app` upload containers | Missing | Homepage is still a placeholder; tracked by #63. |
 | Clipboard file/text upload | `FileUploadProvider.tsx` | Missing | Tracked by #63, including macOS and mobile open issues. |
 | Upload progress and result UI | upload box components | Missing | Tracked by #63: progress/title, URL, copy/open, QR, expiry, reset. |
