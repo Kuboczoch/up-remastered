@@ -19,6 +19,8 @@ Planned later: local filesystem uploads under `/data/uploads`, password hashing,
 
 ## Development
 
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for contributor setup, validation, and pull request conventions.
+
 ```bash
 corepack enable
 pnpm install
