@@ -48,6 +48,36 @@ test("has no browser-level accessibility violations", async ({ page }) => {
   expect(results.violations).toEqual([]);
 });
 
+test("serves browser icons and the web manifest", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(
+    page.locator('link[rel="icon"][href*="favicon.ico"]'),
+  ).toHaveCount(1);
+  await expect(
+    page.locator('link[rel="apple-touch-icon"][href*="apple-icon"]'),
+  ).toHaveCount(1);
+
+  const manifestHref = await page
+    .locator('link[rel="manifest"]')
+    .getAttribute("href");
+  const response = await page.request.get(manifestHref ?? "");
+
+  expect(response.ok()).toBe(true);
+  expect(await response.json()).toMatchObject({
+    name: "up - remastered",
+    short_name: "up",
+    start_url: "/",
+    display: "standalone",
+  });
+
+  for (const iconPath of ["/icons/icon-192.png", "/icons/icon-512.png"]) {
+    const iconResponse = await page.request.get(iconPath);
+    expect(iconResponse.ok()).toBe(true);
+    expect(iconResponse.headers()["content-type"]).toContain("image/png");
+  }
+});
+
 test("renders an intentional not-found page", async ({ page }) => {
   const response = await page.goto("/this-route/does-not-exist");
 

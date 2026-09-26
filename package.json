@@ -7,7 +7,7 @@
   "packageManager": "pnpm@11.1.2",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/copy-standalone-assets.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "start": "next start",

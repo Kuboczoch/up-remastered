@@ -7,6 +7,7 @@ Requirements:
 - Use Node 24.14.
 - Build dependencies with pnpm and the committed `pnpm-lock.yaml`.
 - Build Next.js with `output: "standalone"`.
+- Copy `public/` into the standalone output and place `.next/static/` beside the deployed standalone server so it serves all browser assets.
 - Mount host `./data` to container `/data`.
 - Keep SQLite database at `/data/app.db`.
 - Keep uploaded files under `/data/uploads`.
