@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 
-import { siteDescription, siteName } from "@/config/site";
+import { createSiteMetadata } from "@/config/site-metadata";
+import { getPublicOrigin } from "@/server/config/public-url";
 
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: siteName,
-  description: siteDescription,
-};
+export function generateMetadata(): Metadata {
+  return createSiteMetadata(getPublicOrigin());
+}
 
 export default function RootLayout({
   children,

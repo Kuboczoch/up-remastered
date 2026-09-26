@@ -16,6 +16,28 @@ test("renders the homepage greeting and structured data", async ({ page }) => {
     name: "up - remastered",
     url: "http://127.0.0.1:3000/",
   });
+
+  const canonicalUrl = new URL(
+    (await page.locator('link[rel="canonical"]').getAttribute("href")) ?? "",
+  );
+  expect(canonicalUrl.origin).toBe("http://127.0.0.1:3000");
+  expect(canonicalUrl.pathname).toBe("/");
+
+  await expect(page.locator('meta[property="og:type"]')).toHaveAttribute(
+    "content",
+    "website",
+  );
+
+  const openGraphUrl = new URL(
+    (await page.locator('meta[property="og:url"]').getAttribute("content")) ??
+      "",
+  );
+  expect(openGraphUrl.origin).toBe("http://127.0.0.1:3000");
+  expect(openGraphUrl.pathname).toBe("/");
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+    "content",
+    "summary",
+  );
 });
 
 test("has no browser-level accessibility violations", async ({ page }) => {
