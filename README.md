@@ -82,9 +82,10 @@ SQLite stores metadata at `DATABASE_URL`; uploaded bytes stay under `UPLOAD_DIR`
 
 ## Docker Compose
 
-Build and start the service:
+Copy the example configuration, then build and start the service:
 
 ```bash
+cp .env.example .env
 docker compose up --build -d
 docker compose logs -f up
 ```
@@ -108,7 +109,22 @@ data/app.db
 data/uploads/
 ```
 
-The one-shot `init-data` service safely prepares a fresh bind mount for the non-root app. Set `UP_DATA_DIR=/absolute/path` to use another host directory.
+The one-shot `init-data` service safely prepares a fresh bind mount for the non-root app. Compose reads these deployment settings from `.env`:
+
+- `UP_DATA_DIR` selects the persistent host directory;
+- `UP_BIND_ADDRESS` and `UP_PORT` select the published listener;
+- `UP_PUBLIC_ORIGIN` must match the public HTTP(S) URL used by clients;
+- upload, storage, and expiration limits use the runtime variables listed above.
+
+For a reverse proxy on the same host, bind only to loopback and set the external origin, for example:
+
+```dotenv
+UP_BIND_ADDRESS=127.0.0.1
+UP_PORT=3000
+UP_PUBLIC_ORIGIN=https://up.example.com
+```
+
+Forward the proxy to `http://127.0.0.1:3000`. Keep TLS and authentication policy at the proxy. Do not expose the listener directly unless that is intentional.
 
 Back up both the SQLite files and uploads. See [`docs/operations/data-volume.md`](docs/operations/data-volume.md).
 

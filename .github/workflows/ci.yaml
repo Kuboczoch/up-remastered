@@ -156,6 +156,9 @@ jobs:
         with:
           fetch-depth: 2
 
+      - name: Validate Docker Compose model
+        run: docker compose config --quiet
+
       - name: Build production Docker image
         run: docker build --pull --tag up-remastered:ci .
 
