@@ -1,6 +1,6 @@
 # Project Overview
 
-`up - remastered` (`up`) is a self-hosted temporary file hosting service and a JavaScript/TypeScript rewrite of `Starchasers/up` without a Kotlin/JVM backend.
+`Up - Remastered` (`up`) is a self-hosted temporary file hosting service and a JavaScript/TypeScript rewrite of `Starchasers/up` without a Kotlin/JVM backend.
 
 Current capabilities:
 

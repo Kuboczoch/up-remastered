@@ -4,9 +4,9 @@ Root metadata is generated at request time from the validated `UP_PUBLIC_ORIGIN`
 
 The homepage publishes:
 
-- its accurate product title and description
+- its exact `Up - Remastered` product title and description
 - an absolute canonical URL
 - Open Graph `website` title, description, site name, and URL
 - a Twitter `summary` card with the same title and description
 
-Social image fields stay absent until a repository-owned image ships. Unit tests cover the metadata model; Playwright verifies resolved canonical, Open Graph, and Twitter tags from the production server.
+Social image fields stay absent until a repository-owned image ships. Unit tests cover the metadata model; Playwright verifies the browser title plus resolved canonical, Open Graph, and Twitter tags from the production server.

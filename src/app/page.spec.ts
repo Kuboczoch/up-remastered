@@ -11,6 +11,7 @@ test("renders the homepage greeting and structured data", async ({
   await expect(
     page.getByRole("heading", { name: "Share a file." }),
   ).toBeVisible();
+  await expect(page).toHaveTitle("Up - Remastered");
 
   const jsonLd = await page
     .locator('script[type="application/ld+json"]')
@@ -19,7 +20,7 @@ test("renders the homepage greeting and structured data", async ({
   expect(JSON.parse(jsonLd ?? "null")).toMatchObject({
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "up - remastered",
+    name: "Up - Remastered",
     url: `${expectedOrigin}/`,
   });
 
@@ -58,7 +59,7 @@ test("serves browser icons and the web manifest", async ({ page }) => {
   await page.goto("/");
 
   const brandMark = page
-    .getByRole("link", { name: "up remastered home" })
+    .getByRole("link", { name: "Up - Remastered home" })
     .locator("img");
   await expect(brandMark).toBeVisible();
   await expect(brandMark).toHaveAttribute("src", "/brand-mark.svg");
@@ -88,7 +89,7 @@ test("serves browser icons and the web manifest", async ({ page }) => {
   expect(response.ok()).toBe(true);
   const webManifest = await response.json();
   expect(webManifest).toMatchObject({
-    name: "up - remastered",
+    name: "Up - Remastered",
     short_name: "up",
     start_url: "/",
     display: "standalone",
@@ -101,6 +102,12 @@ test("serves browser icons and the web manifest", async ({ page }) => {
     expect(iconResponse.headers()["content-type"]).toContain("image/png");
     expect((await iconResponse.body()).byteLength).toBeGreaterThan(0);
   }
+});
+
+test("gives request routes descriptive product titles", async ({ page }) => {
+  await page.goto("/request/new");
+
+  await expect(page).toHaveTitle("Request a file | Up - Remastered");
 });
 
 test("renders an intentional not-found page", async ({ page }) => {

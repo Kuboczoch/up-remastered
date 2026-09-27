@@ -1,4 +1,4 @@
-# up - remastered
+# Up - Remastered
 
 `up` is a small self-hosted temporary file hosting service. It uses a TypeScript/Next.js backend instead of the original Kotlin service.
 

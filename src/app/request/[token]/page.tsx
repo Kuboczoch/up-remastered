@@ -1,12 +1,17 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { createPageTitle } from "@/config/site";
 import { getActiveRequestedUpload } from "@/server/upload-requests/requested-upload";
 
 import styles from "../request.module.css";
 import { RequestedUploadForm } from "./requested-upload-form";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: createPageTitle("Upload a requested file"),
+};
 
 export default async function RequestedUploadPage({
   params,
