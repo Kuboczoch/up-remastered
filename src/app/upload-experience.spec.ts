@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 test("uploads a picked file and exposes result actions", async ({
@@ -70,7 +71,9 @@ test("uploads a picked file and exposes result actions", async ({
 test("uploads pasted text and clipboard files", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Text" }).click();
+  await expect(page.getByLabel("Or upload text")).toBeVisible();
   await expect(page.getByText("64 B max")).toBeVisible();
+  await page.getByText("Advanced options").click();
   await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
 
   await page.evaluate(() => {
@@ -122,6 +125,8 @@ test("uses the selected encoding for pasted text bytes and MIME charset", async 
   });
   await page.goto("/");
   await page.getByRole("button", { name: "Text" }).click();
+  await expect(page.getByLabel("Or upload text")).toBeVisible();
+  await page.getByText("Advanced options").click();
   await page.getByLabel("Text encoding").selectOption("utf-16le");
 
   await page.evaluate(() => {
@@ -142,6 +147,38 @@ test("uses the selected encoding for pasted text bytes and MIME charset", async 
   expect(uploadBody!.includes(Buffer.from([0x41, 0x00, 0xe9, 0x00]))).toBe(
     true,
   );
+});
+
+test("keeps advanced settings collapsed, accessible, and narrow-layout safe", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto("/");
+
+  const details = page.locator("details.advanced-options");
+  const summary = page.getByText("Advanced options");
+  await expect(details).not.toHaveAttribute("open", "");
+  await expect(page.getByLabel("Text encoding")).toBeHidden();
+  await expect(page.getByRole("link", { name: "ShareX config" })).toBeHidden();
+
+  await summary.focus();
+  await expect(summary).toBeFocused();
+  await page.keyboard.press("Enter");
+
+  await expect(details).toHaveAttribute("open", "");
+  await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
+  await expect(
+    page.getByRole("navigation", { name: "Upload integrations" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Shell helper" })).toBeVisible();
+  expect(
+    await details.evaluate(
+      (element) => element.getBoundingClientRect().right <= window.innerWidth,
+    ),
+  ).toBe(true);
+
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
 });
 
 test("rejects ambiguous drops and oversized files before upload", async ({
