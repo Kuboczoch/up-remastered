@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { axe } from "jest-axe";
 
 import Home from "./page";
@@ -26,27 +26,29 @@ describe("Home", () => {
       'script[type="application/ld+json"]',
     );
 
-    expect(
-      getByRole("heading", { name: "Share one thing, quickly." }),
-    ).toBeTruthy();
+    expect(getByRole("heading", { name: "Share a file." })).toBeTruthy();
     await waitFor(() => {
       expect(getByLabelText("Choose file")).toBeTruthy();
-      expect(getByLabelText("Or upload text")).toBeTruthy();
-      expect(getByText("Maximum 1.0 KiB")).toBeTruthy();
+      expect(getByText("1.0 KiB max")).toBeTruthy();
     });
-    expect(JSON.parse(script?.textContent ?? "null")).toMatchObject({
+    fireEvent.click(getByRole("button", { name: "Text" }));
+    expect(getByLabelText("Or upload text")).toBeTruthy();
+    const structuredData = JSON.parse(script?.textContent ?? "null") as {
+      url: string;
+    };
+    expect(structuredData).toMatchObject({
       "@context": "https://schema.org",
       "@type": "WebSite",
       name: "up - remastered",
-      url: "http://localhost:3000/",
     });
+    expect(new URL(structuredData.url).pathname).toBe("/");
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
   });
 
   it("has no component-level accessibility violations", async () => {
     const { container, getByText } = render(<Home />);
-    await waitFor(() => expect(getByText("Maximum 1.0 KiB")).toBeTruthy());
+    await waitFor(() => expect(getByText("1.0 KiB max")).toBeTruthy());
     const results = await axe(container);
 
     expect(results.violations).toEqual([]);

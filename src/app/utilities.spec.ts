@@ -27,15 +27,17 @@ test("does not expose upstream's unreachable admin configuration", async ({
 });
 
 test("generates ShareX and shell upload clients for the public origin", async ({
+  baseURL,
   request,
 }) => {
+  const expectedOrigin = new URL(baseURL ?? "http://127.0.0.1:3000").origin;
   const shareXResponse = await request.get("/sharex");
   expect(shareXResponse.status()).toBe(200);
   expect(shareXResponse.headers()["content-disposition"]).toContain("up.sxcu");
   await expect(shareXResponse.json()).resolves.toMatchObject({
     FileFormName: "file",
-    RequestURL: "http://127.0.0.1:3000/api/upload",
-    URL: "http://127.0.0.1:3000/u/$json:key$",
+    RequestURL: `${expectedOrigin}/api/upload`,
+    URL: `${expectedOrigin}/u/$json:key$`,
   });
 
   const shellResponse = await request.get("/sh");
@@ -45,6 +47,6 @@ test("generates ShareX and shell upload clients for the public origin", async ({
   );
   const script = await shellResponse.text();
   expect(script).toContain("curl --fail-with-body --silent --show-error");
-  expect(script).toContain("http://127.0.0.1:3000/api/upload");
+  expect(script).toContain(`${expectedOrigin}/api/upload`);
   expect(script).toContain("Usage: $0 FILE");
 });

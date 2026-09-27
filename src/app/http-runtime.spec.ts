@@ -52,7 +52,7 @@ test("compresses framework HTML in the production server", async ({
 }) => {
   const origin = new URL(baseURL ?? "http://127.0.0.1:3000");
   const frameworkResponses = [
-    { content: "Share one thing, quickly.", path: "/", status: 200 },
+    { content: "Share a file.", path: "/", status: 200 },
     {
       content: "Page not found",
       path: "/this-route/does-not-exist",
@@ -82,7 +82,7 @@ test("compresses framework HTML in the production server", async ({
   expect(encoding).toMatch(/^(br|gzip)$/);
   expect(
     decompress(negotiatedResponse.body, String(encoding)).toString(),
-  ).toContain("Share one thing, quickly.");
+  ).toContain("Share a file.");
 });
 
 test("does not grant wildcard cross-origin access", async ({ request }) => {

@@ -95,4 +95,24 @@ describe("upload history", () => {
       { id: "BBBBB" },
     ]);
   });
+
+  it("degrades gracefully when browser storage is unavailable", () => {
+    const unavailable = {
+      getItem: () => {
+        throw new DOMException("blocked");
+      },
+      removeItem: () => {
+        throw new DOMException("blocked");
+      },
+      setItem: () => {
+        throw new DOMException("blocked");
+      },
+    };
+
+    expect(readUploadHistory(unavailable, NOW)).toEqual([]);
+    expect(
+      saveUploadHistoryEntry(unavailable, upload("AAAAA"), NOW),
+    ).toMatchObject([{ id: "AAAAA" }]);
+    expect(removeUploadHistoryEntry(unavailable, "AAAAA", NOW)).toEqual([]);
+  });
 });

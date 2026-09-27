@@ -1,7 +1,35 @@
 import type { UploadResult } from "./client-upload";
 
-const STORAGE_KEY = "up-remastered:upload-history:v1";
+export const UPLOAD_HISTORY_STORAGE_KEY = "up-remastered:upload-history:v1";
+const STORAGE_KEY = UPLOAD_HISTORY_STORAGE_KEY;
 const MAX_ENTRIES = 50;
+
+function safeGet(storage: Pick<Storage, "getItem">): string | null {
+  try {
+    return storage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function safeSet(
+  storage: Pick<Storage, "setItem">,
+  entries: UploadHistoryEntry[],
+): void {
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  } catch {
+    // History is optional; uploads must work when storage is unavailable.
+  }
+}
+
+function safeRemove(storage: Pick<Storage, "removeItem">): void {
+  try {
+    storage.removeItem(STORAGE_KEY);
+  } catch {
+    // Storage can be unavailable in private or restricted browser contexts.
+  }
+}
 
 export type UploadHistoryEntry = UploadResult & {
   savedAt: string;
@@ -42,7 +70,7 @@ export function readUploadHistory(
   storage: Pick<Storage, "getItem" | "removeItem" | "setItem">,
   now = Date.now(),
 ): UploadHistoryEntry[] {
-  const stored = storage.getItem(STORAGE_KEY);
+  const stored = safeGet(storage);
   if (!stored) return [];
 
   try {
@@ -52,10 +80,10 @@ export function readUploadHistory(
       .filter(isEntry)
       .filter((entry) => Date.parse(entry.expiresAt) > now)
       .slice(0, MAX_ENTRIES);
-    storage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    safeSet(storage, entries);
     return entries;
   } catch {
-    storage.removeItem(STORAGE_KEY);
+    safeRemove(storage);
     return [];
   }
 }
@@ -70,7 +98,7 @@ export function saveUploadHistoryEntry(
     entry,
     ...readUploadHistory(storage, now).filter(({ id }) => id !== upload.id),
   ].slice(0, MAX_ENTRIES);
-  storage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  safeSet(storage, entries);
   return entries;
 }
 
@@ -82,6 +110,6 @@ export function removeUploadHistoryEntry(
   const entries = readUploadHistory(storage, now).filter(
     (entry) => entry.id !== id,
   );
-  storage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  safeSet(storage, entries);
   return entries;
 }

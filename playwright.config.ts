@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const port = 3000;
+const port = Number(process.env.PORT ?? 3000);
 const baseURL = `http://127.0.0.1:${port}`;
 const e2eDataDir = join(process.cwd(), ".playwright-data");
 
