@@ -390,7 +390,7 @@ textarea::placeholder {
   gap: 8px 14px;
 }
 .advanced-options-content a {
-  color: #425268;
+  color: var(--accent);
   font-weight: 700;
   text-underline-offset: 3px;
 }
