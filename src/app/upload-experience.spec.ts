@@ -46,10 +46,25 @@ test("uploads a picked file and exposes result actions", async ({
     shareUrl,
   );
 
-  await page.getByRole("button", { name: "Upload another" }).click();
+  const copyButton = page.getByRole("button", { name: "Copied" });
+  await copyButton.focus();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("link", { name: "Open file" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: "Show QR code" }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  const startAnotherButton = page.getByRole("button", {
+    name: "Upload another file",
+  });
+  await expect(startAnotherButton).toBeFocused();
+
+  await startAnotherButton.click();
   await expect(
     page.getByRole("heading", { name: "Upload a file" }),
   ).toBeVisible();
+  await expect(page.locator("#file-picker")).toBeFocused();
 });
 
 test("uploads pasted text and clipboard files", async ({ page }) => {
@@ -69,7 +84,7 @@ test("uploads pasted text and clipboard files", async ({ page }) => {
     page.getByRole("heading", { name: "pasted-text.txt" }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Upload another" }).click();
+  await page.getByRole("button", { name: "Upload another file" }).click();
   await page.evaluate(() => {
     const data = new DataTransfer();
     data.items.add(
@@ -201,7 +216,22 @@ test("shows upload percentage in the title and supports mobile text upload", asy
   ).toBeVisible();
   await expect(page).toHaveTitle("Up - Remastered");
 
-  await page.getByRole("button", { name: "Upload another" }).click();
+  const openFile = page.getByRole("link", { name: "Open file" });
+  const startAnother = page.getByRole("button", {
+    name: "Upload another file",
+  });
+  const [openFileBox, startAnotherBox] = await Promise.all([
+    openFile.boundingBox(),
+    startAnother.boundingBox(),
+  ]);
+  expect(openFileBox).not.toBeNull();
+  expect(startAnotherBox).not.toBeNull();
+  expect((startAnotherBox?.y ?? 0) > (openFileBox?.y ?? 0)).toBe(true);
+  expect(
+    (startAnotherBox?.x ?? 0) + (startAnotherBox?.width ?? 0),
+  ).toBeLessThanOrEqual(390);
+
+  await startAnother.click();
   await page.getByLabel("Or upload text").fill("cancelled upload");
   await page.getByRole("button", { name: "Upload text" }).click();
   await expect(page).toHaveTitle(/\d+% · Up - Remastered/);
