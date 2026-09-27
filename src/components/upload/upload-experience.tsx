@@ -440,15 +440,10 @@ export function UploadExperience({
         </p>
       )}
       <div className="workspace-heading">
-        <h1>
-          {phase === "success"
-            ? "Ready to share."
-            : phase === "uploading"
-              ? "Uploading file."
-              : phase === "error"
-                ? "Upload interrupted."
-                : "Share a file."}
-        </h1>
+        <div className="workspace-copy">
+          <h1>Share temporary files and text.</h1>
+          <p>Everything expires automatically. No account required.</p>
+        </div>
         {(phase === "idle" || phase === "error") && (
           <div className="mode-switch" role="group" aria-label="Upload type">
             <button

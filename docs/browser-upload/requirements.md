@@ -2,6 +2,8 @@
 
 The homepage is a single-file upload client backed by `POST /api/upload`.
 
+Its heading states that the service shares temporary files and text. Supporting copy makes automatic expiry and the lack of an account requirement explicit. This hierarchy shares the upload card's width, keeps one descriptive H1, and wraps without horizontal overflow at narrow viewports.
+
 ## Inputs
 
 - Choose one file with the native picker.

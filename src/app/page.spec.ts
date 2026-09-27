@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-test("renders the homepage greeting and structured data", async ({
+test("renders the homepage value proposition and structured data", async ({
   baseURL,
   page,
 }) => {
@@ -9,8 +9,12 @@ test("renders the homepage greeting and structured data", async ({
   const expectedOrigin = new URL(baseURL ?? "http://127.0.0.1:3000").origin;
 
   await expect(
-    page.getByRole("heading", { name: "Share a file." }),
+    page.getByRole("heading", { name: "Share temporary files and text." }),
   ).toBeVisible();
+  await expect(
+    page.getByText("Everything expires automatically. No account required."),
+  ).toBeVisible();
+  await expect(page.locator("h1")).toHaveCount(1);
   await expect(page).toHaveTitle("Up - Remastered");
 
   const jsonLd = await page
@@ -45,6 +49,35 @@ test("renders the homepage greeting and structured data", async ({
     "content",
     "summary",
   );
+});
+
+test("keeps the homepage hierarchy aligned and readable across viewports", async ({
+  page,
+}) => {
+  const heading = page.getByRole("heading", {
+    name: "Share temporary files and text.",
+  });
+  const card = page.locator(".upload-card");
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/");
+
+  const wideHeading = await heading.boundingBox();
+  const wideCard = await card.boundingBox();
+  expect(wideHeading).not.toBeNull();
+  expect(wideCard).not.toBeNull();
+  expect(wideHeading?.x).toBe(wideCard?.x);
+  expect(wideHeading?.width).toBeLessThanOrEqual(wideCard?.width ?? 0);
+
+  await page.setViewportSize({ width: 320, height: 900 });
+
+  const narrowHeading = await heading.boundingBox();
+  const narrowCard = await card.boundingBox();
+  expect(narrowHeading).not.toBeNull();
+  expect(narrowCard).not.toBeNull();
+  expect(narrowHeading?.x).toBe(narrowCard?.x);
+  expect(narrowHeading?.width).toBeLessThanOrEqual(narrowCard?.width ?? 0);
+  expect(narrowHeading?.height).toBeGreaterThan(wideHeading?.height ?? 0);
 });
 
 test("has no browser-level accessibility violations", async ({ page }) => {
