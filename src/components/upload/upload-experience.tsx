@@ -36,8 +36,8 @@ type PublicConfiguration = {
 
 type Phase = "idle" | "uploading" | "success" | "error";
 
-function isDirectoryDrop(event: DragEvent<HTMLElement>): boolean {
-  return Array.from(event.dataTransfer.items).some((item) => {
+function isDirectoryDrop(dataTransfer: DataTransfer): boolean {
+  return Array.from(dataTransfer.items).some((item) => {
     const entry = (
       item as DataTransferItem & {
         webkitGetAsEntry?: () => { isDirectory?: boolean } | null;
@@ -45,6 +45,28 @@ function isDirectoryDrop(event: DragEvent<HTMLElement>): boolean {
     ).webkitGetAsEntry?.();
     return entry?.isDirectory === true;
   });
+}
+
+function isValidFileDrag(
+  dataTransfer: DataTransfer,
+  maxBytes: number | null,
+): boolean {
+  if (!Array.from(dataTransfer.types).includes("Files")) {
+    return false;
+  }
+
+  const fileItems = Array.from(dataTransfer.items).filter(
+    (item) => item.kind === "file",
+  );
+  if (fileItems.length > 0 && fileItems.length !== 1) {
+    return false;
+  }
+  if (isDirectoryDrop(dataTransfer)) {
+    return false;
+  }
+
+  const file = dataTransfer.files[0] ?? fileItems[0]?.getAsFile();
+  return !file || maxBytes === null || file.size <= maxBytes;
 }
 
 function expirationLabel(expiresAt: string, now: number): string {
@@ -93,12 +115,18 @@ export function UploadExperience({
   const [isOnline, setIsOnline] = useState(true);
   const [now, setNow] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
+  const dragDepthRef = useRef(0);
   const errorHeadingRef = useRef<HTMLHeadingElement>(null);
   const resultHeadingRef = useRef<HTMLHeadingElement>(null);
   const restorePickerFocusRef = useRef(false);
   const abortRef = useRef<(() => void) | null>(null);
   const requestSequence = useRef(0);
   const originalTitle = useRef(siteName);
+
+  const resetDragState = useCallback(() => {
+    dragDepthRef.current = 0;
+    setDragActive(false);
+  }, []);
 
   useEffect(() => {
     originalTitle.current = document.title;
@@ -149,6 +177,28 @@ export function UploadExperience({
       window.removeEventListener("offline", updateOnlineStatus);
     };
   }, []);
+
+  useEffect(() => {
+    const leaveWindow = (event: globalThis.DragEvent) => {
+      if (
+        event.target === document.documentElement ||
+        event.target === document.body
+      ) {
+        resetDragState();
+      }
+    };
+
+    window.addEventListener("blur", resetDragState);
+    window.addEventListener("dragend", resetDragState);
+    window.addEventListener("drop", resetDragState);
+    document.addEventListener("dragleave", leaveWindow);
+    return () => {
+      window.removeEventListener("blur", resetDragState);
+      window.removeEventListener("dragend", resetDragState);
+      window.removeEventListener("drop", resetDragState);
+      document.removeEventListener("dragleave", leaveWindow);
+    };
+  }, [resetDragState]);
 
   useEffect(() => {
     if (phase === "idle" && restorePickerFocusRef.current) {
@@ -351,9 +401,12 @@ export function UploadExperience({
 
   function drop(event: DragEvent<HTMLElement>) {
     event.preventDefault();
-    setDragActive(false);
+    resetDragState();
+    if (phase !== "idle" && phase !== "error") {
+      return;
+    }
     const files = Array.from(event.dataTransfer.files);
-    if (isDirectoryDrop(event) || files.length !== 1) {
+    if (isDirectoryDrop(event.dataTransfer) || files.length !== 1) {
       setError(
         "Drop exactly one file. Folders and multiple files are not supported.",
       );
@@ -446,7 +499,43 @@ export function UploadExperience({
   }
 
   return (
-    <div className="upload-workspace" onPaste={pasteIntoPanel}>
+    <div
+      className="upload-workspace"
+      onDragEnter={(event) => {
+        if (phase !== "idle" && phase !== "error") {
+          resetDragState();
+          return;
+        }
+        if (!isValidFileDrag(event.dataTransfer, maxBytes)) {
+          resetDragState();
+          return;
+        }
+        event.preventDefault();
+        dragDepthRef.current += 1;
+        setDragActive(true);
+      }}
+      onDragLeave={(event) => {
+        event.preventDefault();
+        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+        if (dragDepthRef.current === 0) {
+          setDragActive(false);
+        }
+      }}
+      onDragOver={(event) => {
+        if (phase !== "idle" && phase !== "error") {
+          resetDragState();
+          return;
+        }
+        if (Array.from(event.dataTransfer.types).includes("Files")) {
+          event.preventDefault();
+        }
+        if (!isValidFileDrag(event.dataTransfer, maxBytes)) {
+          resetDragState();
+        }
+      }}
+      onDrop={drop}
+      onPaste={pasteIntoPanel}
+    >
       {!isOnline && (
         <p className="connection-warning" role="status">
           You are offline. Reconnect before uploading.
@@ -479,16 +568,17 @@ export function UploadExperience({
       {(phase === "idle" || phase === "error") && (
         <section
           className={`upload-card drop-zone${dragActive ? " is-dragging" : ""}`}
-          onDragEnter={(event) => {
-            event.preventDefault();
-            setDragActive(true);
-          }}
-          onDragLeave={() => setDragActive(false)}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={drop}
           aria-labelledby="upload-heading"
         >
           <div className="scene" aria-hidden="true" />
+          {dragActive && (
+            <div className="drop-overlay" role="status" aria-live="polite">
+              <span className="drop-overlay-icon" aria-hidden="true">
+                ↓
+              </span>
+              <strong>Drop file to upload</strong>
+            </div>
+          )}
           <h2 className="visually-hidden" id="upload-heading">
             Upload a file
           </h2>
