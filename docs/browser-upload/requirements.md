@@ -4,6 +4,14 @@ The homepage is a single-file upload client backed by `POST /api/upload`.
 
 Its heading states that the service shares temporary files and text. Supporting copy makes automatic expiry and the lack of an account requirement explicit. This hierarchy shares the upload card's width, keeps one descriptive H1, and wraps without horizontal overflow at narrow viewports.
 
+## Theme
+
+The interface uses one dark-only Graphite + Iris palette, regardless of the operating system's color-scheme preference. The canvas is `#202127`, card/input surfaces are `#2B2C35`, raised controls are `#373946`, and primary actions/focus indicators are `#A49AF5`. Text uses `#F0EFF8` and secondary text uses `#B1B0C4`; borders use `#505363`. Shared CSS tokens also cover success, warning, and error states.
+
+The same palette applies to file/text uploads, results, history, QR dialogs, request pages, and route boundaries. Landscape overlays derive from the surface token. Native controls, initial HTML, browser chrome, and the web manifest advertise the dark scheme before hydration. No light-theme toggle is offered. QR codes retain a white quiet zone for reliable scanning; it is not a light-themed UI surface.
+
+Production browser tests verify the palette with light and dark OS preferences on mobile and desktop, visible keyboard focus, request controls, result/dialog surfaces, QR contrast, overflow, and axe accessibility.
+
 ## Inputs
 
 - Choose one file with the native picker.
