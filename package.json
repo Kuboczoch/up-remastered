@@ -6,6 +6,7 @@
   "type": "module",
   "packageManager": "pnpm@11.1.2",
   "scripts": {
+    "brand:icons": "node scripts/generate-brand-icons.mjs",
     "dev": "next dev",
     "build": "next build && node scripts/copy-standalone-assets.mjs",
     "db:generate": "drizzle-kit generate",

@@ -1,11 +1,23 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export function SiteHeader() {
   return (
     <header className="site-header">
       <Link className="site-brand" href="/" aria-label="up remastered home">
-        <strong>up</strong>
-        <span>remastered</span>
+        <Image
+          alt=""
+          aria-hidden="true"
+          className="site-brand-mark"
+          height={34}
+          priority
+          src="/brand-mark.svg"
+          width={34}
+        />
+        <span>
+          <strong>up</strong>
+          <small>remastered</small>
+        </span>
       </Link>
       <Link className="outline-button" href="/request/new">
         Request a file

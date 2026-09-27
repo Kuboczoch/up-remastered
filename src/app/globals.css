@@ -67,16 +67,11 @@ a {
   color: var(--muted);
   font-size: 11px;
 }
-.brand-icon {
-  display: grid;
+.site-brand-mark {
+  display: block;
+  flex: 0 0 auto;
   width: 34px;
   height: 34px;
-  place-items: center;
-  border-radius: 9px;
-  background: var(--blue);
-  color: #fff;
-  font-size: 22px;
-  font-weight: 700;
 }
 .header-nav {
   display: flex;

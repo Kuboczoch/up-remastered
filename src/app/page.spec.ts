@@ -57,17 +57,21 @@ test("has no browser-level accessibility violations", async ({ page }) => {
 test("serves browser icons and the web manifest", async ({ page }) => {
   await page.goto("/");
 
-  const favicon = page.locator('link[rel="icon"][href*="favicon.ico"]');
-  const appIcon = page.locator('link[rel="icon"][href*="icon"]');
-  const appleIcon = page.locator(
-    'link[rel="apple-touch-icon"][href*="apple-icon"]',
+  const brandMark = page
+    .getByRole("link", { name: "up remastered home" })
+    .locator("img");
+  await expect(brandMark).toBeVisible();
+  await expect(brandMark).toHaveAttribute("src", "/brand-mark.svg");
+  await expect(brandMark).toHaveCSS("width", "34px");
+  await expect(brandMark).toHaveCSS("height", "34px");
+
+  const browserIcons = page.locator(
+    'link[rel="icon"], link[rel="apple-touch-icon"]',
   );
+  await expect(browserIcons).toHaveCount(3);
 
-  await expect(favicon).toHaveCount(1);
-  await expect(appIcon).toHaveCount(2);
-  await expect(appleIcon).toHaveCount(1);
-
-  for (const icon of [favicon, appIcon.last(), appleIcon]) {
+  for (let index = 0; index < (await browserIcons.count()); index += 1) {
+    const icon = browserIcons.nth(index);
     const href = await icon.getAttribute("href");
     const iconResponse = await page.request.get(href ?? "");
 
@@ -82,17 +86,20 @@ test("serves browser icons and the web manifest", async ({ page }) => {
   const response = await page.request.get(manifestHref ?? "");
 
   expect(response.ok()).toBe(true);
-  expect(await response.json()).toMatchObject({
+  const webManifest = await response.json();
+  expect(webManifest).toMatchObject({
     name: "up - remastered",
     short_name: "up",
     start_url: "/",
     display: "standalone",
   });
 
-  for (const iconPath of ["/icons/icon-192.png", "/icons/icon-512.png"]) {
-    const iconResponse = await page.request.get(iconPath);
+  expect(webManifest.icons).toHaveLength(2);
+  for (const icon of webManifest.icons) {
+    const iconResponse = await page.request.get(icon.src);
     expect(iconResponse.ok()).toBe(true);
     expect(iconResponse.headers()["content-type"]).toContain("image/png");
+    expect((await iconResponse.body()).byteLength).toBeGreaterThan(0);
   }
 });
 
