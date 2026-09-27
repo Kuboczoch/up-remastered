@@ -88,6 +88,58 @@ test("has no browser-level accessibility violations", async ({ page }) => {
   expect(results.violations).toEqual([]);
 });
 
+test("keeps the shared footer usable across responsive layouts", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/");
+
+  const footer = page.getByRole("contentinfo");
+  const footerInner = footer.locator(".site-footer-inner");
+  const header = page.locator(".site-header");
+
+  await expect(footer).toBeVisible();
+  await expect(footer).toHaveCSS("width", "1280px");
+  await expect(footerInner).toHaveCSS("width", "800px");
+  expect((await footerInner.boundingBox())?.x).toBe(
+    (await header.boundingBox())?.x,
+  );
+  await expect(
+    footer.getByRole("link", { name: "Request a file" }),
+  ).toHaveAttribute("href", "/request/new");
+  await expect(footer.getByRole("link", { name: "GitHub" })).toHaveAttribute(
+    "href",
+    "https://github.com/Kuboczoch/up-remastered",
+  );
+
+  await page.setViewportSize({ width: 320, height: 700 });
+  await expect(footer).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+
+  await footer.locator(".site-footer-version").evaluate((version) => {
+    version.textContent = "v2026.09.27-long-prerelease-version";
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+
+  await page.setViewportSize({ width: 640, height: 900 });
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "2";
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("serves browser icons and the web manifest", async ({ page }) => {
   await page.goto("/");
 
