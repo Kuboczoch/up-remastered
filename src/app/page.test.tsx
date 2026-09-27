@@ -26,7 +26,13 @@ describe("Home", () => {
       'script[type="application/ld+json"]',
     );
 
-    expect(getByRole("heading", { name: "Share a file." })).toBeTruthy();
+    expect(
+      getByRole("heading", { name: "Share temporary files and text." }),
+    ).toBeTruthy();
+    expect(
+      getByText("Everything expires automatically. No account required."),
+    ).toBeTruthy();
+    expect(container.querySelectorAll("h1")).toHaveLength(1);
     await waitFor(() => {
       expect(getByLabelText("Choose file")).toBeTruthy();
       expect(getByText("1.0 KiB max")).toBeTruthy();
