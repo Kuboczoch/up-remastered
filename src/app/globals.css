@@ -459,8 +459,12 @@ a {
   align-items: center;
   gap: 12px;
 }
+.result-file > div {
+  min-width: 0;
+}
 .result-file h2 {
   margin: 0;
+  overflow-wrap: anywhere;
   font-size: 18px;
 }
 .result-file p,
@@ -492,8 +496,25 @@ a {
 }
 .result-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   margin-top: 20px;
+}
+.start-over-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  border: 1px solid #dbe3ec;
+  border-radius: 7px;
+  padding: 0 14px;
+  background: #f4f7fa;
+  color: #526176;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
 }
 .qr-code {
   width: 210px;
@@ -730,6 +751,13 @@ a {
   }
   .share-row .primary-action {
     border-radius: 7px;
+  }
+  .result-actions > * {
+    flex: 1 1 120px;
+  }
+  .result-actions .start-over-button {
+    flex-basis: 100%;
+    margin-left: 0;
   }
   .state-card {
     padding: 28px;

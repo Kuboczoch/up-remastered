@@ -95,6 +95,7 @@ export function UploadExperience({
   const inputRef = useRef<HTMLInputElement>(null);
   const errorHeadingRef = useRef<HTMLHeadingElement>(null);
   const resultHeadingRef = useRef<HTMLHeadingElement>(null);
+  const restorePickerFocusRef = useRef(false);
   const abortRef = useRef<(() => void) | null>(null);
   const requestSequence = useRef(0);
   const originalTitle = useRef(siteName);
@@ -148,6 +149,13 @@ export function UploadExperience({
       window.removeEventListener("offline", updateOnlineStatus);
     };
   }, []);
+
+  useEffect(() => {
+    if (phase === "idle" && restorePickerFocusRef.current) {
+      restorePickerFocusRef.current = false;
+      inputRef.current?.focus();
+    }
+  }, [phase]);
 
   useEffect(() => {
     const restoreHistory = () => {
@@ -327,6 +335,11 @@ export function UploadExperience({
     if (inputRef.current) {
       inputRef.current.value = "";
     }
+  }
+
+  function startAnotherUpload() {
+    restorePickerFocusRef.current = true;
+    reset();
   }
 
   function chooseFile(event: ChangeEvent<HTMLInputElement>) {
@@ -613,7 +626,11 @@ export function UploadExperience({
             </button>
           </div>
           <p className="share-note">Anyone with the link can download.</p>
-          <div className="result-actions">
+          <div
+            aria-label="Uploaded file actions"
+            className="result-actions"
+            role="group"
+          >
             <a href={result.shareUrl} rel="noreferrer" target="_blank">
               Open file
             </a>
@@ -624,8 +641,12 @@ export function UploadExperience({
             >
               Show QR code
             </button>
-            <button className="outline-button" onClick={reset} type="button">
-              Upload another
+            <button
+              className="start-over-button"
+              onClick={startAnotherUpload}
+              type="button"
+            >
+              Upload another file
             </button>
           </div>
           {qrOpen && qrSvg && (
