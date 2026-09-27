@@ -1,0 +1,14 @@
+[
+  "Artwork adds zero layout displacement to upload action",
+  {
+    "mobile_upload_button_top_px": {
+      "v4": 463,
+      "v6-approved": 213
+    },
+    "improvement_px": 250
+  },
+  "Upload simulation, clipboard, independently decoded QR",
+  "Safe local text opens raw in browser, without application preview wrapper",
+  "Unsupported local file downloads",
+  "Text upload path works"
+]

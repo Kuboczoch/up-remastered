@@ -1,0 +1,12 @@
+{
+  "passed": [
+    "White background with OS dark preference; no theme selector",
+    "320px: 33 states without horizontal overflow",
+    "360px: 33 states without horizontal overflow",
+    "390px: 33 states without horizontal overflow",
+    "430px: 33 states without horizontal overflow",
+    "768px: 33 states without horizontal overflow",
+    "1440px: 33 states without horizontal overflow",
+    "No browser JavaScript errors"
+  ]
+}

@@ -1,0 +1,39 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Up Remastered · integrated landscape</title><style>/* STYLES */</style></head><body>
+<header><a class="brand" href="#/home" aria-label="Up Remastered home"><strong>up</strong><span>remastered</span></a><nav aria-label="Main navigation"><a href="#/request">Request a file</a></nav></header>
+<main id="app"></main>
+<footer><span>Temporary by design.</span><div class="links"><a href="https://github.com/Kuboczoch/up-remastered" target="_blank" rel="noopener noreferrer">GitHub</a><span>v1.1.0</span><a class="photo-credit" href="https://openclipart.org/detail/285129/forrest-and-mountains-illustration" target="_blank" rel="noopener noreferrer">Artwork</a></div></footer>
+<details class="review"><summary>Design review · simulated uploads, no server connection</summary><div class="review-panel"><label for="statePicker">Screen</label><select id="statePicker"></select><button id="clearHistory">Clear demo history</button><p>All transfers and server states are simulated. Copy link and QR generation work; example.com links do not host files. This review control is not part of the shipped UI. Version reflects the repository at design time; production reads package.json.</p></div></details>
+<input id="fileInput" type="file" hidden>
+<dialog id="qrDialog" aria-labelledby="qrTitle"><div class="dialog-head"><h2 id="qrTitle">Share with a QR code</h2><button class="quiet iconbutton" aria-label="Close QR code" data-close="qrDialog">✕</button></div><p class="muted small">Scan to open the same share link.</p><div class="qr" id="qrImage"></div><p class="qr-url" id="qrLink"></p><div class="actions"><button class="primary" id="qrCopy">Copy link</button><button id="qrDownload">Download QR</button></div></dialog>
+<dialog id="manualCopy" aria-labelledby="manualTitle"><div class="dialog-head"><h2 id="manualTitle">Copy this link</h2><button class="quiet iconbutton" aria-label="Close copy dialog" data-close="manualCopy">✕</button></div><p class="muted">Your browser blocked automatic copying. Select and copy the link below.</p><input id="manualLink" readonly aria-label="Link to copy" style="width:100%"></dialog>
+<dialog id="moreDialog" aria-labelledby="moreName"><div class="dialog-head"><h2 id="moreName"></h2><button class="quiet iconbutton" aria-label="Close file actions" data-close="moreDialog">✕</button></div><div class="actions"><button id="moreCopy">Copy link</button><button id="moreQr">Show QR code</button><button id="moreOpen">Open file</button><button class="quiet" id="moreRemove">Remove from history</button><button class="quiet danger" id="moreDelete">Delete file</button></div></dialog>
+<dialog id="deleteDialog" aria-labelledby="deleteTitle"><h2 id="deleteTitle">Delete this file?</h2><p id="deleteName" class="filename"></p><p class="muted small">In the app, this permanently disables the share link. <strong>Design simulation: no server file will be deleted.</strong></p><div id="deleteError" class="error-box" hidden role="alert">The file could not be deleted. It is still available. Try again.</div><div class="actions"><button data-close="deleteDialog">Keep file</button><button class="primary" id="deleteConfirm">Delete file</button></div></dialog>
+<dialog id="revokeDialog" aria-labelledby="revokeTitle"><h2 id="revokeTitle">Revoke this request?</h2><p class="muted">The upload link will no longer accept a file.</p><div class="actions"><button data-close="revokeDialog">Keep request</button><button class="primary" id="revokeConfirm">Revoke request</button></div></dialog>
+<dialog id="helpDialog" aria-labelledby="helpTitle"><div class="dialog-head"><h2 id="helpTitle"></h2><button class="quiet iconbutton" aria-label="Close integration help" data-close="helpDialog">✕</button></div><p id="helpText" class="muted"></p></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script>/* QR LIBRARY */</script><script>/* APP */</script><!-- QR Code Generator for JavaScript — qrcode-generator 1.4.4
+Copyright (c) 2009 Kazuhiko Arase
+Source: https://registry.npmjs.org/qrcode-generator
+The package source declares the MIT license. npm archive contains no separate license file.
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ -->
+</body></html>
