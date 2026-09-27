@@ -25,6 +25,7 @@ import {
   readUploadHistory,
   removeUploadHistoryEntry,
   saveUploadHistoryEntry,
+  UPLOAD_HISTORY_STORAGE_KEY,
   type UploadHistoryEntry,
 } from "@/components/upload/upload-history";
 
@@ -47,15 +48,20 @@ function isDirectoryDrop(event: DragEvent<HTMLElement>): boolean {
 
 function expirationLabel(expiresAt: string, now: number): string {
   const remaining = Math.max(0, new Date(expiresAt).getTime() - now);
-  if (remaining === 0) {
-    return "Expired";
-  }
+  if (remaining === 0) return "Expired";
 
   const totalSeconds = Math.ceil(remaining / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   return `${hours}h ${minutes}m ${seconds}s remaining`;
+}
+
+function fileType(name: string): string {
+  const extension = name.split(".").pop();
+  return extension && extension !== name
+    ? extension.slice(0, 4).toUpperCase()
+    : "FILE";
 }
 
 export function UploadExperience({
@@ -70,11 +76,13 @@ export function UploadExperience({
   const [maxBytes, setMaxBytes] = useState<number | null>(initialMaxBytes);
   const [configurationWarning, setConfigurationWarning] = useState("");
   const [text, setText] = useState("");
+  const [mode, setMode] = useState<"file" | "text">("file");
   const [textEncoding, setTextEncoding] = useState<TextEncoding>(
     DEFAULT_TEXT_ENCODING,
   );
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
   const [qrSvg, setQrSvg] = useState("");
   const [history, setHistory] = useState<UploadHistoryEntry[]>([]);
   const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(
@@ -141,10 +149,37 @@ export function UploadExperience({
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setHistory(readUploadHistory(window.sessionStorage));
-    });
-    return () => window.clearTimeout(timer);
+    const restoreHistory = () => {
+      const persisted = readUploadHistory(window.localStorage);
+      if (persisted.length > 0) {
+        setHistory(persisted);
+        return;
+      }
+
+      const legacy = readUploadHistory(window.sessionStorage);
+      let migrated: UploadHistoryEntry[] = [];
+      for (const entry of [...legacy].reverse()) {
+        migrated = saveUploadHistoryEntry(window.localStorage, entry);
+      }
+      try {
+        window.sessionStorage.removeItem(UPLOAD_HISTORY_STORAGE_KEY);
+      } catch {
+        // Migration is best-effort when browser storage is restricted.
+      }
+      setHistory(migrated);
+    };
+
+    const timer = window.setTimeout(restoreHistory);
+    const pruneTimer = window.setInterval(() => {
+      setNow(Date.now());
+      setHistory(readUploadHistory(window.localStorage));
+    }, 60_000);
+    window.addEventListener("storage", restoreHistory);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(pruneTimer);
+      window.removeEventListener("storage", restoreHistory);
+    };
   }, []);
 
   useEffect(() => {
@@ -219,7 +254,7 @@ export function UploadExperience({
         }
         setProgress(100);
         setResult(upload);
-        setHistory(saveUploadHistoryEntry(window.sessionStorage, upload));
+        setHistory(saveUploadHistoryEntry(window.localStorage, upload));
         setNow(Date.now());
         setPhase("success");
       } catch (uploadError) {
@@ -285,6 +320,7 @@ export function UploadExperience({
     setProgress(0);
     setError("");
     setResult(null);
+    setQrOpen(false);
     setText("");
     setCopied(false);
     if (inputRef.current) {
@@ -375,7 +411,7 @@ export function UploadExperience({
         throw new Error("Delete failed.");
       }
 
-      setHistory(removeUploadHistoryEntry(window.sessionStorage, entry.id));
+      setHistory(removeUploadHistoryEntry(window.localStorage, entry.id));
       setHistoryStatus(
         response.status === 404
           ? `${entry.originalName} was already unavailable and has been forgotten.`
@@ -390,6 +426,11 @@ export function UploadExperience({
     }
   }
 
+  function removeHistoryEntry(entry: UploadHistoryEntry) {
+    setHistory(removeUploadHistoryEntry(window.localStorage, entry.id));
+    setHistoryStatus(`${entry.originalName} was removed from this browser.`);
+  }
+
   return (
     <div className="upload-workspace" onPaste={pasteIntoPanel}>
       {!isOnline && (
@@ -397,7 +438,36 @@ export function UploadExperience({
           You are offline. Reconnect before uploading.
         </p>
       )}
-      {phase === "idle" && (
+      <div className="workspace-heading">
+        <h1>
+          {phase === "success"
+            ? "Ready to share."
+            : phase === "uploading"
+              ? "Uploading file."
+              : phase === "error"
+                ? "Upload interrupted."
+                : "Share a file."}
+        </h1>
+        {(phase === "idle" || phase === "error") && (
+          <div className="mode-switch" role="group" aria-label="Upload type">
+            <button
+              aria-pressed={mode === "file"}
+              onClick={() => setMode("file")}
+              type="button"
+            >
+              File
+            </button>
+            <button
+              aria-pressed={mode === "text"}
+              onClick={() => setMode("text")}
+              type="button"
+            >
+              Text
+            </button>
+          </div>
+        )}
+      </div>
+      {(phase === "idle" || phase === "error") && (
         <section
           className={`upload-card drop-zone${dragActive ? " is-dragging" : ""}`}
           onDragEnter={(event) => {
@@ -409,89 +479,92 @@ export function UploadExperience({
           onDrop={drop}
           aria-labelledby="upload-heading"
         >
-          <h2 id="upload-heading">Upload a file</h2>
-          <p>
-            Drop one file here, paste from your clipboard, or choose a file.
-          </p>
-          <input
-            className="visually-hidden"
-            id="file-picker"
-            onChange={chooseFile}
-            ref={inputRef}
-            type="file"
-          />
-          <label className="primary-action" htmlFor="file-picker">
-            Choose file
-          </label>
-          <p className="limit-note" id="upload-limit">
-            {maxBytes === null
-              ? "Checking upload limit…"
-              : `Maximum ${formatBytes(maxBytes)}`}
-          </p>
+          <div className="scene" aria-hidden="true" />
+          <h2 className="visually-hidden" id="upload-heading">
+            Upload a file
+          </h2>
+          {phase === "error" && (
+            <div className="inline-error" role="alert">
+              <h2 ref={errorHeadingRef} tabIndex={-1}>
+                Something went wrong
+              </h2>
+              <p>{error}</p>
+              <button onClick={reset} type="button">
+                Try again
+              </button>
+            </div>
+          )}
+          {mode === "file" ? (
+            <div className="file-panel">
+              <input
+                aria-label="Choose file"
+                className="visually-hidden"
+                id="file-picker"
+                onChange={chooseFile}
+                ref={inputRef}
+                type="file"
+              />
+              <label className="primary-action" htmlFor="file-picker">
+                Choose file <span aria-hidden="true">⇧</span>
+              </label>
+              <p className="drop-hint">or drop one file here</p>
+            </div>
+          ) : (
+            <div className="text-upload">
+              <label htmlFor="text-upload">Or upload text</label>
+              <textarea
+                id="text-upload"
+                onChange={(event) => setText(event.target.value)}
+                placeholder="Paste or type text"
+                rows={6}
+                value={text}
+              />
+              <div className="text-encoding">
+                <label htmlFor="text-encoding">Text encoding</label>
+                <select
+                  id="text-encoding"
+                  onChange={(event) =>
+                    setTextEncoding(event.target.value as TextEncoding)
+                  }
+                  value={textEncoding}
+                >
+                  {TEXT_ENCODINGS.map((encoding) => (
+                    <option key={encoding.value} value={encoding.value}>
+                      {encoding.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                className="primary-action"
+                onClick={uploadText}
+                type="button"
+              >
+                Upload text
+              </button>
+            </div>
+          )}
+          <div className="upload-meta">
+            <span>
+              {maxBytes === null
+                ? "Checking limit…"
+                : `${formatBytes(maxBytes)} max`}
+            </span>
+            <span>Expires in 24 hours</span>
+          </div>
           {configurationWarning && (
             <p className="warning-note">{configurationWarning}</p>
           )}
-
-          <div className="text-upload">
-            <label htmlFor="text-upload">Or upload text</label>
-            <div className="text-encoding">
-              <label htmlFor="text-encoding">Text encoding</label>
-              <select
-                id="text-encoding"
-                onChange={(event) =>
-                  setTextEncoding(event.target.value as TextEncoding)
-                }
-                value={textEncoding}
-              >
-                {TEXT_ENCODINGS.map((encoding) => (
-                  <option key={encoding.value} value={encoding.value}>
-                    {encoding.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <textarea
-              id="text-upload"
-              onChange={(event) => setText(event.target.value)}
-              placeholder="Paste or type text"
-              rows={4}
-              value={text}
-            />
-            <button
-              className="secondary-action"
-              onClick={uploadText}
-              type="button"
-            >
-              Upload text
-            </button>
-          </div>
-
-          <details className="upload-help">
-            <summary>More ways to upload</summary>
-            <p>
-              Paste a file or text anywhere on this page. Desktop users can drag
-              one file into the panel.
-            </p>
-            <p>
-              <a href="/sharex" download>
-                ShareX config
-              </a>{" "}
-              ·{" "}
-              <a href="/sh" download>
-                Shell helper
-              </a>
-            </p>
-          </details>
         </section>
       )}
-
       {phase === "uploading" && (
         <section
           className="upload-card state-card"
           aria-live="polite"
           aria-busy="true"
         >
-          <p className="eyebrow">Uploading</p>
+          <div className="scene" aria-hidden="true" />
+          <p className="state-label">Uploading</p>
           <h2>{progress}%</h2>
           <div
             className="progress-track"
@@ -503,44 +576,38 @@ export function UploadExperience({
           >
             <span style={{ width: `${progress}%` }} />
           </div>
-          <button className="secondary-action" onClick={reset} type="button">
+          <button className="outline-button" onClick={reset} type="button">
             Cancel
           </button>
         </section>
       )}
-
-      {phase === "error" && (
-        <section className="upload-card state-card error-card" role="alert">
-          <p className="eyebrow">Upload failed</p>
-          <h2 ref={errorHeadingRef} tabIndex={-1}>
-            Something went wrong
-          </h2>
-          <p>{error}</p>
-          <button className="primary-action" onClick={reset} type="button">
-            Try again
-          </button>
-        </section>
-      )}
-
       {phase === "success" && result && (
         <section className="upload-card result-card" aria-live="polite">
-          <p className="eyebrow">Upload complete</p>
-          <h2 ref={resultHeadingRef} tabIndex={-1}>
-            {result.originalName}
-          </h2>
-          <input
-            aria-label="Share URL"
-            className="result-url"
-            onDoubleClick={() => void copyUrl()}
-            readOnly
-            title="Double-click to copy"
-            value={result.shareUrl}
-          />
-          <p>
-            {formatBytes(result.size)} ·{" "}
-            {expirationLabel(result.expiresAt, now)}
+          <div className="scene" aria-hidden="true" />
+          <p className="complete-label">
+            ✓ <span>Upload complete</span>
           </p>
-          <div className="result-actions">
+          <div className="result-file">
+            <span className="file-type">{fileType(result.originalName)}</span>
+            <div>
+              <h2 ref={resultHeadingRef} tabIndex={-1}>
+                {result.originalName}
+              </h2>
+              <p>
+                {formatBytes(result.size)} ·{" "}
+                {expirationLabel(result.expiresAt, now)}
+              </p>
+            </div>
+          </div>
+          <div className="share-row">
+            <input
+              aria-label="Share URL"
+              className="result-url"
+              onDoubleClick={() => void copyUrl()}
+              readOnly
+              title="Double-click to copy"
+              value={result.shareUrl}
+            />
             <button
               className="primary-action"
               onClick={() => void copyUrl()}
@@ -548,65 +615,138 @@ export function UploadExperience({
             >
               {copied ? "Copied" : "Copy URL"}
             </button>
-            <a
-              className="secondary-action"
-              href={result.shareUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
+          </div>
+          <p className="share-note">Anyone with the link can download.</p>
+          <div className="result-actions">
+            <a href={result.shareUrl} rel="noreferrer" target="_blank">
               Open file
             </a>
+            <button
+              className="outline-button"
+              onClick={() => setQrOpen(true)}
+              type="button"
+            >
+              Show QR code
+            </button>
+            <button className="outline-button" onClick={reset} type="button">
+              Upload another
+            </button>
           </div>
-          {qrSvg && (
-            <div
-              aria-label="QR code for uploaded file"
-              className="qr-code"
-              data-testid="qr-code"
-              dangerouslySetInnerHTML={{ __html: qrSvg }}
-              role="img"
-            />
-          )}
-          <button className="text-action" onClick={reset} type="button">
-            Upload another
-          </button>
-        </section>
-      )}
-
-      {phase === "idle" && history.length > 0 && (
-        <section
-          className="upload-card history-card"
-          aria-labelledby="history-heading"
-        >
-          <p className="eyebrow">This tab</p>
-          <h2 id="history-heading">Your uploads</h2>
-          <p className="history-intro">
-            Available in this browser tab until it is closed.
-          </p>
-          <ul className="history-list">
-            {history.map((entry) => (
-              <li key={entry.id}>
-                <div>
-                  <h3>{entry.originalName}</h3>
-                  <a href={entry.shareUrl}>{entry.shareUrl}</a>
-                  <p>
-                    {formatBytes(entry.size)} · Expires{" "}
-                    <time dateTime={entry.expiresAt}>
-                      {new Date(entry.expiresAt).toLocaleString()}
-                    </time>
-                  </p>
-                </div>
+          {qrOpen && qrSvg && (
+            <div className="qr-modal-backdrop" role="presentation">
+              <section
+                aria-labelledby="qr-title"
+                aria-modal="true"
+                className="qr-dialog"
+                role="dialog"
+              >
                 <button
-                  aria-label={`Delete ${entry.originalName}`}
-                  className="secondary-action"
-                  disabled={deletingHistoryId === entry.id}
-                  onClick={() => void deleteHistoryEntry(entry)}
+                  aria-label="Close QR code"
+                  className="qr-close"
+                  onClick={() => setQrOpen(false)}
                   type="button"
                 >
-                  {deletingHistoryId === entry.id ? "Deleting…" : "Delete"}
+                  ×
                 </button>
-              </li>
-            ))}
-          </ul>
+                <h2 id="qr-title">Scan to download</h2>
+                <div
+                  aria-label="QR code for uploaded file"
+                  className="qr-code"
+                  data-testid="qr-code"
+                  dangerouslySetInnerHTML={{ __html: qrSvg }}
+                  role="img"
+                />
+                <a
+                  className="outline-button"
+                  download={`${result.id}-qr.svg`}
+                  href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
+                >
+                  Download QR code
+                </a>
+              </section>
+            </div>
+          )}
+        </section>
+      )}
+      {phase !== "uploading" && (
+        <div className="under-card-row">
+          <details className="upload-help">
+            <summary>
+              Options <span aria-hidden="true">＋</span>
+            </summary>
+            <p>Paste a file or text anywhere on this page.</p>
+            <p>
+              <a href="/sharex" download>
+                ShareX config
+              </a>
+              {" · "}
+              <a href="/sh" download>
+                Shell helper
+              </a>
+            </p>
+          </details>
+          <span>No account needed</span>
+        </div>
+      )}
+      {(phase === "idle" || phase === "success" || phase === "error") && (
+        <section className="history-card" aria-labelledby="history-heading">
+          <div className="history-header">
+            <h2
+              id="history-heading"
+              aria-label={history.length > 0 ? "Your uploads" : undefined}
+            >
+              Recent uploads
+            </h2>
+            <span>Saved in this browser</span>
+          </div>
+          {history.length === 0 ? (
+            <p className="empty-history">Your shared files will appear here.</p>
+          ) : (
+            <ul className="history-list">
+              {history.map((entry) => (
+                <li key={entry.id}>
+                  <span className="file-type">
+                    {fileType(entry.originalName)}
+                  </span>
+                  <div className="history-file">
+                    {phase === "success" ? (
+                      <p className="history-name">{entry.originalName}</p>
+                    ) : (
+                      <h3>{entry.originalName}</h3>
+                    )}
+                    <p>
+                      {formatBytes(entry.size)} · Expires{" "}
+                      <time dateTime={entry.expiresAt}>
+                        {new Date(entry.expiresAt).toLocaleString()}
+                      </time>
+                    </p>
+                  </div>
+                  <div className="history-actions">
+                    <a aria-label={entry.shareUrl} href={entry.shareUrl}>
+                      Copy link
+                    </a>
+                    <button
+                      aria-label={`Remove ${entry.originalName} from history`}
+                      onClick={() => removeHistoryEntry(entry)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                    <button
+                      aria-label={`Delete ${entry.originalName}`}
+                      disabled={deletingHistoryId === entry.id}
+                      onClick={() => void deleteHistoryEntry(entry)}
+                      type="button"
+                    >
+                      {deletingHistoryId === entry.id
+                        ? "Deleting…"
+                        : "Delete file"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
       <p className="visually-hidden" aria-live="polite">

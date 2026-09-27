@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("uploads a picked file and exposes result actions", async ({
+  baseURL,
   context,
   page,
 }) => {
@@ -15,8 +16,18 @@ test("uploads a picked file and exposes result actions", async ({
 
   await expect(page.getByRole("heading", { name: "picked.txt" })).toBeVisible();
   const shareUrl = await page.locator(".result-url").inputValue();
-  expect(shareUrl).toMatch(/^http:\/\/127\.0\.0\.1:3000\/[0-9A-Z]{5}$/);
+  const expectedOrigin = new URL(baseURL ?? "http://127.0.0.1:3000").origin;
+  expect(shareUrl).toMatch(
+    new RegExp(
+      `^${expectedOrigin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/[0-9A-Z]{5}$`,
+    ),
+  );
+  await page.getByRole("button", { name: "Show QR code" }).click();
   await expect(page.getByTestId("qr-code").locator("svg")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Download QR code" }),
+  ).toHaveAttribute("download", /-qr\.svg$/);
+  await page.getByRole("button", { name: "Close QR code" }).click();
   await expect(page.getByText(/remaining/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Open file" })).toHaveAttribute(
     "href",
@@ -43,7 +54,8 @@ test("uploads a picked file and exposes result actions", async ({
 
 test("uploads pasted text and clipboard files", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("Maximum 64 B")).toBeVisible();
+  await page.getByRole("button", { name: "Text" }).click();
+  await expect(page.getByText("64 B max")).toBeVisible();
   await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
 
   await page.evaluate(() => {
@@ -94,6 +106,7 @@ test("uses the selected encoding for pasted text bytes and MIME charset", async 
     });
   });
   await page.goto("/");
+  await page.getByRole("button", { name: "Text" }).click();
   await page.getByLabel("Text encoding").selectOption("utf-16le");
 
   await page.evaluate(() => {
@@ -177,6 +190,7 @@ test("shows upload percentage in the title and supports mobile text upload", asy
     });
   });
   await page.goto("/");
+  await page.getByRole("button", { name: "Text" }).click();
 
   await expect(page.getByLabel("Or upload text")).toBeVisible();
   await page.getByLabel("Or upload text").fill("mobile text");
@@ -188,7 +202,7 @@ test("shows upload percentage in the title and supports mobile text upload", asy
   await expect(page).toHaveTitle("up - remastered");
 });
 
-test("keeps upload history for the tab and deletes with its access token", async ({
+test("persists upload history and separates local removal from server deletion", async ({
   page,
 }) => {
   await page.goto("/");
@@ -199,7 +213,7 @@ test("keeps upload history for the tab and deletes with its access token", async
   });
   const shareUrl = await page.locator(".result-url").inputValue();
   const stored = await page.evaluate(() =>
-    sessionStorage.getItem("up-remastered:upload-history:v1"),
+    localStorage.getItem("up-remastered:upload-history:v1"),
   );
   expect(stored).toContain('"accessToken"');
 
@@ -212,6 +226,24 @@ test("keeps upload history for the tab and deletes with its access token", async
   ).toBeVisible();
   await expect(page.getByRole("link", { name: shareUrl })).toBeVisible();
   expect(await page.locator("body").innerText()).not.toContain("accessToken");
+
+  await page
+    .getByRole("button", { name: "Remove history.txt from history" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Your uploads" }),
+  ).toBeHidden();
+  expect((await page.request.get(shareUrl)).ok()).toBe(true);
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("up-remastered:upload-history:v1"),
+    ),
+  ).toBe("[]");
+
+  await page.evaluate((value) => {
+    if (value) localStorage.setItem("up-remastered:upload-history:v1", value);
+  }, stored);
+  await page.reload();
 
   const [deleted] = await Promise.all([
     page.waitForResponse(
@@ -230,13 +262,13 @@ test("keeps upload history for the tab and deletes with its access token", async
   ).toBeHidden();
   expect(
     await page.evaluate(() =>
-      sessionStorage.getItem("up-remastered:upload-history:v1"),
+      localStorage.getItem("up-remastered:upload-history:v1"),
     ),
   ).toBe("[]");
 
   await page.evaluate((value) => {
     if (value) {
-      sessionStorage.setItem("up-remastered:upload-history:v1", value);
+      localStorage.setItem("up-remastered:upload-history:v1", value);
     }
   }, stored);
   await page.reload();

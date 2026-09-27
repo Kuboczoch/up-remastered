@@ -1,11 +1,15 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-test("renders the homepage greeting and structured data", async ({ page }) => {
+test("renders the homepage greeting and structured data", async ({
+  baseURL,
+  page,
+}) => {
   await page.goto("/");
+  const expectedOrigin = new URL(baseURL ?? "http://127.0.0.1:3000").origin;
 
   await expect(
-    page.getByRole("heading", { name: "Share one thing, quickly." }),
+    page.getByRole("heading", { name: "Share a file." }),
   ).toBeVisible();
 
   const jsonLd = await page
@@ -16,13 +20,13 @@ test("renders the homepage greeting and structured data", async ({ page }) => {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "up - remastered",
-    url: "http://127.0.0.1:3000/",
+    url: `${expectedOrigin}/`,
   });
 
   const canonicalUrl = new URL(
     (await page.locator('link[rel="canonical"]').getAttribute("href")) ?? "",
   );
-  expect(canonicalUrl.origin).toBe("http://127.0.0.1:3000");
+  expect(canonicalUrl.origin).toBe(expectedOrigin);
   expect(canonicalUrl.pathname).toBe("/");
 
   await expect(page.locator('meta[property="og:type"]')).toHaveAttribute(
@@ -34,7 +38,7 @@ test("renders the homepage greeting and structured data", async ({ page }) => {
     (await page.locator('meta[property="og:url"]').getAttribute("content")) ??
       "",
   );
-  expect(openGraphUrl.origin).toBe("http://127.0.0.1:3000");
+  expect(openGraphUrl.origin).toBe(expectedOrigin);
   expect(openGraphUrl.pathname).toBe("/");
   await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
     "content",
