@@ -1,0 +1,9 @@
+{
+  "passed": [
+    "History open preserves selected identity/URL; unavailable sample bytes never become a different download",
+    "Selected local file downloads exact bytes; text preview stays inert",
+    "Remove from history is explicitly separate from simulated server deletion",
+    "Past custom time rejected in Europe/Warsaw; chosen absolute expiration retained; owner updates automatically at stable URL",
+    "Persisted theme initialization is in head before stylesheet/body; dark theme present at DOM ready"
+  ]
+}

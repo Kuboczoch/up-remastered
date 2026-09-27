@@ -1,0 +1,22 @@
+{
+  "passed": [
+    "320px: 33 states, no horizontal overflow, single H1",
+    "360px: 33 states, no horizontal overflow, single H1",
+    "390px: 33 states, no horizontal overflow, single H1",
+    "430px: 33 states, no horizontal overflow, single H1",
+    "768px: 33 states, no horizontal overflow, single H1",
+    "1440px: 33 states, no horizontal overflow, single H1",
+    "Copy link writes exact public URL to clipboard",
+    "QR decoded independently to exact share URL",
+    "QR download and Escape dismissal",
+    "Simulated transfer completes; safe filename; metadata persistence after reload",
+    "Cancellation creates no history record",
+    "Text upload advanced UTF-16 encoding",
+    "Request size validation; preallocated URL; revoke confirmation",
+    "Sender completion has no owner controls or management link",
+    "Theme persistence; dark-mode screenshots",
+    "Reduced-motion path",
+    "No browser JavaScript errors"
+  ],
+  "state_count": 33
+}

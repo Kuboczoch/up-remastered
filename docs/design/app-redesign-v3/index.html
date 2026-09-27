@@ -1,0 +1,2396 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>try{const t=localStorage.getItem("up-redesign-v3:theme")||"system";document.documentElement.dataset.theme=(t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches))?"dark":"light"}catch{document.documentElement.dataset.theme=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}</script><title>Up Remastered · design review</title><style>:root{color-scheme:light;--bg:#f7f8f5;--panel:#fff;--ink:#182e26;--muted:#58685f;--line:#dce2dc;--soft:#f0f3ee;--accent:#244c38;--accent-ink:#fff;--danger:#a33f35;--danger-bg:#faf0ed;--radius:18px;font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px}html[data-theme=dark]{color-scheme:dark;--bg:#141c18;--panel:#1d2821;--ink:#edf2ea;--muted:#acb9af;--line:#39453c;--soft:#27362c;--accent:#cae1bd;--accent-ink:#1c3124;--danger:#ffb7ab;--danger-bg:#3a2725}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);line-height:1.5}button,input,select,textarea{font:inherit}button,a,input,select,textarea,summary{-webkit-tap-highlight-color:transparent}button,a,summary{touch-action:manipulation}a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}button,.button{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;min-height:44px;padding:10px 16px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;line-height:1.3;font-weight:550}button:hover,.button:hover{background:var(--soft);text-decoration:none}button:disabled{opacity:.55;cursor:default}.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}.primary:hover{background:var(--accent);filter:brightness(1.08)}.quiet{border-color:transparent;background:transparent}.danger{color:var(--danger)}.icon{width:19px;height:19px;flex-shrink:0;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}.iconbutton{padding:10px;min-width:44px}:focus-visible{outline:3px solid #6b9671;outline-offset:4px}header{height:88px;max-width:1100px;margin:auto;padding:0 36px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:baseline;gap:8px;white-space:nowrap}.brand strong{font-size:30px;letter-spacing:-1.9px}.brand span{font-size:14px;font-weight:500;letter-spacing:-.3px}nav{display:flex;align-items:center;gap:12px}select,input,textarea{color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11px 12px;max-width:100%;min-height:44px}nav select{border:0;background:transparent;width:92px;padding-left:4px;font-size:13px}main{max-width:760px;padding:36px 28px 50px;margin:auto;min-height:calc(100vh - 173px)}.intro{margin-bottom:26px}h1{font-size:38px;line-height:1.15;letter-spacing:-1.4px;font-weight:600;margin:0 0 12px}h2{font-size:20px;line-height:1.3;font-weight:600;letter-spacing:-.5px;margin:0 0 10px}h3{font-size:15px;margin:0;font-weight:600}p{margin:0 0 14px}.muted,.intro p{color:var(--muted)}.small{font-size:13px}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:12px}.card{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:28px;position:relative}.upload-card{padding:0}.tabs{display:flex;gap:24px;padding:0 26px;border-bottom:1px solid var(--line)}.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;padding:17px 0;min-width:50px;font-weight:500;color:var(--muted)}.tabs button[aria-selected=true]{border-bottom-color:var(--accent);color:var(--ink)}.drop{margin:20px;min-height:204px;border:1px dashed var(--line);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px;position:relative}.drop h2{font-size:18px;margin:0}.drop p{margin:0;color:var(--muted);font-size:13px}.drop>svg{width:26px;height:26px;color:var(--muted)}.drop.drag{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}.drop.drag:after{content:'Drop file to upload';position:absolute;inset:0;display:grid;place-items:center;background:var(--accent);border-radius:11px;color:var(--accent-ink);font-size:22px;font-weight:600}.limits{display:flex;justify-content:space-between;gap:12px;padding:0 24px 20px;color:var(--muted);font-size:12px;flex-wrap:wrap}.advanced{margin:16px 0 0;text-align:right;font-size:13px}.advanced summary{cursor:pointer;min-height:44px;display:inline-flex;align-items:center;gap:8px}.advanced summary:after{content:'+'}.advanced[open] summary:after{content:'−'}.advanced-content{text-align:left;border-top:1px solid var(--line);padding:18px 0;display:flex;align-items:center;gap:16px;flex-wrap:wrap}.advanced-content label{display:flex;gap:10px;align-items:center}.advanced a{text-decoration:underline}.text-input{padding:24px}textarea{width:100%;min-height:166px;resize:vertical;margin-bottom:12px}.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.actions .primary{min-width:140px}.space-between{justify-content:space-between}.history{margin-top:34px}.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}.section-head h2{font-size:17px;margin:0}.empty{padding:20px 0;color:var(--muted);border-top:1px solid var(--line);font-size:14px}.empty p{margin:0}.file-row{display:flex;align-items:center;gap:12px;padding:16px 0;border-top:1px solid var(--line)}.file-badge{background:var(--soft);width:44px;height:48px;border-radius:8px;display:grid;place-items:center;font-size:10px;font-weight:650;letter-spacing:.5px;flex-shrink:0}.file-info{min-width:0;flex:1}.filename{overflow-wrap:anywhere;font-weight:550}.file-info .muted{font-size:12px;margin-top:3px}.file-row .actions{gap:2px;flex-shrink:0}.file-row .actions button{font-size:13px}.share-box{display:flex;gap:10px;margin:24px 0 14px;align-items:center}.share-box input{min-width:0;flex:1;font-size:15px;font-family:ui-monospace,monospace;background:var(--soft);border-color:transparent}.share-box button{flex-shrink:0}.result-file{display:flex;align-items:center;gap:12px;padding:18px 0}.divider{border-top:1px solid var(--line);margin-top:24px;padding-top:18px}.success-label{display:flex;align-items:center;gap:8px;color:var(--accent);font-size:13px;margin-bottom:16px}.meta{display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:8px}.progress-track{height:6px;background:var(--soft);border-radius:9px;overflow:hidden;margin:24px 0 12px}.progress-bar{height:100%;background:var(--accent);width:42%;border-radius:9px;transition:width 150ms linear}.progress-caption{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:13px}.status-slot{min-height:27px;color:var(--muted);font-size:13px;margin:12px 0 0}.error-box{padding:16px 18px;background:var(--danger-bg);border-radius:10px;margin:20px 0;color:var(--danger);font-size:14px}.error-box p{margin:5px 0 0}.back{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin:-14px 0 18px;color:var(--muted);font-size:13px}.form-field{display:flex;flex-direction:column;gap:8px;margin-bottom:22px}.form-field label{font-size:14px;font-weight:550}.form-field .small{color:var(--muted)}.segmented{display:flex;gap:8px;flex-wrap:wrap}.segmented button[aria-pressed=true]{border-color:var(--accent);background:var(--soft)}.field-pair{display:flex;gap:10px}.field-pair input{width:100%;min-width:0}.field-pair select{width:105px}.owner-links label{display:block;font-size:13px;margin-top:22px}.owner-links .share-box{margin:8px 0}.status-panel{padding:20px 0;margin-top:12px;border-top:1px solid var(--line)}.status-panel p{margin:8px 0 0}.status-title{font-size:18px;font-weight:550}.timeline{display:flex;gap:8px;color:var(--muted);font-size:12px;margin-bottom:22px}.timeline span{flex:1;border-top:2px solid var(--line);padding-top:8px}.timeline .active{color:var(--ink);border-color:var(--accent)}details summary{cursor:pointer;min-height:44px;align-content:center}.owner-secret{margin-top:18px;color:var(--muted);font-size:13px}.owner-secret .share-box{margin-top:8px}.preview-text{font:13px/1.7 ui-monospace,monospace;padding:22px;background:var(--soft);border-radius:10px;white-space:pre-wrap;overflow-wrap:anywhere;margin:20px 0;max-height:320px;overflow:auto}.unavailable{padding:38px 28px}.unavailable .actions{margin-top:28px}.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}footer{border-top:1px solid var(--line);max-width:1100px;margin:auto;padding:20px 36px;display:flex;justify-content:space-between;gap:16px;color:var(--muted);font-size:12px;flex-wrap:wrap}footer .links{display:flex;align-items:center;gap:18px}.review{max-width:760px;margin:0 auto;padding:0 28px 24px;color:var(--muted);font-size:12px}.review summary{min-height:36px}.review-panel{padding:16px;border:1px solid var(--line);border-radius:10px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}.review-panel select{max-width:100%}.review-panel p{width:100%;margin:0}dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:18px;max-width:min(460px,calc(100vw - 32px));width:460px;padding:26px}dialog::backdrop{background:#10231988;backdrop-filter:blur(3px)}.dialog-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:16px}.dialog-head h2{margin:0}.qr{width:244px;max-width:100%;margin:20px auto;background:#fff;border-radius:10px;padding:14px}.qr svg{display:block;width:100%;height:auto}.qr-url{text-align:center;font-family:ui-monospace,monospace;font-size:13px;overflow-wrap:anywhere}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:10px;font-size:13px;z-index:10;max-width:calc(100vw - 32px);box-shadow:0 6px 25px #0002}.mobile-copy{display:none}[hidden]{display:none!important}.animate{animation:appear 150ms ease-out}@keyframes appear{from{opacity:.55;transform:translateY(3px)}to{opacity:1;transform:none}}@media(max-width:600px){header{height:76px;padding:0 20px;gap:8px}.brand strong{font-size:28px}.brand span{font-size:12px}.brand{gap:6px}nav{gap:2px}nav a{font-size:12px;padding:8px;min-height:44px;display:flex;align-items:center}nav select{width:75px;font-size:12px;padding-right:4px}main{padding:24px 20px 36px;min-height:calc(100svh - 176px)}h1{font-size:30px;letter-spacing:-1px}.intro{margin-bottom:22px}.intro p{font-size:14px}.card{padding:22px}.upload-card{padding:0}.tabs{padding:0 20px}.drop{margin:16px;min-height:195px;padding:22px 12px}.desktop-copy{display:none}.mobile-copy{display:inline}.limits{padding:0 16px 17px;gap:7px;font-size:11px}.history{margin-top:28px}.file-row{flex-wrap:wrap;gap:10px}.file-row .actions{width:100%;justify-content:flex-end;margin-top:-4px}.file-row .actions .copy-history{margin-left:auto}.section-head .small{font-size:11px}.share-box{flex-wrap:wrap}.share-box input{width:100%;flex-basis:100%}.share-box .primary{flex:1}.result-file{padding-top:12px}.progress-caption{font-size:12px}.owner-links .share-box input{font-size:13px}.owner-links .share-box .primary{flex:auto}.unavailable{padding:28px 22px}footer{padding:18px 20px;gap:10px;align-items:center;font-size:11px}footer .links{gap:12px}.review{padding:0 20px 20px}.review-panel{padding:12px}.meta{gap:10px}.back{margin-top:-10px}.text-input{padding:20px}dialog{padding:22px}.actions .primary{min-width:120px}}@media(max-width:359px){header{padding:0 16px}.brand span{font-size:11px}nav a{font-size:11px;padding:6px}nav select{width:69px}main{padding-left:16px;padding-right:16px}h1{font-size:28px}.card{padding:18px}.upload-card{padding:0}.limits{font-size:11px}.section-head{align-items:flex-start}.section-head h2{font-size:16px}.section-head .small{max-width:92px;text-align:right}.share-box button{padding:10px 12px}.meta{flex-direction:column;gap:4px}}@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}</style></head><body>
+<header><a class="brand" href="#/home" aria-label="Up Remastered home"><strong>up</strong><span>remastered</span></a><nav aria-label="Main navigation"><a href="#/request">Request a file</a><label class="sr-only" for="theme">Color theme</label><select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></nav></header>
+<main id="app"></main>
+<footer><span>Links are accessible to anyone who has them.</span><div class="links"><a href="https://github.com/Kuboczoch/up-remastered" target="_blank" rel="noopener noreferrer">GitHub</a><span>v1.1.0</span></div></footer>
+<details class="review"><summary>Design review · simulated uploads, no server connection</summary><div class="review-panel"><label for="statePicker">Screen</label><select id="statePicker"></select><button id="clearHistory">Clear demo history</button><p>All transfers and server states are simulated. Copy link and QR generation work; example.com links do not host files. This review control is not part of the shipped UI. Version reflects the repository at design time; production reads package.json.</p></div></details>
+<input id="fileInput" type="file" hidden>
+<dialog id="qrDialog" aria-labelledby="qrTitle"><div class="dialog-head"><h2 id="qrTitle">Share with a QR code</h2><button class="quiet iconbutton" aria-label="Close QR code" data-close="qrDialog">✕</button></div><p class="muted small">Scan to open the same share link.</p><div class="qr" id="qrImage"></div><p class="qr-url" id="qrLink"></p><div class="actions"><button class="primary" id="qrCopy">Copy link</button><button id="qrDownload">Download QR</button></div></dialog>
+<dialog id="manualCopy" aria-labelledby="manualTitle"><div class="dialog-head"><h2 id="manualTitle">Copy this link</h2><button class="quiet iconbutton" aria-label="Close copy dialog" data-close="manualCopy">✕</button></div><p class="muted">Your browser blocked automatic copying. Select and copy the link below.</p><input id="manualLink" readonly aria-label="Link to copy" style="width:100%"></dialog>
+<dialog id="moreDialog" aria-labelledby="moreName"><div class="dialog-head"><h2 id="moreName"></h2><button class="quiet iconbutton" aria-label="Close file actions" data-close="moreDialog">✕</button></div><div class="actions"><button id="moreCopy">Copy link</button><button id="moreQr">Show QR code</button><button id="moreOpen">Open file</button><button class="quiet" id="moreRemove">Remove from history</button><button class="quiet danger" id="moreDelete">Delete file</button></div></dialog>
+<dialog id="deleteDialog" aria-labelledby="deleteTitle"><h2 id="deleteTitle">Delete this file?</h2><p id="deleteName" class="filename"></p><p class="muted small">In the app, this permanently disables the share link. <strong>Design simulation: no server file will be deleted.</strong></p><div id="deleteError" class="error-box" hidden role="alert">The file could not be deleted. It is still available. Try again.</div><div class="actions"><button data-close="deleteDialog">Keep file</button><button class="primary" id="deleteConfirm">Delete file</button></div></dialog>
+<dialog id="revokeDialog" aria-labelledby="revokeTitle"><h2 id="revokeTitle">Revoke this request?</h2><p class="muted">The upload link will no longer accept a file.</p><div class="actions"><button data-close="revokeDialog">Keep request</button><button class="primary" id="revokeConfirm">Revoke request</button></div></dialog>
+<dialog id="helpDialog" aria-labelledby="helpTitle"><div class="dialog-head"><h2 id="helpTitle"></h2><button class="quiet iconbutton" aria-label="Close integration help" data-close="helpDialog">✕</button></div><p id="helpText" class="muted"></p></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script>//---------------------------------------------------------------------
+//
+// QR Code Generator for JavaScript
+//
+// Copyright (c) 2009 Kazuhiko Arase
+//
+// URL: http://www.d-project.com/
+//
+// Licensed under the MIT license:
+//  http://www.opensource.org/licenses/mit-license.php
+//
+// The word 'QR Code' is registered trademark of
+// DENSO WAVE INCORPORATED
+//  http://www.denso-wave.com/qrcode/faqpatent-e.html
+//
+//---------------------------------------------------------------------
+
+var qrcode = function() {
+
+  //---------------------------------------------------------------------
+  // qrcode
+  //---------------------------------------------------------------------
+
+  /**
+   * qrcode
+   * @param typeNumber 1 to 40
+   * @param errorCorrectionLevel 'L','M','Q','H'
+   */
+  var qrcode = function(typeNumber, errorCorrectionLevel) {
+
+    var PAD0 = 0xEC;
+    var PAD1 = 0x11;
+
+    var _typeNumber = typeNumber;
+    var _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
+    var _modules = null;
+    var _moduleCount = 0;
+    var _dataCache = null;
+    var _dataList = [];
+
+    var _this = {};
+
+    var makeImpl = function(test, maskPattern) {
+
+      _moduleCount = _typeNumber * 4 + 17;
+      _modules = function(moduleCount) {
+        var modules = new Array(moduleCount);
+        for (var row = 0; row < moduleCount; row += 1) {
+          modules[row] = new Array(moduleCount);
+          for (var col = 0; col < moduleCount; col += 1) {
+            modules[row][col] = null;
+          }
+        }
+        return modules;
+      }(_moduleCount);
+
+      setupPositionProbePattern(0, 0);
+      setupPositionProbePattern(_moduleCount - 7, 0);
+      setupPositionProbePattern(0, _moduleCount - 7);
+      setupPositionAdjustPattern();
+      setupTimingPattern();
+      setupTypeInfo(test, maskPattern);
+
+      if (_typeNumber >= 7) {
+        setupTypeNumber(test);
+      }
+
+      if (_dataCache == null) {
+        _dataCache = createData(_typeNumber, _errorCorrectionLevel, _dataList);
+      }
+
+      mapData(_dataCache, maskPattern);
+    };
+
+    var setupPositionProbePattern = function(row, col) {
+
+      for (var r = -1; r <= 7; r += 1) {
+
+        if (row + r <= -1 || _moduleCount <= row + r) continue;
+
+        for (var c = -1; c <= 7; c += 1) {
+
+          if (col + c <= -1 || _moduleCount <= col + c) continue;
+
+          if ( (0 <= r && r <= 6 && (c == 0 || c == 6) )
+              || (0 <= c && c <= 6 && (r == 0 || r == 6) )
+              || (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
+            _modules[row + r][col + c] = true;
+          } else {
+            _modules[row + r][col + c] = false;
+          }
+        }
+      }
+    };
+
+    var getBestMaskPattern = function() {
+
+      var minLostPoint = 0;
+      var pattern = 0;
+
+      for (var i = 0; i < 8; i += 1) {
+
+        makeImpl(true, i);
+
+        var lostPoint = QRUtil.getLostPoint(_this);
+
+        if (i == 0 || minLostPoint > lostPoint) {
+          minLostPoint = lostPoint;
+          pattern = i;
+        }
+      }
+
+      return pattern;
+    };
+
+    var setupTimingPattern = function() {
+
+      for (var r = 8; r < _moduleCount - 8; r += 1) {
+        if (_modules[r][6] != null) {
+          continue;
+        }
+        _modules[r][6] = (r % 2 == 0);
+      }
+
+      for (var c = 8; c < _moduleCount - 8; c += 1) {
+        if (_modules[6][c] != null) {
+          continue;
+        }
+        _modules[6][c] = (c % 2 == 0);
+      }
+    };
+
+    var setupPositionAdjustPattern = function() {
+
+      var pos = QRUtil.getPatternPosition(_typeNumber);
+
+      for (var i = 0; i < pos.length; i += 1) {
+
+        for (var j = 0; j < pos.length; j += 1) {
+
+          var row = pos[i];
+          var col = pos[j];
+
+          if (_modules[row][col] != null) {
+            continue;
+          }
+
+          for (var r = -2; r <= 2; r += 1) {
+
+            for (var c = -2; c <= 2; c += 1) {
+
+              if (r == -2 || r == 2 || c == -2 || c == 2
+                  || (r == 0 && c == 0) ) {
+                _modules[row + r][col + c] = true;
+              } else {
+                _modules[row + r][col + c] = false;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    var setupTypeNumber = function(test) {
+
+      var bits = QRUtil.getBCHTypeNumber(_typeNumber);
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[Math.floor(i / 3)][i % 3 + _moduleCount - 8 - 3] = mod;
+      }
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[i % 3 + _moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+      }
+    };
+
+    var setupTypeInfo = function(test, maskPattern) {
+
+      var data = (_errorCorrectionLevel << 3) | maskPattern;
+      var bits = QRUtil.getBCHTypeInfo(data);
+
+      // vertical
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 6) {
+          _modules[i][8] = mod;
+        } else if (i < 8) {
+          _modules[i + 1][8] = mod;
+        } else {
+          _modules[_moduleCount - 15 + i][8] = mod;
+        }
+      }
+
+      // horizontal
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 8) {
+          _modules[8][_moduleCount - i - 1] = mod;
+        } else if (i < 9) {
+          _modules[8][15 - i - 1 + 1] = mod;
+        } else {
+          _modules[8][15 - i - 1] = mod;
+        }
+      }
+
+      // fixed module
+      _modules[_moduleCount - 8][8] = (!test);
+    };
+
+    var mapData = function(data, maskPattern) {
+
+      var inc = -1;
+      var row = _moduleCount - 1;
+      var bitIndex = 7;
+      var byteIndex = 0;
+      var maskFunc = QRUtil.getMaskFunction(maskPattern);
+
+      for (var col = _moduleCount - 1; col > 0; col -= 2) {
+
+        if (col == 6) col -= 1;
+
+        while (true) {
+
+          for (var c = 0; c < 2; c += 1) {
+
+            if (_modules[row][col - c] == null) {
+
+              var dark = false;
+
+              if (byteIndex < data.length) {
+                dark = ( ( (data[byteIndex] >>> bitIndex) & 1) == 1);
+              }
+
+              var mask = maskFunc(row, col - c);
+
+              if (mask) {
+                dark = !dark;
+              }
+
+              _modules[row][col - c] = dark;
+              bitIndex -= 1;
+
+              if (bitIndex == -1) {
+                byteIndex += 1;
+                bitIndex = 7;
+              }
+            }
+          }
+
+          row += inc;
+
+          if (row < 0 || _moduleCount <= row) {
+            row -= inc;
+            inc = -inc;
+            break;
+          }
+        }
+      }
+    };
+
+    var createBytes = function(buffer, rsBlocks) {
+
+      var offset = 0;
+
+      var maxDcCount = 0;
+      var maxEcCount = 0;
+
+      var dcdata = new Array(rsBlocks.length);
+      var ecdata = new Array(rsBlocks.length);
+
+      for (var r = 0; r < rsBlocks.length; r += 1) {
+
+        var dcCount = rsBlocks[r].dataCount;
+        var ecCount = rsBlocks[r].totalCount - dcCount;
+
+        maxDcCount = Math.max(maxDcCount, dcCount);
+        maxEcCount = Math.max(maxEcCount, ecCount);
+
+        dcdata[r] = new Array(dcCount);
+
+        for (var i = 0; i < dcdata[r].length; i += 1) {
+          dcdata[r][i] = 0xff & buffer.getBuffer()[i + offset];
+        }
+        offset += dcCount;
+
+        var rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+        var rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
+
+        var modPoly = rawPoly.mod(rsPoly);
+        ecdata[r] = new Array(rsPoly.getLength() - 1);
+        for (var i = 0; i < ecdata[r].length; i += 1) {
+          var modIndex = i + modPoly.getLength() - ecdata[r].length;
+          ecdata[r][i] = (modIndex >= 0)? modPoly.getAt(modIndex) : 0;
+        }
+      }
+
+      var totalCodeCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalCodeCount += rsBlocks[i].totalCount;
+      }
+
+      var data = new Array(totalCodeCount);
+      var index = 0;
+
+      for (var i = 0; i < maxDcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < dcdata[r].length) {
+            data[index] = dcdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      for (var i = 0; i < maxEcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < ecdata[r].length) {
+            data[index] = ecdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      return data;
+    };
+
+    var createData = function(typeNumber, errorCorrectionLevel, dataList) {
+
+      var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectionLevel);
+
+      var buffer = qrBitBuffer();
+
+      for (var i = 0; i < dataList.length; i += 1) {
+        var data = dataList[i];
+        buffer.put(data.getMode(), 4);
+        buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+        data.write(buffer);
+      }
+
+      // calc num max data.
+      var totalDataCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalDataCount += rsBlocks[i].dataCount;
+      }
+
+      if (buffer.getLengthInBits() > totalDataCount * 8) {
+        throw 'code length overflow. ('
+          + buffer.getLengthInBits()
+          + '>'
+          + totalDataCount * 8
+          + ')';
+      }
+
+      // end code
+      if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+        buffer.put(0, 4);
+      }
+
+      // padding
+      while (buffer.getLengthInBits() % 8 != 0) {
+        buffer.putBit(false);
+      }
+
+      // padding
+      while (true) {
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD0, 8);
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD1, 8);
+      }
+
+      return createBytes(buffer, rsBlocks);
+    };
+
+    _this.addData = function(data, mode) {
+
+      mode = mode || 'Byte';
+
+      var newData = null;
+
+      switch(mode) {
+      case 'Numeric' :
+        newData = qrNumber(data);
+        break;
+      case 'Alphanumeric' :
+        newData = qrAlphaNum(data);
+        break;
+      case 'Byte' :
+        newData = qr8BitByte(data);
+        break;
+      case 'Kanji' :
+        newData = qrKanji(data);
+        break;
+      default :
+        throw 'mode:' + mode;
+      }
+
+      _dataList.push(newData);
+      _dataCache = null;
+    };
+
+    _this.isDark = function(row, col) {
+      if (row < 0 || _moduleCount <= row || col < 0 || _moduleCount <= col) {
+        throw row + ',' + col;
+      }
+      return _modules[row][col];
+    };
+
+    _this.getModuleCount = function() {
+      return _moduleCount;
+    };
+
+    _this.make = function() {
+      if (_typeNumber < 1) {
+        var typeNumber = 1;
+
+        for (; typeNumber < 40; typeNumber++) {
+          var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, _errorCorrectionLevel);
+          var buffer = qrBitBuffer();
+
+          for (var i = 0; i < _dataList.length; i++) {
+            var data = _dataList[i];
+            buffer.put(data.getMode(), 4);
+            buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+            data.write(buffer);
+          }
+
+          var totalDataCount = 0;
+          for (var i = 0; i < rsBlocks.length; i++) {
+            totalDataCount += rsBlocks[i].dataCount;
+          }
+
+          if (buffer.getLengthInBits() <= totalDataCount * 8) {
+            break;
+          }
+        }
+
+        _typeNumber = typeNumber;
+      }
+
+      makeImpl(false, getBestMaskPattern() );
+    };
+
+    _this.createTableTag = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var qrHtml = '';
+
+      qrHtml += '<table style="';
+      qrHtml += ' border-width: 0px; border-style: none;';
+      qrHtml += ' border-collapse: collapse;';
+      qrHtml += ' padding: 0px; margin: ' + margin + 'px;';
+      qrHtml += '">';
+      qrHtml += '<tbody>';
+
+      for (var r = 0; r < _this.getModuleCount(); r += 1) {
+
+        qrHtml += '<tr>';
+
+        for (var c = 0; c < _this.getModuleCount(); c += 1) {
+          qrHtml += '<td style="';
+          qrHtml += ' border-width: 0px; border-style: none;';
+          qrHtml += ' border-collapse: collapse;';
+          qrHtml += ' padding: 0px; margin: 0px;';
+          qrHtml += ' width: ' + cellSize + 'px;';
+          qrHtml += ' height: ' + cellSize + 'px;';
+          qrHtml += ' background-color: ';
+          qrHtml += _this.isDark(r, c)? '#000000' : '#ffffff';
+          qrHtml += ';';
+          qrHtml += '"/>';
+        }
+
+        qrHtml += '</tr>';
+      }
+
+      qrHtml += '</tbody>';
+      qrHtml += '</table>';
+
+      return qrHtml;
+    };
+
+    _this.createSvgTag = function(cellSize, margin, alt, title) {
+
+      var opts = {};
+      if (typeof arguments[0] == 'object') {
+        // Called by options.
+        opts = arguments[0];
+        // overwrite cellSize and margin.
+        cellSize = opts.cellSize;
+        margin = opts.margin;
+        alt = opts.alt;
+        title = opts.title;
+      }
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      // Compose alt property surrogate
+      alt = (typeof alt === 'string') ? {text: alt} : alt || {};
+      alt.text = alt.text || null;
+      alt.id = (alt.text) ? alt.id || 'qrcode-description' : null;
+
+      // Compose title property surrogate
+      title = (typeof title === 'string') ? {text: title} : title || {};
+      title.text = title.text || null;
+      title.id = (title.text) ? title.id || 'qrcode-title' : null;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var c, mc, r, mr, qrSvg='', rect;
+
+      rect = 'l' + cellSize + ',0 0,' + cellSize +
+        ' -' + cellSize + ',0 0,-' + cellSize + 'z ';
+
+      qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+      qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : '';
+      qrSvg += ' viewBox="0 0 ' + size + ' ' + size + '" ';
+      qrSvg += ' preserveAspectRatio="xMinYMin meet"';
+      qrSvg += (title.text || alt.text) ? ' role="img" aria-labelledby="' +
+          escapeXml([title.id, alt.id].join(' ').trim() ) + '"' : '';
+      qrSvg += '>';
+      qrSvg += (title.text) ? '<title id="' + escapeXml(title.id) + '">' +
+          escapeXml(title.text) + '</title>' : '';
+      qrSvg += (alt.text) ? '<description id="' + escapeXml(alt.id) + '">' +
+          escapeXml(alt.text) + '</description>' : '';
+      qrSvg += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
+      qrSvg += '<path d="';
+
+      for (r = 0; r < _this.getModuleCount(); r += 1) {
+        mr = r * cellSize + margin;
+        for (c = 0; c < _this.getModuleCount(); c += 1) {
+          if (_this.isDark(r, c) ) {
+            mc = c*cellSize+margin;
+            qrSvg += 'M' + mc + ',' + mr + rect;
+          }
+        }
+      }
+
+      qrSvg += '" stroke="transparent" fill="black"/>';
+      qrSvg += '</svg>';
+
+      return qrSvg;
+    };
+
+    _this.createDataURL = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      return createDataURL(size, size, function(x, y) {
+        if (min <= x && x < max && min <= y && y < max) {
+          var c = Math.floor( (x - min) / cellSize);
+          var r = Math.floor( (y - min) / cellSize);
+          return _this.isDark(r, c)? 0 : 1;
+        } else {
+          return 1;
+        }
+      } );
+    };
+
+    _this.createImgTag = function(cellSize, margin, alt) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+
+      var img = '';
+      img += '<img';
+      img += '\u0020src="';
+      img += _this.createDataURL(cellSize, margin);
+      img += '"';
+      img += '\u0020width="';
+      img += size;
+      img += '"';
+      img += '\u0020height="';
+      img += size;
+      img += '"';
+      if (alt) {
+        img += '\u0020alt="';
+        img += escapeXml(alt);
+        img += '"';
+      }
+      img += '/>';
+
+      return img;
+    };
+
+    var escapeXml = function(s) {
+      var escaped = '';
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charAt(i);
+        switch(c) {
+        case '<': escaped += '&lt;'; break;
+        case '>': escaped += '&gt;'; break;
+        case '&': escaped += '&amp;'; break;
+        case '"': escaped += '&quot;'; break;
+        default : escaped += c; break;
+        }
+      }
+      return escaped;
+    };
+
+    var _createHalfASCII = function(margin) {
+      var cellSize = 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r1, r2, p;
+
+      var blocks = {
+        '██': '█',
+        '█ ': '▀',
+        ' █': '▄',
+        '  ': ' '
+      };
+
+      var blocksLastLineNoMargin = {
+        '██': '▀',
+        '█ ': '▀',
+        ' █': ' ',
+        '  ': ' '
+      };
+
+      var ascii = '';
+      for (y = 0; y < size; y += 2) {
+        r1 = Math.floor((y - min) / cellSize);
+        r2 = Math.floor((y + 1 - min) / cellSize);
+        for (x = 0; x < size; x += 1) {
+          p = '█';
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r1, Math.floor((x - min) / cellSize))) {
+            p = ' ';
+          }
+
+          if (min <= x && x < max && min <= y+1 && y+1 < max && _this.isDark(r2, Math.floor((x - min) / cellSize))) {
+            p += ' ';
+          }
+          else {
+            p += '█';
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          ascii += (margin < 1 && y+1 >= max) ? blocksLastLineNoMargin[p] : blocks[p];
+        }
+
+        ascii += '\n';
+      }
+
+      if (size % 2 && margin > 0) {
+        return ascii.substring(0, ascii.length - size - 1) + Array(size+1).join('▀');
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.createASCII = function(cellSize, margin) {
+      cellSize = cellSize || 1;
+
+      if (cellSize < 2) {
+        return _createHalfASCII(margin);
+      }
+
+      cellSize -= 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r, p;
+
+      var white = Array(cellSize+1).join('██');
+      var black = Array(cellSize+1).join('  ');
+
+      var ascii = '';
+      var line = '';
+      for (y = 0; y < size; y += 1) {
+        r = Math.floor( (y - min) / cellSize);
+        line = '';
+        for (x = 0; x < size; x += 1) {
+          p = 1;
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r, Math.floor((x - min) / cellSize))) {
+            p = 0;
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          line += p ? white : black;
+        }
+
+        for (r = 0; r < cellSize; r += 1) {
+          ascii += line + '\n';
+        }
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.renderTo2dContext = function(context, cellSize) {
+      cellSize = cellSize || 2;
+      var length = _this.getModuleCount();
+      for (var row = 0; row < length; row++) {
+        for (var col = 0; col < length; col++) {
+          context.fillStyle = _this.isDark(row, col) ? 'black' : 'white';
+          context.fillRect(row * cellSize, col * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrcode.stringToBytes
+  //---------------------------------------------------------------------
+
+  qrcode.stringToBytesFuncs = {
+    'default' : function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        bytes.push(c & 0xff);
+      }
+      return bytes;
+    }
+  };
+
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['default'];
+
+  //---------------------------------------------------------------------
+  // qrcode.createStringToBytes
+  //---------------------------------------------------------------------
+
+  /**
+   * @param unicodeData base64 string of byte array.
+   * [16bit Unicode],[16bit Bytes], ...
+   * @param numChars
+   */
+  qrcode.createStringToBytes = function(unicodeData, numChars) {
+
+    // create conversion map.
+
+    var unicodeMap = function() {
+
+      var bin = base64DecodeInputStream(unicodeData);
+      var read = function() {
+        var b = bin.read();
+        if (b == -1) throw 'eof';
+        return b;
+      };
+
+      var count = 0;
+      var unicodeMap = {};
+      while (true) {
+        var b0 = bin.read();
+        if (b0 == -1) break;
+        var b1 = read();
+        var b2 = read();
+        var b3 = read();
+        var k = String.fromCharCode( (b0 << 8) | b1);
+        var v = (b2 << 8) | b3;
+        unicodeMap[k] = v;
+        count += 1;
+      }
+      if (count != numChars) {
+        throw count + ' != ' + numChars;
+      }
+
+      return unicodeMap;
+    }();
+
+    var unknownChar = '?'.charCodeAt(0);
+
+    return function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        if (c < 128) {
+          bytes.push(c);
+        } else {
+          var b = unicodeMap[s.charAt(i)];
+          if (typeof b == 'number') {
+            if ( (b & 0xff) == b) {
+              // 1byte
+              bytes.push(b);
+            } else {
+              // 2bytes
+              bytes.push(b >>> 8);
+              bytes.push(b & 0xff);
+            }
+          } else {
+            bytes.push(unknownChar);
+          }
+        }
+      }
+      return bytes;
+    };
+  };
+
+  //---------------------------------------------------------------------
+  // QRMode
+  //---------------------------------------------------------------------
+
+  var QRMode = {
+    MODE_NUMBER :    1 << 0,
+    MODE_ALPHA_NUM : 1 << 1,
+    MODE_8BIT_BYTE : 1 << 2,
+    MODE_KANJI :     1 << 3
+  };
+
+  //---------------------------------------------------------------------
+  // QRErrorCorrectionLevel
+  //---------------------------------------------------------------------
+
+  var QRErrorCorrectionLevel = {
+    L : 1,
+    M : 0,
+    Q : 3,
+    H : 2
+  };
+
+  //---------------------------------------------------------------------
+  // QRMaskPattern
+  //---------------------------------------------------------------------
+
+  var QRMaskPattern = {
+    PATTERN000 : 0,
+    PATTERN001 : 1,
+    PATTERN010 : 2,
+    PATTERN011 : 3,
+    PATTERN100 : 4,
+    PATTERN101 : 5,
+    PATTERN110 : 6,
+    PATTERN111 : 7
+  };
+
+  //---------------------------------------------------------------------
+  // QRUtil
+  //---------------------------------------------------------------------
+
+  var QRUtil = function() {
+
+    var PATTERN_POSITION_TABLE = [
+      [],
+      [6, 18],
+      [6, 22],
+      [6, 26],
+      [6, 30],
+      [6, 34],
+      [6, 22, 38],
+      [6, 24, 42],
+      [6, 26, 46],
+      [6, 28, 50],
+      [6, 30, 54],
+      [6, 32, 58],
+      [6, 34, 62],
+      [6, 26, 46, 66],
+      [6, 26, 48, 70],
+      [6, 26, 50, 74],
+      [6, 30, 54, 78],
+      [6, 30, 56, 82],
+      [6, 30, 58, 86],
+      [6, 34, 62, 90],
+      [6, 28, 50, 72, 94],
+      [6, 26, 50, 74, 98],
+      [6, 30, 54, 78, 102],
+      [6, 28, 54, 80, 106],
+      [6, 32, 58, 84, 110],
+      [6, 30, 58, 86, 114],
+      [6, 34, 62, 90, 118],
+      [6, 26, 50, 74, 98, 122],
+      [6, 30, 54, 78, 102, 126],
+      [6, 26, 52, 78, 104, 130],
+      [6, 30, 56, 82, 108, 134],
+      [6, 34, 60, 86, 112, 138],
+      [6, 30, 58, 86, 114, 142],
+      [6, 34, 62, 90, 118, 146],
+      [6, 30, 54, 78, 102, 126, 150],
+      [6, 24, 50, 76, 102, 128, 154],
+      [6, 28, 54, 80, 106, 132, 158],
+      [6, 32, 58, 84, 110, 136, 162],
+      [6, 26, 54, 82, 110, 138, 166],
+      [6, 30, 58, 86, 114, 142, 170]
+    ];
+    var G15 = (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0);
+    var G18 = (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0);
+    var G15_MASK = (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1);
+
+    var _this = {};
+
+    var getBCHDigit = function(data) {
+      var digit = 0;
+      while (data != 0) {
+        digit += 1;
+        data >>>= 1;
+      }
+      return digit;
+    };
+
+    _this.getBCHTypeInfo = function(data) {
+      var d = data << 10;
+      while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
+        d ^= (G15 << (getBCHDigit(d) - getBCHDigit(G15) ) );
+      }
+      return ( (data << 10) | d) ^ G15_MASK;
+    };
+
+    _this.getBCHTypeNumber = function(data) {
+      var d = data << 12;
+      while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
+        d ^= (G18 << (getBCHDigit(d) - getBCHDigit(G18) ) );
+      }
+      return (data << 12) | d;
+    };
+
+    _this.getPatternPosition = function(typeNumber) {
+      return PATTERN_POSITION_TABLE[typeNumber - 1];
+    };
+
+    _this.getMaskFunction = function(maskPattern) {
+
+      switch (maskPattern) {
+
+      case QRMaskPattern.PATTERN000 :
+        return function(i, j) { return (i + j) % 2 == 0; };
+      case QRMaskPattern.PATTERN001 :
+        return function(i, j) { return i % 2 == 0; };
+      case QRMaskPattern.PATTERN010 :
+        return function(i, j) { return j % 3 == 0; };
+      case QRMaskPattern.PATTERN011 :
+        return function(i, j) { return (i + j) % 3 == 0; };
+      case QRMaskPattern.PATTERN100 :
+        return function(i, j) { return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 == 0; };
+      case QRMaskPattern.PATTERN101 :
+        return function(i, j) { return (i * j) % 2 + (i * j) % 3 == 0; };
+      case QRMaskPattern.PATTERN110 :
+        return function(i, j) { return ( (i * j) % 2 + (i * j) % 3) % 2 == 0; };
+      case QRMaskPattern.PATTERN111 :
+        return function(i, j) { return ( (i * j) % 3 + (i + j) % 2) % 2 == 0; };
+
+      default :
+        throw 'bad maskPattern:' + maskPattern;
+      }
+    };
+
+    _this.getErrorCorrectPolynomial = function(errorCorrectLength) {
+      var a = qrPolynomial([1], 0);
+      for (var i = 0; i < errorCorrectLength; i += 1) {
+        a = a.multiply(qrPolynomial([1, QRMath.gexp(i)], 0) );
+      }
+      return a;
+    };
+
+    _this.getLengthInBits = function(mode, type) {
+
+      if (1 <= type && type < 10) {
+
+        // 1 - 9
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 10;
+        case QRMode.MODE_ALPHA_NUM : return 9;
+        case QRMode.MODE_8BIT_BYTE : return 8;
+        case QRMode.MODE_KANJI     : return 8;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 27) {
+
+        // 10 - 26
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 12;
+        case QRMode.MODE_ALPHA_NUM : return 11;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 10;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 41) {
+
+        // 27 - 40
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 14;
+        case QRMode.MODE_ALPHA_NUM : return 13;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 12;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else {
+        throw 'type:' + type;
+      }
+    };
+
+    _this.getLostPoint = function(qrcode) {
+
+      var moduleCount = qrcode.getModuleCount();
+
+      var lostPoint = 0;
+
+      // LEVEL1
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount; col += 1) {
+
+          var sameCount = 0;
+          var dark = qrcode.isDark(row, col);
+
+          for (var r = -1; r <= 1; r += 1) {
+
+            if (row + r < 0 || moduleCount <= row + r) {
+              continue;
+            }
+
+            for (var c = -1; c <= 1; c += 1) {
+
+              if (col + c < 0 || moduleCount <= col + c) {
+                continue;
+              }
+
+              if (r == 0 && c == 0) {
+                continue;
+              }
+
+              if (dark == qrcode.isDark(row + r, col + c) ) {
+                sameCount += 1;
+              }
+            }
+          }
+
+          if (sameCount > 5) {
+            lostPoint += (3 + sameCount - 5);
+          }
+        }
+      };
+
+      // LEVEL2
+
+      for (var row = 0; row < moduleCount - 1; row += 1) {
+        for (var col = 0; col < moduleCount - 1; col += 1) {
+          var count = 0;
+          if (qrcode.isDark(row, col) ) count += 1;
+          if (qrcode.isDark(row + 1, col) ) count += 1;
+          if (qrcode.isDark(row, col + 1) ) count += 1;
+          if (qrcode.isDark(row + 1, col + 1) ) count += 1;
+          if (count == 0 || count == 4) {
+            lostPoint += 3;
+          }
+        }
+      }
+
+      // LEVEL3
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount - 6; col += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row, col + 1)
+              &&  qrcode.isDark(row, col + 2)
+              &&  qrcode.isDark(row, col + 3)
+              &&  qrcode.isDark(row, col + 4)
+              && !qrcode.isDark(row, col + 5)
+              &&  qrcode.isDark(row, col + 6) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount - 6; row += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row + 1, col)
+              &&  qrcode.isDark(row + 2, col)
+              &&  qrcode.isDark(row + 3, col)
+              &&  qrcode.isDark(row + 4, col)
+              && !qrcode.isDark(row + 5, col)
+              &&  qrcode.isDark(row + 6, col) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      // LEVEL4
+
+      var darkCount = 0;
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount; row += 1) {
+          if (qrcode.isDark(row, col) ) {
+            darkCount += 1;
+          }
+        }
+      }
+
+      var ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+      lostPoint += ratio * 10;
+
+      return lostPoint;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // QRMath
+  //---------------------------------------------------------------------
+
+  var QRMath = function() {
+
+    var EXP_TABLE = new Array(256);
+    var LOG_TABLE = new Array(256);
+
+    // initialize tables
+    for (var i = 0; i < 8; i += 1) {
+      EXP_TABLE[i] = 1 << i;
+    }
+    for (var i = 8; i < 256; i += 1) {
+      EXP_TABLE[i] = EXP_TABLE[i - 4]
+        ^ EXP_TABLE[i - 5]
+        ^ EXP_TABLE[i - 6]
+        ^ EXP_TABLE[i - 8];
+    }
+    for (var i = 0; i < 255; i += 1) {
+      LOG_TABLE[EXP_TABLE[i] ] = i;
+    }
+
+    var _this = {};
+
+    _this.glog = function(n) {
+
+      if (n < 1) {
+        throw 'glog(' + n + ')';
+      }
+
+      return LOG_TABLE[n];
+    };
+
+    _this.gexp = function(n) {
+
+      while (n < 0) {
+        n += 255;
+      }
+
+      while (n >= 256) {
+        n -= 255;
+      }
+
+      return EXP_TABLE[n];
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrPolynomial
+  //---------------------------------------------------------------------
+
+  function qrPolynomial(num, shift) {
+
+    if (typeof num.length == 'undefined') {
+      throw num.length + '/' + shift;
+    }
+
+    var _num = function() {
+      var offset = 0;
+      while (offset < num.length && num[offset] == 0) {
+        offset += 1;
+      }
+      var _num = new Array(num.length - offset + shift);
+      for (var i = 0; i < num.length - offset; i += 1) {
+        _num[i] = num[i + offset];
+      }
+      return _num;
+    }();
+
+    var _this = {};
+
+    _this.getAt = function(index) {
+      return _num[index];
+    };
+
+    _this.getLength = function() {
+      return _num.length;
+    };
+
+    _this.multiply = function(e) {
+
+      var num = new Array(_this.getLength() + e.getLength() - 1);
+
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        for (var j = 0; j < e.getLength(); j += 1) {
+          num[i + j] ^= QRMath.gexp(QRMath.glog(_this.getAt(i) ) + QRMath.glog(e.getAt(j) ) );
+        }
+      }
+
+      return qrPolynomial(num, 0);
+    };
+
+    _this.mod = function(e) {
+
+      if (_this.getLength() - e.getLength() < 0) {
+        return _this;
+      }
+
+      var ratio = QRMath.glog(_this.getAt(0) ) - QRMath.glog(e.getAt(0) );
+
+      var num = new Array(_this.getLength() );
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        num[i] = _this.getAt(i);
+      }
+
+      for (var i = 0; i < e.getLength(); i += 1) {
+        num[i] ^= QRMath.gexp(QRMath.glog(e.getAt(i) ) + ratio);
+      }
+
+      // recursive call
+      return qrPolynomial(num, 0).mod(e);
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // QRRSBlock
+  //---------------------------------------------------------------------
+
+  var QRRSBlock = function() {
+
+    var RS_BLOCK_TABLE = [
+
+      // L
+      // M
+      // Q
+      // H
+
+      // 1
+      [1, 26, 19],
+      [1, 26, 16],
+      [1, 26, 13],
+      [1, 26, 9],
+
+      // 2
+      [1, 44, 34],
+      [1, 44, 28],
+      [1, 44, 22],
+      [1, 44, 16],
+
+      // 3
+      [1, 70, 55],
+      [1, 70, 44],
+      [2, 35, 17],
+      [2, 35, 13],
+
+      // 4
+      [1, 100, 80],
+      [2, 50, 32],
+      [2, 50, 24],
+      [4, 25, 9],
+
+      // 5
+      [1, 134, 108],
+      [2, 67, 43],
+      [2, 33, 15, 2, 34, 16],
+      [2, 33, 11, 2, 34, 12],
+
+      // 6
+      [2, 86, 68],
+      [4, 43, 27],
+      [4, 43, 19],
+      [4, 43, 15],
+
+      // 7
+      [2, 98, 78],
+      [4, 49, 31],
+      [2, 32, 14, 4, 33, 15],
+      [4, 39, 13, 1, 40, 14],
+
+      // 8
+      [2, 121, 97],
+      [2, 60, 38, 2, 61, 39],
+      [4, 40, 18, 2, 41, 19],
+      [4, 40, 14, 2, 41, 15],
+
+      // 9
+      [2, 146, 116],
+      [3, 58, 36, 2, 59, 37],
+      [4, 36, 16, 4, 37, 17],
+      [4, 36, 12, 4, 37, 13],
+
+      // 10
+      [2, 86, 68, 2, 87, 69],
+      [4, 69, 43, 1, 70, 44],
+      [6, 43, 19, 2, 44, 20],
+      [6, 43, 15, 2, 44, 16],
+
+      // 11
+      [4, 101, 81],
+      [1, 80, 50, 4, 81, 51],
+      [4, 50, 22, 4, 51, 23],
+      [3, 36, 12, 8, 37, 13],
+
+      // 12
+      [2, 116, 92, 2, 117, 93],
+      [6, 58, 36, 2, 59, 37],
+      [4, 46, 20, 6, 47, 21],
+      [7, 42, 14, 4, 43, 15],
+
+      // 13
+      [4, 133, 107],
+      [8, 59, 37, 1, 60, 38],
+      [8, 44, 20, 4, 45, 21],
+      [12, 33, 11, 4, 34, 12],
+
+      // 14
+      [3, 145, 115, 1, 146, 116],
+      [4, 64, 40, 5, 65, 41],
+      [11, 36, 16, 5, 37, 17],
+      [11, 36, 12, 5, 37, 13],
+
+      // 15
+      [5, 109, 87, 1, 110, 88],
+      [5, 65, 41, 5, 66, 42],
+      [5, 54, 24, 7, 55, 25],
+      [11, 36, 12, 7, 37, 13],
+
+      // 16
+      [5, 122, 98, 1, 123, 99],
+      [7, 73, 45, 3, 74, 46],
+      [15, 43, 19, 2, 44, 20],
+      [3, 45, 15, 13, 46, 16],
+
+      // 17
+      [1, 135, 107, 5, 136, 108],
+      [10, 74, 46, 1, 75, 47],
+      [1, 50, 22, 15, 51, 23],
+      [2, 42, 14, 17, 43, 15],
+
+      // 18
+      [5, 150, 120, 1, 151, 121],
+      [9, 69, 43, 4, 70, 44],
+      [17, 50, 22, 1, 51, 23],
+      [2, 42, 14, 19, 43, 15],
+
+      // 19
+      [3, 141, 113, 4, 142, 114],
+      [3, 70, 44, 11, 71, 45],
+      [17, 47, 21, 4, 48, 22],
+      [9, 39, 13, 16, 40, 14],
+
+      // 20
+      [3, 135, 107, 5, 136, 108],
+      [3, 67, 41, 13, 68, 42],
+      [15, 54, 24, 5, 55, 25],
+      [15, 43, 15, 10, 44, 16],
+
+      // 21
+      [4, 144, 116, 4, 145, 117],
+      [17, 68, 42],
+      [17, 50, 22, 6, 51, 23],
+      [19, 46, 16, 6, 47, 17],
+
+      // 22
+      [2, 139, 111, 7, 140, 112],
+      [17, 74, 46],
+      [7, 54, 24, 16, 55, 25],
+      [34, 37, 13],
+
+      // 23
+      [4, 151, 121, 5, 152, 122],
+      [4, 75, 47, 14, 76, 48],
+      [11, 54, 24, 14, 55, 25],
+      [16, 45, 15, 14, 46, 16],
+
+      // 24
+      [6, 147, 117, 4, 148, 118],
+      [6, 73, 45, 14, 74, 46],
+      [11, 54, 24, 16, 55, 25],
+      [30, 46, 16, 2, 47, 17],
+
+      // 25
+      [8, 132, 106, 4, 133, 107],
+      [8, 75, 47, 13, 76, 48],
+      [7, 54, 24, 22, 55, 25],
+      [22, 45, 15, 13, 46, 16],
+
+      // 26
+      [10, 142, 114, 2, 143, 115],
+      [19, 74, 46, 4, 75, 47],
+      [28, 50, 22, 6, 51, 23],
+      [33, 46, 16, 4, 47, 17],
+
+      // 27
+      [8, 152, 122, 4, 153, 123],
+      [22, 73, 45, 3, 74, 46],
+      [8, 53, 23, 26, 54, 24],
+      [12, 45, 15, 28, 46, 16],
+
+      // 28
+      [3, 147, 117, 10, 148, 118],
+      [3, 73, 45, 23, 74, 46],
+      [4, 54, 24, 31, 55, 25],
+      [11, 45, 15, 31, 46, 16],
+
+      // 29
+      [7, 146, 116, 7, 147, 117],
+      [21, 73, 45, 7, 74, 46],
+      [1, 53, 23, 37, 54, 24],
+      [19, 45, 15, 26, 46, 16],
+
+      // 30
+      [5, 145, 115, 10, 146, 116],
+      [19, 75, 47, 10, 76, 48],
+      [15, 54, 24, 25, 55, 25],
+      [23, 45, 15, 25, 46, 16],
+
+      // 31
+      [13, 145, 115, 3, 146, 116],
+      [2, 74, 46, 29, 75, 47],
+      [42, 54, 24, 1, 55, 25],
+      [23, 45, 15, 28, 46, 16],
+
+      // 32
+      [17, 145, 115],
+      [10, 74, 46, 23, 75, 47],
+      [10, 54, 24, 35, 55, 25],
+      [19, 45, 15, 35, 46, 16],
+
+      // 33
+      [17, 145, 115, 1, 146, 116],
+      [14, 74, 46, 21, 75, 47],
+      [29, 54, 24, 19, 55, 25],
+      [11, 45, 15, 46, 46, 16],
+
+      // 34
+      [13, 145, 115, 6, 146, 116],
+      [14, 74, 46, 23, 75, 47],
+      [44, 54, 24, 7, 55, 25],
+      [59, 46, 16, 1, 47, 17],
+
+      // 35
+      [12, 151, 121, 7, 152, 122],
+      [12, 75, 47, 26, 76, 48],
+      [39, 54, 24, 14, 55, 25],
+      [22, 45, 15, 41, 46, 16],
+
+      // 36
+      [6, 151, 121, 14, 152, 122],
+      [6, 75, 47, 34, 76, 48],
+      [46, 54, 24, 10, 55, 25],
+      [2, 45, 15, 64, 46, 16],
+
+      // 37
+      [17, 152, 122, 4, 153, 123],
+      [29, 74, 46, 14, 75, 47],
+      [49, 54, 24, 10, 55, 25],
+      [24, 45, 15, 46, 46, 16],
+
+      // 38
+      [4, 152, 122, 18, 153, 123],
+      [13, 74, 46, 32, 75, 47],
+      [48, 54, 24, 14, 55, 25],
+      [42, 45, 15, 32, 46, 16],
+
+      // 39
+      [20, 147, 117, 4, 148, 118],
+      [40, 75, 47, 7, 76, 48],
+      [43, 54, 24, 22, 55, 25],
+      [10, 45, 15, 67, 46, 16],
+
+      // 40
+      [19, 148, 118, 6, 149, 119],
+      [18, 75, 47, 31, 76, 48],
+      [34, 54, 24, 34, 55, 25],
+      [20, 45, 15, 61, 46, 16]
+    ];
+
+    var qrRSBlock = function(totalCount, dataCount) {
+      var _this = {};
+      _this.totalCount = totalCount;
+      _this.dataCount = dataCount;
+      return _this;
+    };
+
+    var _this = {};
+
+    var getRsBlockTable = function(typeNumber, errorCorrectionLevel) {
+
+      switch(errorCorrectionLevel) {
+      case QRErrorCorrectionLevel.L :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+      case QRErrorCorrectionLevel.M :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+      case QRErrorCorrectionLevel.Q :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+      case QRErrorCorrectionLevel.H :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+      default :
+        return undefined;
+      }
+    };
+
+    _this.getRSBlocks = function(typeNumber, errorCorrectionLevel) {
+
+      var rsBlock = getRsBlockTable(typeNumber, errorCorrectionLevel);
+
+      if (typeof rsBlock == 'undefined') {
+        throw 'bad rs block @ typeNumber:' + typeNumber +
+            '/errorCorrectionLevel:' + errorCorrectionLevel;
+      }
+
+      var length = rsBlock.length / 3;
+
+      var list = [];
+
+      for (var i = 0; i < length; i += 1) {
+
+        var count = rsBlock[i * 3 + 0];
+        var totalCount = rsBlock[i * 3 + 1];
+        var dataCount = rsBlock[i * 3 + 2];
+
+        for (var j = 0; j < count; j += 1) {
+          list.push(qrRSBlock(totalCount, dataCount) );
+        }
+      }
+
+      return list;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrBitBuffer
+  //---------------------------------------------------------------------
+
+  var qrBitBuffer = function() {
+
+    var _buffer = [];
+    var _length = 0;
+
+    var _this = {};
+
+    _this.getBuffer = function() {
+      return _buffer;
+    };
+
+    _this.getAt = function(index) {
+      var bufIndex = Math.floor(index / 8);
+      return ( (_buffer[bufIndex] >>> (7 - index % 8) ) & 1) == 1;
+    };
+
+    _this.put = function(num, length) {
+      for (var i = 0; i < length; i += 1) {
+        _this.putBit( ( (num >>> (length - i - 1) ) & 1) == 1);
+      }
+    };
+
+    _this.getLengthInBits = function() {
+      return _length;
+    };
+
+    _this.putBit = function(bit) {
+
+      var bufIndex = Math.floor(_length / 8);
+      if (_buffer.length <= bufIndex) {
+        _buffer.push(0);
+      }
+
+      if (bit) {
+        _buffer[bufIndex] |= (0x80 >>> (_length % 8) );
+      }
+
+      _length += 1;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrNumber
+  //---------------------------------------------------------------------
+
+  var qrNumber = function(data) {
+
+    var _mode = QRMode.MODE_NUMBER;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _data;
+
+      var i = 0;
+
+      while (i + 2 < data.length) {
+        buffer.put(strToNum(data.substring(i, i + 3) ), 10);
+        i += 3;
+      }
+
+      if (i < data.length) {
+        if (data.length - i == 1) {
+          buffer.put(strToNum(data.substring(i, i + 1) ), 4);
+        } else if (data.length - i == 2) {
+          buffer.put(strToNum(data.substring(i, i + 2) ), 7);
+        }
+      }
+    };
+
+    var strToNum = function(s) {
+      var num = 0;
+      for (var i = 0; i < s.length; i += 1) {
+        num = num * 10 + chatToNum(s.charAt(i) );
+      }
+      return num;
+    };
+
+    var chatToNum = function(c) {
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      }
+      throw 'illegal char :' + c;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrAlphaNum
+  //---------------------------------------------------------------------
+
+  var qrAlphaNum = function(data) {
+
+    var _mode = QRMode.MODE_ALPHA_NUM;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var s = _data;
+
+      var i = 0;
+
+      while (i + 1 < s.length) {
+        buffer.put(
+          getCode(s.charAt(i) ) * 45 +
+          getCode(s.charAt(i + 1) ), 11);
+        i += 2;
+      }
+
+      if (i < s.length) {
+        buffer.put(getCode(s.charAt(i) ), 6);
+      }
+    };
+
+    var getCode = function(c) {
+
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      } else if ('A' <= c && c <= 'Z') {
+        return c.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+      } else {
+        switch (c) {
+        case ' ' : return 36;
+        case '$' : return 37;
+        case '%' : return 38;
+        case '*' : return 39;
+        case '+' : return 40;
+        case '-' : return 41;
+        case '.' : return 42;
+        case '/' : return 43;
+        case ':' : return 44;
+        default :
+          throw 'illegal char :' + c;
+        }
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qr8BitByte
+  //---------------------------------------------------------------------
+
+  var qr8BitByte = function(data) {
+
+    var _mode = QRMode.MODE_8BIT_BYTE;
+    var _data = data;
+    var _bytes = qrcode.stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _bytes.length;
+    };
+
+    _this.write = function(buffer) {
+      for (var i = 0; i < _bytes.length; i += 1) {
+        buffer.put(_bytes[i], 8);
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrKanji
+  //---------------------------------------------------------------------
+
+  var qrKanji = function(data) {
+
+    var _mode = QRMode.MODE_KANJI;
+    var _data = data;
+
+    var stringToBytes = qrcode.stringToBytesFuncs['SJIS'];
+    if (!stringToBytes) {
+      throw 'sjis not supported.';
+    }
+    !function(c, code) {
+      // self test for sjis support.
+      var test = stringToBytes(c);
+      if (test.length != 2 || ( (test[0] << 8) | test[1]) != code) {
+        throw 'sjis not supported.';
+      }
+    }('\u53cb', 0x9746);
+
+    var _bytes = stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return ~~(_bytes.length / 2);
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _bytes;
+
+      var i = 0;
+
+      while (i + 1 < data.length) {
+
+        var c = ( (0xff & data[i]) << 8) | (0xff & data[i + 1]);
+
+        if (0x8140 <= c && c <= 0x9FFC) {
+          c -= 0x8140;
+        } else if (0xE040 <= c && c <= 0xEBBF) {
+          c -= 0xC140;
+        } else {
+          throw 'illegal char at ' + (i + 1) + '/' + c;
+        }
+
+        c = ( (c >>> 8) & 0xff) * 0xC0 + (c & 0xff);
+
+        buffer.put(c, 13);
+
+        i += 2;
+      }
+
+      if (i < data.length) {
+        throw 'illegal char at ' + (i + 1);
+      }
+    };
+
+    return _this;
+  };
+
+  //=====================================================================
+  // GIF Support etc.
+  //
+
+  //---------------------------------------------------------------------
+  // byteArrayOutputStream
+  //---------------------------------------------------------------------
+
+  var byteArrayOutputStream = function() {
+
+    var _bytes = [];
+
+    var _this = {};
+
+    _this.writeByte = function(b) {
+      _bytes.push(b & 0xff);
+    };
+
+    _this.writeShort = function(i) {
+      _this.writeByte(i);
+      _this.writeByte(i >>> 8);
+    };
+
+    _this.writeBytes = function(b, off, len) {
+      off = off || 0;
+      len = len || b.length;
+      for (var i = 0; i < len; i += 1) {
+        _this.writeByte(b[i + off]);
+      }
+    };
+
+    _this.writeString = function(s) {
+      for (var i = 0; i < s.length; i += 1) {
+        _this.writeByte(s.charCodeAt(i) );
+      }
+    };
+
+    _this.toByteArray = function() {
+      return _bytes;
+    };
+
+    _this.toString = function() {
+      var s = '';
+      s += '[';
+      for (var i = 0; i < _bytes.length; i += 1) {
+        if (i > 0) {
+          s += ',';
+        }
+        s += _bytes[i];
+      }
+      s += ']';
+      return s;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64EncodeOutputStream
+  //---------------------------------------------------------------------
+
+  var base64EncodeOutputStream = function() {
+
+    var _buffer = 0;
+    var _buflen = 0;
+    var _length = 0;
+    var _base64 = '';
+
+    var _this = {};
+
+    var writeEncoded = function(b) {
+      _base64 += String.fromCharCode(encode(b & 0x3f) );
+    };
+
+    var encode = function(n) {
+      if (n < 0) {
+        // error.
+      } else if (n < 26) {
+        return 0x41 + n;
+      } else if (n < 52) {
+        return 0x61 + (n - 26);
+      } else if (n < 62) {
+        return 0x30 + (n - 52);
+      } else if (n == 62) {
+        return 0x2b;
+      } else if (n == 63) {
+        return 0x2f;
+      }
+      throw 'n:' + n;
+    };
+
+    _this.writeByte = function(n) {
+
+      _buffer = (_buffer << 8) | (n & 0xff);
+      _buflen += 8;
+      _length += 1;
+
+      while (_buflen >= 6) {
+        writeEncoded(_buffer >>> (_buflen - 6) );
+        _buflen -= 6;
+      }
+    };
+
+    _this.flush = function() {
+
+      if (_buflen > 0) {
+        writeEncoded(_buffer << (6 - _buflen) );
+        _buffer = 0;
+        _buflen = 0;
+      }
+
+      if (_length % 3 != 0) {
+        // padding
+        var padlen = 3 - _length % 3;
+        for (var i = 0; i < padlen; i += 1) {
+          _base64 += '=';
+        }
+      }
+    };
+
+    _this.toString = function() {
+      return _base64;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64DecodeInputStream
+  //---------------------------------------------------------------------
+
+  var base64DecodeInputStream = function(str) {
+
+    var _str = str;
+    var _pos = 0;
+    var _buffer = 0;
+    var _buflen = 0;
+
+    var _this = {};
+
+    _this.read = function() {
+
+      while (_buflen < 8) {
+
+        if (_pos >= _str.length) {
+          if (_buflen == 0) {
+            return -1;
+          }
+          throw 'unexpected end of file./' + _buflen;
+        }
+
+        var c = _str.charAt(_pos);
+        _pos += 1;
+
+        if (c == '=') {
+          _buflen = 0;
+          return -1;
+        } else if (c.match(/^\s$/) ) {
+          // ignore if whitespace.
+          continue;
+        }
+
+        _buffer = (_buffer << 6) | decode(c.charCodeAt(0) );
+        _buflen += 6;
+      }
+
+      var n = (_buffer >>> (_buflen - 8) ) & 0xff;
+      _buflen -= 8;
+      return n;
+    };
+
+    var decode = function(c) {
+      if (0x41 <= c && c <= 0x5a) {
+        return c - 0x41;
+      } else if (0x61 <= c && c <= 0x7a) {
+        return c - 0x61 + 26;
+      } else if (0x30 <= c && c <= 0x39) {
+        return c - 0x30 + 52;
+      } else if (c == 0x2b) {
+        return 62;
+      } else if (c == 0x2f) {
+        return 63;
+      } else {
+        throw 'c:' + c;
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // gifImage (B/W)
+  //---------------------------------------------------------------------
+
+  var gifImage = function(width, height) {
+
+    var _width = width;
+    var _height = height;
+    var _data = new Array(width * height);
+
+    var _this = {};
+
+    _this.setPixel = function(x, y, pixel) {
+      _data[y * _width + x] = pixel;
+    };
+
+    _this.write = function(out) {
+
+      //---------------------------------
+      // GIF Signature
+
+      out.writeString('GIF87a');
+
+      //---------------------------------
+      // Screen Descriptor
+
+      out.writeShort(_width);
+      out.writeShort(_height);
+
+      out.writeByte(0x80); // 2bit
+      out.writeByte(0);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Global Color Map
+
+      // black
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+
+      // white
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+
+      //---------------------------------
+      // Image Descriptor
+
+      out.writeString(',');
+      out.writeShort(0);
+      out.writeShort(0);
+      out.writeShort(_width);
+      out.writeShort(_height);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Local Color Map
+
+      //---------------------------------
+      // Raster Data
+
+      var lzwMinCodeSize = 2;
+      var raster = getLZWRaster(lzwMinCodeSize);
+
+      out.writeByte(lzwMinCodeSize);
+
+      var offset = 0;
+
+      while (raster.length - offset > 255) {
+        out.writeByte(255);
+        out.writeBytes(raster, offset, 255);
+        offset += 255;
+      }
+
+      out.writeByte(raster.length - offset);
+      out.writeBytes(raster, offset, raster.length - offset);
+      out.writeByte(0x00);
+
+      //---------------------------------
+      // GIF Terminator
+      out.writeString(';');
+    };
+
+    var bitOutputStream = function(out) {
+
+      var _out = out;
+      var _bitLength = 0;
+      var _bitBuffer = 0;
+
+      var _this = {};
+
+      _this.write = function(data, length) {
+
+        if ( (data >>> length) != 0) {
+          throw 'length over';
+        }
+
+        while (_bitLength + length >= 8) {
+          _out.writeByte(0xff & ( (data << _bitLength) | _bitBuffer) );
+          length -= (8 - _bitLength);
+          data >>>= (8 - _bitLength);
+          _bitBuffer = 0;
+          _bitLength = 0;
+        }
+
+        _bitBuffer = (data << _bitLength) | _bitBuffer;
+        _bitLength = _bitLength + length;
+      };
+
+      _this.flush = function() {
+        if (_bitLength > 0) {
+          _out.writeByte(_bitBuffer);
+        }
+      };
+
+      return _this;
+    };
+
+    var getLZWRaster = function(lzwMinCodeSize) {
+
+      var clearCode = 1 << lzwMinCodeSize;
+      var endCode = (1 << lzwMinCodeSize) + 1;
+      var bitLength = lzwMinCodeSize + 1;
+
+      // Setup LZWTable
+      var table = lzwTable();
+
+      for (var i = 0; i < clearCode; i += 1) {
+        table.add(String.fromCharCode(i) );
+      }
+      table.add(String.fromCharCode(clearCode) );
+      table.add(String.fromCharCode(endCode) );
+
+      var byteOut = byteArrayOutputStream();
+      var bitOut = bitOutputStream(byteOut);
+
+      // clear code
+      bitOut.write(clearCode, bitLength);
+
+      var dataIndex = 0;
+
+      var s = String.fromCharCode(_data[dataIndex]);
+      dataIndex += 1;
+
+      while (dataIndex < _data.length) {
+
+        var c = String.fromCharCode(_data[dataIndex]);
+        dataIndex += 1;
+
+        if (table.contains(s + c) ) {
+
+          s = s + c;
+
+        } else {
+
+          bitOut.write(table.indexOf(s), bitLength);
+
+          if (table.size() < 0xfff) {
+
+            if (table.size() == (1 << bitLength) ) {
+              bitLength += 1;
+            }
+
+            table.add(s + c);
+          }
+
+          s = c;
+        }
+      }
+
+      bitOut.write(table.indexOf(s), bitLength);
+
+      // end code
+      bitOut.write(endCode, bitLength);
+
+      bitOut.flush();
+
+      return byteOut.toByteArray();
+    };
+
+    var lzwTable = function() {
+
+      var _map = {};
+      var _size = 0;
+
+      var _this = {};
+
+      _this.add = function(key) {
+        if (_this.contains(key) ) {
+          throw 'dup key:' + key;
+        }
+        _map[key] = _size;
+        _size += 1;
+      };
+
+      _this.size = function() {
+        return _size;
+      };
+
+      _this.indexOf = function(key) {
+        return _map[key];
+      };
+
+      _this.contains = function(key) {
+        return typeof _map[key] != 'undefined';
+      };
+
+      return _this;
+    };
+
+    return _this;
+  };
+
+  var createDataURL = function(width, height, getPixel) {
+    var gif = gifImage(width, height);
+    for (var y = 0; y < height; y += 1) {
+      for (var x = 0; x < width; x += 1) {
+        gif.setPixel(x, y, getPixel(x, y) );
+      }
+    }
+
+    var b = byteArrayOutputStream();
+    gif.write(b);
+
+    var base64 = base64EncodeOutputStream();
+    var bytes = b.toByteArray();
+    for (var i = 0; i < bytes.length; i += 1) {
+      base64.writeByte(bytes[i]);
+    }
+    base64.flush();
+
+    return 'data:image/gif;base64,' + base64;
+  };
+
+  //---------------------------------------------------------------------
+  // returns qrcode function.
+
+  return qrcode;
+}();
+
+// multibyte support
+!function() {
+
+  qrcode.stringToBytesFuncs['UTF-8'] = function(s) {
+    // http://stackoverflow.com/questions/18729405/how-to-convert-utf8-string-to-byte-array
+    function toUTF8Array(str) {
+      var utf8 = [];
+      for (var i=0; i < str.length; i++) {
+        var charcode = str.charCodeAt(i);
+        if (charcode < 0x80) utf8.push(charcode);
+        else if (charcode < 0x800) {
+          utf8.push(0xc0 | (charcode >> 6),
+              0x80 | (charcode & 0x3f));
+        }
+        else if (charcode < 0xd800 || charcode >= 0xe000) {
+          utf8.push(0xe0 | (charcode >> 12),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+        // surrogate pair
+        else {
+          i++;
+          // UTF-16 encodes 0x10000-0x10FFFF by
+          // subtracting 0x10000 and splitting the
+          // 20 bits of 0x0-0xFFFFF into two halves
+          charcode = 0x10000 + (((charcode & 0x3ff)<<10)
+            | (str.charCodeAt(i) & 0x3ff));
+          utf8.push(0xf0 | (charcode >>18),
+              0x80 | ((charcode>>12) & 0x3f),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+      }
+      return utf8;
+    }
+    return toUTF8Array(s);
+  };
+
+}();
+
+(function (factory) {
+  if (typeof define === 'function' && define.amd) {
+      define([], factory);
+  } else if (typeof exports === 'object') {
+      module.exports = factory();
+  }
+}(function () {
+    return qrcode;
+}));
+</script><script>const $=id=>document.getElementById(id);
+const ICONS={upload:'M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5',copy:'M9 9h11v11H9zM15 9V4H4v11h5',qr:'M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h2v2h-2zM20 15v6h-5v-2',check:'m5 12 4 4L19 6',arrow:'m10 5-7 7 7 7M3 12h18',close:'m6 6 12 12M6 18 18 6',more:'M5 12h.01M12 12h.01M19 12h.01',download:'M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4',file:'M5 3h9l5 5v13H5zM14 3v6h5',warning:'m12 3 10 18H2zM12 9v5m0 3v.01'};
+const icon=n=>`<svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="${ICONS[n]||ICONS.file}"/></svg>`;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const states={home:'Home · empty',history:'Home · recent uploads',text:'Text upload',drag:'Active drag',uploading:'Upload · in progress',finalizing:'Upload · finalizing',success:'Upload · complete',qr:'Share · QR code',error:'Upload · connection lost',oversize:'Upload · too large',invalid:'Upload · invalid selection',offline:'Upload · offline',capacity:'Upload · server unavailable','rate-limited':'Upload · rate limited','configuration-error':'Configuration · unavailable',cancelled:'Upload · cancelled',request:'Request · create','request-error':'Request · validation','owner-waiting':'Owner · waiting','owner-receiving':'Owner · receiving','owner-retrying':'Owner · retrying','owner-complete':'Owner · complete','owner-expired':'Owner · expired','owner-revoked':'Owner · revoked',recipient:'Sender · ready','recipient-uploading':'Sender · uploading','recipient-complete':'Sender · complete','request-unavailable':'Sender · unavailable',download:'File · view / download',unavailable:'File · unavailable',deleting:'Delete · confirmation','delete-error':'Delete · failed','storage-error':'Storage · unavailable'};
+const KEY='up-redesign-v3:uploads';
+const fileBytes=new Map();let viewRecord=null,ownerTimer=null,ownerAuto=false,requestExpiresAt=Date.now()+86400000;
+const exampleUrl='https://up.example.com/A7K2Q';
+const requestUrl='https://up.example.com/request/demo-upload-only';
+let current={name:'Project brief.pdf',size:2516582,id:'A7K2Q',url:exampleUrl,expiresAt:Date.now()+86400000};
+let selectedFile=null,localBlob=null,transferTimer=null,toastTimer=null,qrUrl=exampleUrl,historySamples=false,dragDepth=0,storageFailed=false,requestExpiry='24 hours',requestLimit='100 MiB';
+function loadRecords(){try{const x=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(x)?x.filter(r=>r&&typeof r.name==='string'&&typeof r.id==='string'&&typeof r.url==='string'&&/^https:\/\/up\.example\.com\/[A-Za-z0-9]{5}$/.test(r.url)&&Number.isFinite(r.size)&&r.size>=0&&Number.isFinite(r.expiresAt)&&r.expiresAt>Date.now()).slice(0,50):[]}catch{storageFailed=true;return []}}
+let records=loadRecords();
+function saveRecords(){records=records.filter(r=>r.expiresAt>Date.now()).slice(0,50);try{localStorage.setItem(KEY,JSON.stringify(records))}catch{storageFailed=true;notify('Browser history could not be saved. Keep a copy of your link.')}}
+function remember(){records=[{...current},...records.filter(r=>r.id!==current.id)];saveRecords()}
+function formatSize(n){if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(0)+' KiB';return (n/1048576).toFixed(1)+' MiB'}
+function expires(r){const m=Math.max(0,Math.ceil((r.expiresAt-Date.now())/60000));return m>=60?`Expires in ${Math.ceil(m/60)} hours`:`Expires in ${m} minutes`}
+function time(r){return `<time datetime="${new Date(r.expiresAt).toISOString()}" title="${esc(new Date(r.expiresAt).toLocaleString())}">${expires(r)}</time>`}
+function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3600)}
+function applyTheme(value){const dark=value==='dark'||value==='system'&&matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.dataset.theme=dark?'dark':'light';$('theme').value=value;try{localStorage.setItem('up-redesign-v3:theme',value)}catch{}}
+let initialTheme='system';try{initialTheme=localStorage.getItem('up-redesign-v3:theme')||'system'}catch{}applyTheme(['system','light','dark'].includes(initialTheme)?initialTheme:'system');
+$('theme').onchange=e=>applyTheme(e.target.value);matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if($('theme').value==='system')applyTheme('system')});
+function go(state,focus=true){if(location.hash==='#/'+state){render(state,focus)}else location.hash='/'+state}
+window.addEventListener('hashchange',()=>render(location.hash.slice(2)||'home',true));
+function heading(title,subtitle,back=false){return `${back?`<a class="back" href="#/home">${icon('arrow')}Back to uploads</a>`:''}<div class="intro"><h1 id="pageTitle" tabindex="-1">${title}</h1><p>${subtitle}</p></div>`}
+function rowFile(r=current){return `<div class="result-file"><div class="file-badge">${esc(r.name.split('.').pop().slice(0,4).toUpperCase())}</div><div class="file-info"><div class="filename">${esc(r.name)}</div><div class="muted">${formatSize(r.size)} · ${time(r)}</div></div></div>`}
+function linkBox(url=exampleUrl,label='Share link'){return `<div class="share-box"><input aria-label="${label}" readonly value="${esc(url)}"><button class="primary" data-copy="${esc(url)}">${icon('copy')}Copy link</button><button class="iconbutton" data-qr="${esc(url)}" aria-label="Show QR code" title="Show QR code">${icon('qr')}</button></div>`}
+function home(state){const text=state==='text';return heading('Share a file. Send a link.','Temporary file and text sharing. No account needed.')+`<section class="card upload-card" aria-label="Upload"><div class="tabs" role="tablist" aria-label="Upload type"><button role="tab" id="fileTab" aria-controls="filePanel" aria-selected="${!text}" tabindex="${text?-1:0}" data-go="home">File</button><button role="tab" id="textTab" aria-controls="textPanel" aria-selected="${text}" tabindex="${text?0:-1}" data-go="text">Text</button></div>${text?`<div class="text-input" id="textPanel" role="tabpanel" aria-labelledby="textTab"><label class="sr-only" for="textContent">Text to share</label><textarea id="textContent" placeholder="Paste or type your text…"></textarea><button class="primary" id="shareText">Create link</button></div>`:`<div class="drop ${state==='drag'?'drag':''}" id="drop" role="tabpanel" aria-labelledby="fileTab">${icon('upload')}<h2><span class="desktop-copy">Drop a file here</span><span class="mobile-copy">Choose a file to share</span></h2><button class="primary" id="chooseFile">Choose file</button><p><span class="desktop-copy">or paste a file from your clipboard</span><span class="mobile-copy">From your device or photo library</span></p></div>`}<div class="limits"><span>Up to 1 GiB per file</span><span>Available for 24 hours</span></div></section><details class="advanced"><summary>Advanced options</summary><div class="advanced-content">${text?'<label>Text encoding <select id="encoding"><option value="utf8">UTF-8</option><option value="le">UTF-16 LE</option><option value="be">UTF-16 BE</option></select></label>':''}<button class="quiet" data-help="shell">Shell client</button><button class="quiet" data-help="sharex">ShareX</button></div></details><div class="status-slot" role="status">${state==='offline'?'You’re offline. Reconnect to upload.':state==='storage-error'||storageFailed?'History is unavailable. Save your links before closing this page.':''}</div>${renderHistory(state==='history')}`}
+function sampleRecords(){return [{name:'Project brief.pdf',size:2516582,id:'A7K2Q',url:exampleUrl,expiresAt:Date.now()+22*3600000},{name:'Photos.zip',size:19818086,id:'B8N3R',url:'https://up.example.com/B8N3R',expiresAt:Date.now()+6*3600000},{name:'Notes.txt',size:2867,id:'C9P4S',url:'https://up.example.com/C9P4S',expiresAt:Date.now()+42*60000}]}
+function renderHistory(samples=false){historySamples=samples;const list=samples?sampleRecords():records;return `<section class="history" aria-labelledby="historyTitle"><div class="section-head"><h2 id="historyTitle">Recent uploads</h2><span class="muted small">Saved in this browser</span></div>${list.length?list.map((r,i)=>`<article class="file-row"><div class="file-badge">${esc(r.name.split('.').pop().slice(0,4).toUpperCase())}</div><div class="file-info"><div class="filename">${esc(r.name)}</div><div class="muted">${formatSize(r.size)} · ${time(r)}</div></div><div class="actions"><button class="quiet copy-history" data-copy="${esc(r.url)}">${icon('copy')}Copy link</button><button class="quiet iconbutton" aria-label="More actions for ${esc(r.name)}" data-more="${i}">${icon('more')}</button></div></article>`).join(''):'<div class="empty"><p>No uploads yet. Your links will appear here until they expire.</p></div>'}</section>`}
+function progress(state){const sender=state==='recipient-uploading',final=state==='finalizing';return heading(final?'Finishing your upload…':'Uploading your file…',sender?'Keep this page open until your file has been sent.':'Your link will be ready when the upload finishes.')+`<section class="card">${rowFile()}<div class="progress-track" role="progressbar" aria-label="Upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${final?100:42}"><div class="progress-bar" style="width:${final?100:42}%"></div></div><div class="progress-caption"><span id="progressText">${final?'Checking and saving your file':'1.0 MiB of 2.4 MiB'}</span><span id="progressPercent">${final?'100%':'42%'}</span></div><div class="divider actions space-between"><span class="small muted">${sender?'Single-use file request':'Available for 24 hours after upload'}</span><button class="quiet" id="cancelUpload">Cancel upload</button></div></section>`}
+function success(sender=false){return heading(sender?'File sent.':'Your file is ready.',sender?'The person who requested it can now download it.':'Copy the link or share its QR code.')+`<section class="card"><div class="success-label">${icon('check')}${sender?'Sent successfully':'Upload complete'}</div>${rowFile()}${linkBox(current.url)}<p class="small muted">Anyone with this link can download the file until it expires.</p><div class="divider actions space-between"><a class="button quiet" href="#/download">Open file</a>${sender?'<a class="button" href="#/home">Go to uploads</a>':'<button data-go="home">Upload another file</button>'}</div></section>${sender?'':renderHistory(!selectedFile&&!records.length)}`}
+const errors={'rate-limited':['Too many uploads.','Please wait before uploading again.','The server has temporarily limited uploads. Try again later.','Try again'],'configuration-error':['Upload settings are unavailable.','We could not load the server’s upload limits.','Retry when the connection is restored. No upload has started.','Try again'],error:['Upload interrupted.','The connection was lost before your file finished uploading.','Check your connection, then try again. Your file has not been shared.','Try again'],oversize:['This file is too large.','The limit is 1 GiB per file.','Choose a smaller file or compress it before uploading.','Choose another file'],invalid:['Choose one file.','This upload contains more than one file or a folder.','Upload a single file, or compress the folder into a ZIP first.','Choose a file'],capacity:['Uploads are temporarily unavailable.','The server cannot accept another file right now.','Try again later. Existing links are not affected by this upload error.','Try again'],cancelled:['Upload cancelled.','Your file was not shared.','You can select another file whenever you’re ready.','Choose a file']};
+function errorView(state){const e=errors[state];return heading(e[0],e[1])+`<section class="card">${rowFile()}<div class="error-box"><strong>${state==='cancelled'?'No link was created':'Upload not completed'}</strong><p>${e[2]}</p></div><div class="actions"><button class="primary" id="retryUpload">${e[3]}</button><button class="quiet" data-go="home">Back to uploads</button></div></section>`}
+function requestForm(error=false){return heading('Request a file.','Create a single-use link for someone to send you one file.',true)+`<form class="card" id="requestForm"><div class="form-field"><label>Link expires after</label><div class="segmented" role="group" aria-label="Request expiration">${['1 hour','24 hours','7 days','Custom'].map(v=>`<button type="button" data-duration="${v}" aria-pressed="${v===requestExpiry}">${v}</button>`).join('')}</div><input id="customExpiry" type="datetime-local" aria-label="Custom expiration" ${requestExpiry==='Custom'?'':'hidden'}><span class="small">The sender must finish uploading before the link expires.</span></div><div class="form-field"><label for="requestSize">Maximum file size</label><div class="field-pair"><input id="requestSize" type="number" min="1" max="1024" step="1" value="100" required aria-describedby="sizeHelp"><select id="requestUnit" aria-label="File size unit"><option>MiB</option><option>GiB</option></select></div><span class="small" id="sizeHelp">Server limit: 1 GiB. Completed files remain available for 24 hours.</span></div>${error?'<div class="error-box" role="alert">Enter a size between 1 byte and 1 GiB. Your other settings have been kept.</div>':''}<button class="primary" type="submit">Create request</button></form>`}
+function owner(state){const status={'owner-waiting':['Waiting for a file','Share the upload link with the person sending your file.'], 'owner-receiving':['A file is being uploaded','This page updates automatically. No need to refresh.'],'owner-retrying':['Waiting for another attempt','The sender’s upload was interrupted. The same link can be used to retry.'],'owner-complete':['Your file has arrived','The download link is ready. Only you can manage this file.'],'owner-expired':['This request expired','No file was received. Create a new request to try again.'],'owner-revoked':['This request was revoked','The upload link no longer accepts a file.']}[state];const done=state==='owner-complete',ended=['owner-expired','owner-revoked'].includes(state);return heading('Your file request.',`One file · up to ${esc(requestLimit)} · ${ended?'request closed':'request expires '+`<time datetime="${new Date(requestExpiresAt).toISOString()}">${esc(new Date(requestExpiresAt).toLocaleString())}</time>`}`,true)+`<section class="card"><div class="timeline"><span class="active">Request created</span><span class="${state==='owner-receiving'||done?'active':''}">Uploading</span><span class="${done?'active':''}">Received</span></div><div class="status-panel"><div class="status-title" role="status" aria-live="polite">${done?icon('check')+' ':''}${status[0]}</div><p class="small muted" aria-live="polite">${status[1]}</p></div>${ended?'<button class="primary" data-go="request">Create a new request</button>':`<div class="owner-links">${!done?`<label>Upload link <span class="muted">— send this to the sender</span></label>${linkBox(requestUrl,'Upload link')}`:rowFile()}<label>Download link ${done?'':'<span class="muted">— ready after upload</span>'}</label>${linkBox(exampleUrl,'Download link')}${done?'<a class="button quiet" href="#/download">Open file</a>':''}</div><details class="owner-secret"><summary>Save your owner link</summary><p>Anyone with this owner link can manage the request. Keep it private.</p><button data-copy="https://up.example.com/request/manage#token=DEMO-NOT-A-REAL-CAPABILITY">${icon('copy')}Copy owner link</button><p class="small">Bookmark this link to return later.</p></details><div class="divider actions"><button class="quiet danger" id="ownerAction">${done?'Delete file':'Revoke request'}</button></div>`}</section>`}
+function recipient(){return heading('Send a file.','Someone has invited you to upload one file.')+`<section class="card upload-card"><div class="drop" id="drop">${icon('upload')}<h2><span class="desktop-copy">Drop your file here</span><span class="mobile-copy">Choose a file to send</span></h2><button class="primary" id="chooseFile">Choose file</button><p>This link can be used once.</p></div><div class="limits"><span>Up to 100 MiB</span><span>Request expires in 24 hours</span></div></section><p class="small muted" style="margin-top:18px">The requester will manage the uploaded file.</p>`}
+function unavailable(request=false){return heading(request?'This request is unavailable.':'This file is unavailable.',request?'The request may have expired, been used, or been revoked.':'The link may be incorrect, expired, or the file may have been deleted.')+`<section class="card unavailable"><h2>${request?'Ask for a new upload link.':'Ask the sender for a new link.'}</h2><p class="muted">${request?'Only an active request can receive a file.':'Files are automatically removed when they expire.'}</p><div class="actions"><a class="button" href="#/home">Go to uploads</a></div></section>`}
+function download(){const r=viewRecord||current,available=fileBytes.has(r.id),isText=available&&fileBytes.get(r.id).type==='text/plain';return heading(esc(r.name),'Shared file · '+time(r))+`<section class="card">${rowFile(r)}<div class="section-head"><h2>${isText?'Preview':'Download'}</h2><span class="small muted">${formatSize(r.size)}</span></div>${isText?'<pre id="safePreview" class="preview-text">Loading text…</pre>':'<p class="muted">No inline preview is available for this file.</p>'}<div class="actions"><button class="primary" id="downloadFile" ${available?'':'disabled'}>${icon('download')}Download file</button><button class="quiet" data-copy="${esc(r.url)}">${icon('copy')}Copy link</button><button class="quiet iconbutton" data-qr="${esc(r.url)}" aria-label="Show QR code">${icon('qr')}</button></div><p class="small muted" style="margin-top:18px">${available?'This local preview preserves the selected file.':'Design preview: sample metadata only. Select a file on the upload screen to test a local download.'}</p></section>`}
+function render(state,focus=false){if(!states[state])state='home';if(!state.startsWith('owner-')){clearTimeout(ownerTimer);ownerAuto=false;}clearInterval(transferTimer);transferTimer=null;document.querySelectorAll('dialog[open]').forEach(d=>d.close());$('statePicker').value=state;document.title=(states[state].split(' · ')[0])+' | Up Remastered';let content;if(['home','history','text','drag','offline','storage-error'].includes(state))content=home(state);else if(['uploading','finalizing','recipient-uploading'].includes(state))content=progress(state);else if(['success','qr','recipient-complete','deleting','delete-error'].includes(state))content=success(state==='recipient-complete');else if(errors[state])content=errorView(state);else if(['request','request-error'].includes(state))content=requestForm(state==='request-error');else if(state.startsWith('owner-'))content=owner(state);else if(state==='recipient')content=recipient();else if(state==='request-unavailable'||state==='unavailable')content=unavailable(state==='request-unavailable');else content=download();$('app').innerHTML=content;bind(state);if(focus)$('pageTitle')?.focus({preventScroll:true});if(state==='qr')showQR(current.url);if(state==='deleting'||state==='delete-error')showDelete(current,state==='delete-error');}
+function bind(state){document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>copyLink(b.dataset.copy,b));document.querySelectorAll('[data-qr]').forEach(b=>b.onclick=()=>showQR(b.dataset.qr));document.querySelectorAll('[data-help]').forEach(b=>b.onclick=()=>showHelp(b.dataset.help));document.querySelectorAll('[role=tab]').forEach(b=>b.onkeydown=e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();go(e.key==='Home'?'home':e.key==='End'?'text':state==='text'?'home':'text');setTimeout(()=>document.querySelector('[role=tab][aria-selected=true]')?.focus(),0)}});if($('chooseFile'))$('chooseFile').onclick=()=>$('fileInput').click();if($('cancelUpload'))$('cancelUpload').onclick=()=>{clearInterval(transferTimer);go('cancelled')};if($('retryUpload'))$('retryUpload').onclick=()=>selectedFile&&!['oversize','invalid','cancelled'].includes(state)?startTransfer(selectedFile):$('fileInput').click();if($('shareText'))$('shareText').onclick=()=>{const text=$('textContent').value;if(!text.trim()){$('textContent').focus();notify('Enter some text first.');return}let data=text;const enc=$('encoding')?.value||'utf8';if(enc!=='utf8'){data=new Uint8Array(2+text.length*2);const view=new DataView(data.buffer);view.setUint16(0,0xfeff,enc==='le');for(let i=0;i<text.length;i++)view.setUint16(2+i*2,text.charCodeAt(i),enc==='le')}startTransfer(new File([data],'Notes.txt',{type:'text/plain'}))};document.querySelectorAll('[data-more]').forEach(b=>b.onclick=()=>showMore((historySamples?sampleRecords():records)[+b.dataset.more]));document.querySelectorAll('[data-duration]').forEach(b=>b.onclick=()=>{requestExpiry=b.dataset.duration;document.querySelectorAll('[data-duration]').forEach(x=>x.setAttribute('aria-pressed',x===b));$('customExpiry').hidden=requestExpiry!=='Custom'});if($('requestForm'))$('requestForm').onsubmit=e=>{e.preventDefault();const size=Number($('requestSize').value),unit=$('requestUnit').value,bytes=size*(unit==='GiB'?1073741824:1048576);if(!Number.isSafeInteger(bytes)||bytes<=0||bytes>1073741824){$('requestSize').setCustomValidity('Choose a size up to 1 GiB.');$('requestSize').reportValidity();return}if(requestExpiry==='Custom'&&(!Date.parse($('customExpiry').value)||Date.parse($('customExpiry').value)<=Date.now())){$('customExpiry').setCustomValidity('Choose a future date and time.');$('customExpiry').reportValidity();return}requestLimit=`${size} ${unit}`;requestExpiresAt=requestExpiry==='Custom'?Date.parse($('customExpiry').value):Date.now()+({'1 hour':3600000,'24 hours':86400000,'7 days':604800000}[requestExpiry]||86400000);if(requestExpiresAt>Date.now()+604800000){$('customExpiry').setCustomValidity('Choose a time within 7 days.');$('customExpiry').reportValidity();return}go('owner-waiting');startOwnerDemo()};if($('requestSize'))$('requestSize').oninput=()=>$('requestSize').setCustomValidity('');if($('customExpiry')){$('customExpiry').oninput=()=>$('customExpiry').setCustomValidity('');const localInput=t=>{const d=new Date(t);return new Date(t-d.getTimezoneOffset()*60000).toISOString().slice(0,16)};$('customExpiry').min=localInput(Date.now()+60000);$('customExpiry').max=localInput(Date.now()+604800000);}document.querySelectorAll('a[href="#/download"]').forEach(a=>a.onclick=()=>viewRecord=null);if($('ownerAction'))$('ownerAction').onclick=()=>state==='owner-complete'?showDelete(current):showRevoke();if($('downloadFile'))$('downloadFile').onclick=()=>downloadLocal();if($('safePreview')){const r=viewRecord||current;fileBytes.get(r.id)?.text().then(t=>{if($('safePreview'))$('safePreview').textContent=t})}}
+function acceptFiles(files,sender=false){if(files.length!==1){go('invalid');return}const f=files[0];if(f.size>(sender?104857600:1073741824)){selectedFile=f;current={...current,name:f.name,size:f.size};go('oversize');return}startTransfer(f,sender)}
+$('fileInput').onchange=e=>{if(e.target.files.length)acceptFiles(e.target.files,location.hash==='#/recipient');e.target.value=''};
+function startTransfer(file,sender=false){selectedFile=file;if(localBlob)URL.revokeObjectURL(localBlob);localBlob=URL.createObjectURL(file);const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',random=crypto.getRandomValues(new Uint8Array(5));const id=Array.from(random,x=>alphabet[x%alphabet.length]).join('');current={name:file.name,size:file.size,id:sender?'A7K2Q':id,url:sender?exampleUrl:`https://up.example.com/${id}`,expiresAt:Date.now()+86400000};viewRecord=null;fileBytes.set(current.id,file);const state=sender?'recipient-uploading':'uploading';history.replaceState(null,'','#/'+state);render(state,true);let n=0;transferTimer=setInterval(()=>{n+=10;const bar=document.querySelector('.progress-bar'),track=document.querySelector('[role=progressbar]');if(!bar||!track){clearInterval(transferTimer);return}bar.style.width=n+'%';track.setAttribute('aria-valuenow',n);$('progressPercent').textContent=n+'%';$('progressText').textContent=`${formatSize(file.size*n/100)} of ${formatSize(file.size)}`;document.title=`${n}% uploading | Up Remastered`;if(n>=100){clearInterval(transferTimer);remember();go(sender?'recipient-complete':'success')}},160)}
+document.addEventListener('dragenter',e=>{if(!$('drop')||!Array.from(e.dataTransfer?.types||[]).includes('Files'))return;e.preventDefault();dragDepth++;$('drop').classList.add('drag')});document.addEventListener('dragover',e=>{if($('drop'))e.preventDefault()});document.addEventListener('dragleave',e=>{if(!$('drop'))return;dragDepth=Math.max(0,dragDepth-1);if(dragDepth===0)$('drop').classList.remove('drag')});document.addEventListener('drop',e=>{if(!$('drop'))return;e.preventDefault();dragDepth=0;$('drop').classList.remove('drag');const items=Array.from(e.dataTransfer.items||[]);if(items.some(i=>i.webkitGetAsEntry?.()?.isDirectory)){go('invalid');return}acceptFiles(e.dataTransfer.files,location.hash==='#/recipient')});window.addEventListener('blur',()=>{dragDepth=0;$('drop')?.classList.remove('drag')});document.addEventListener('paste',e=>{if(!$('drop')||['INPUT','TEXTAREA'].includes(e.target.tagName))return;if(e.clipboardData.files.length){e.preventDefault();acceptFiles(e.clipboardData.files,location.hash==='#/recipient')}});
+async function copyLink(url,button){let copied=false;try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(url);copied=true}}catch{}if(!copied){const input=document.createElement('textarea');input.value=url;input.style.cssText='position:fixed;top:0;left:0;opacity:.01';document.body.append(input);input.select();try{copied=document.execCommand('copy')}catch{}input.remove()}if(copied){const old=button?.innerHTML;if(button){button.textContent='Copied';setTimeout(()=>{if(button.isConnected)button.innerHTML=old},1800)}notify('Link copied to clipboard.')}else{$('manualLink').value=url;$('manualCopy').showModal();$('manualLink').focus();$('manualLink').select()}}
+function showQR(url){qrUrl=url;const q=qrcode(0,'M');q.addData(url);q.make();$('qrImage').innerHTML=q.createSvgTag({cellSize:6,margin:24,scalable:true});$('qrLink').textContent=url;$('qrDialog').showModal()}
+$('qrCopy').onclick=e=>copyLink(qrUrl,e.currentTarget);$('qrDownload').onclick=()=>{const b=new Blob([$ ('qrImage').innerHTML],{type:'image/svg+xml'});saveBlob(b,'share-qr.svg')};
+function saveBlob(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),5000)}
+function downloadLocal(){const r=viewRecord||current,f=fileBytes.get(r.id);if(f)saveBlob(f,r.name);else notify('File contents are not included in this design preview.')}
+function showMore(r){$('moreName').textContent=r.name;$('moreCopy').onclick=e=>copyLink(r.url,e.currentTarget);$('moreQr').onclick=()=>{$('moreDialog').close();showQR(r.url)};$('moreOpen').onclick=()=>{viewRecord=r;$('moreDialog').close();go('download')};$('moreRemove').onclick=()=>{records=records.filter(x=>x.id!==r.id);saveRecords();$('moreDialog').close();go('home');notify('Removed from this browser. The share link is unchanged.')};$('moreDelete').onclick=()=>{$('moreDialog').close();showDelete(r)};$('moreDialog').showModal()}
+function showDelete(r,failed=false){$('deleteName').textContent=r.name;$('deleteError').hidden=!failed;$('deleteConfirm').textContent=failed?'Try again':'Delete file';$('deleteConfirm').onclick=()=>{records=records.filter(x=>x.id!==r.id);saveRecords();$('deleteDialog').close();go('unavailable');notify('Deletion simulated. No server file was deleted.')};$('deleteDialog').showModal()}
+function showRevoke(){clearTimeout(ownerTimer);ownerAuto=false;$('revokeDialog').showModal()}
+function startOwnerDemo(){ownerAuto=true;clearTimeout(ownerTimer);ownerTimer=setTimeout(()=>{if(!ownerAuto)return;render('owner-receiving');ownerTimer=setTimeout(()=>{if(ownerAuto)render('owner-complete')},2500)},2500)}
+$('revokeConfirm').onclick=()=>{$('revokeDialog').close();go('owner-revoked')};
+function showHelp(type){$('helpTitle').textContent=type==='shell'?'Shell client':'ShareX';$('helpText').textContent=type==='shell'?'Upload from your terminal using the instance’s POSIX client. Production links should point to the existing client download and documented endpoint.':'Download this instance’s ShareX configuration. Production must use the existing configuration generator, not a hardcoded example.';$('helpDialog').showModal()}
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).close());
+$('statePicker').innerHTML=Object.entries(states).map(([v,label])=>`<option value="${v}">${label}</option>`).join('');$('statePicker').onchange=e=>go(e.target.value);$('clearHistory').onclick=()=>{records=[];saveRecords();go('home')};
+window.addEventListener('storage',e=>{if(e.key===KEY){records=loadRecords();if(['#/home','#/history',''].includes(location.hash))render('home')}});setInterval(()=>{const n=records.length;records=records.filter(r=>r.expiresAt>Date.now());if(records.length!==n){saveRecords();if(['#/home','#/history',''].includes(location.hash))render('home')}},60000);
+render(location.hash.slice(2)||'home');
+</script><!-- QR Code Generator for JavaScript — qrcode-generator 1.4.4
+Copyright (c) 2009 Kazuhiko Arase
+Source: https://registry.npmjs.org/qrcode-generator
+The package source declares the MIT license. npm archive contains no separate license file.
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ -->
+</body></html>
