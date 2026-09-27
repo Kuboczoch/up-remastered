@@ -30,8 +30,10 @@ describe("human-friendly formatters", () => {
     expect(parseByteQuantity("1", "B", 1024)).toBe(1);
     expect(parseByteQuantity("1", "KiB", 1024)).toBe(1024);
     expect(parseByteQuantity("0.5", "KiB", 1024)).toBe(512);
+    expect(parseByteQuantity("2", "GiB", 2 * 1024 ** 3)).toBe(2 * 1024 ** 3);
     expect(() => parseByteQuantity("0.1", "B", 1024)).toThrow("whole number");
     expect(() => parseByteQuantity("1.1", "KiB", 1024)).toThrow(RangeError);
+    expect(() => parseByteQuantity("1025", "B", 1024)).toThrow(RangeError);
     expect(() => parseByteQuantity("1e3", "B", 1024)).toThrow(RangeError);
   });
 
@@ -39,8 +41,14 @@ describe("human-friendly formatters", () => {
     const now = Date.parse("2026-01-01T00:00:00.000Z");
     expect(formatRelativeExpiry(now, now, "en-US")).toBe("expired");
     expect(formatRelativeExpiry(now + 1, now, "en-US")).toBe("in 1 minute");
+    expect(formatRelativeExpiry(now + 59 * 60_000, now, "en-US")).toBe(
+      "in 59 minutes",
+    );
     expect(formatRelativeExpiry(now + 60 * 60_000, now, "en-US")).toBe(
       "in 1 hour",
+    );
+    expect(formatRelativeExpiry(now + 23 * 60 * 60_000, now, "en-US")).toBe(
+      "in 23 hours",
     );
     expect(formatRelativeExpiry(now + 24 * 60 * 60_000, now, "pl-PL")).toBe(
       "za 1 dzień",

@@ -29,7 +29,15 @@ test("uploads a picked file and exposes result actions", async ({
     page.getByRole("link", { name: "Download QR code" }),
   ).toHaveAttribute("download", /-qr\.svg$/);
   await page.getByRole("button", { name: "Close QR code" }).click();
-  await expect(page.getByText(/remaining/)).toBeVisible();
+  await expect(
+    page
+      .locator(".result-card p")
+      .filter({ hasText: /Expires in (?:60 minutes|1 hour)/ }),
+  ).toBeVisible();
+  await expect(page.locator(".result-card time")).toHaveAttribute(
+    "datetime",
+    /.+/,
+  );
   await expect(page.getByRole("link", { name: "Open file" })).toHaveAttribute(
     "href",
     shareUrl,
