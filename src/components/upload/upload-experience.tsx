@@ -618,22 +618,6 @@ export function UploadExperience({
                 rows={6}
                 value={text}
               />
-              <div className="text-encoding">
-                <label htmlFor="text-encoding">Text encoding</label>
-                <select
-                  id="text-encoding"
-                  onChange={(event) =>
-                    setTextEncoding(event.target.value as TextEncoding)
-                  }
-                  value={textEncoding}
-                >
-                  {TEXT_ENCODINGS.map((encoding) => (
-                    <option key={encoding.value} value={encoding.value}>
-                      {encoding.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
               <button
                 className="primary-action"
                 onClick={uploadText}
@@ -777,22 +761,41 @@ export function UploadExperience({
       )}
       {phase !== "uploading" && (
         <div className="under-card-row">
-          <details className="upload-help">
-            <summary>
-              Options <span aria-hidden="true">＋</span>
-            </summary>
-            <p>Paste a file or text anywhere on this page.</p>
-            <p>
-              <a href="/sharex" download>
-                ShareX config
-              </a>
-              {" · "}
-              <a href="/sh" download>
-                Shell helper
-              </a>
-            </p>
-          </details>
           <span>No account needed</span>
+          {(phase === "idle" || phase === "error") && (
+            <details className="advanced-options">
+              <summary>
+                Advanced options <span aria-hidden="true">＋</span>
+              </summary>
+              <div className="advanced-options-content">
+                <div className="text-encoding">
+                  <label htmlFor="text-encoding">Text encoding</label>
+                  <select
+                    id="text-encoding"
+                    onChange={(event) =>
+                      setTextEncoding(event.target.value as TextEncoding)
+                    }
+                    value={textEncoding}
+                  >
+                    {TEXT_ENCODINGS.map((encoding) => (
+                      <option key={encoding.value} value={encoding.value}>
+                        {encoding.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p>Paste a file or text anywhere on this page.</p>
+                <nav aria-label="Upload integrations">
+                  <a href="/sharex" download>
+                    ShareX config
+                  </a>
+                  <a href="/sh" download>
+                    Shell helper
+                  </a>
+                </nav>
+              </div>
+            </details>
+          )}
         </div>
       )}
       {(phase === "idle" || phase === "success" || phase === "error") && (
