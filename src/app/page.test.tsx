@@ -39,7 +39,7 @@ describe("Home", () => {
     expect(structuredData).toMatchObject({
       "@context": "https://schema.org",
       "@type": "WebSite",
-      name: "up - remastered",
+      name: "Up - Remastered",
     });
     expect(new URL(structuredData.url).pathname).toBe("/");
 

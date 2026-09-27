@@ -11,7 +11,7 @@ describe("website structured data", () => {
       "@context": "https://schema.org",
       "@type": "WebSite",
       description: "Small self-hosted temporary file hosting service.",
-      name: "up - remastered",
+      name: "Up - Remastered",
       url: "https://up.example.test/",
     });
   });

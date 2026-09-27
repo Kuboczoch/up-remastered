@@ -2,7 +2,7 @@
 
 Read this before future implementation work.
 
-Project: `up - remastered`, short name `up`.
+Project: `Up - Remastered`, short name `up`.
 
 Intent: small self-hosted temporary file hosting service, written in TypeScript with Next.js App Router.
 

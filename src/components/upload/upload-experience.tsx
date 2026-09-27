@@ -28,6 +28,7 @@ import {
   UPLOAD_HISTORY_STORAGE_KEY,
   type UploadHistoryEntry,
 } from "@/components/upload/upload-history";
+import { siteName } from "@/config/site";
 
 type PublicConfiguration = {
   maxTemporaryFileSize: number;
@@ -96,7 +97,7 @@ export function UploadExperience({
   const resultHeadingRef = useRef<HTMLHeadingElement>(null);
   const abortRef = useRef<(() => void) | null>(null);
   const requestSequence = useRef(0);
-  const originalTitle = useRef("up - remastered");
+  const originalTitle = useRef(siteName);
 
   useEffect(() => {
     originalTitle.current = document.title;
@@ -185,7 +186,7 @@ export function UploadExperience({
   useEffect(() => {
     document.title =
       phase === "uploading"
-        ? `${progress}% · up - remastered`
+        ? `${progress}% · ${siteName}`
         : originalTitle.current;
   }, [phase, progress]);
 

@@ -1,10 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { siteName } from "@/config/site";
+
 export function SiteHeader() {
   return (
     <header className="site-header">
-      <Link className="site-brand" href="/" aria-label="up remastered home">
+      <Link className="site-brand" href="/" aria-label={`${siteName} home`}>
         <Image
           alt=""
           aria-hidden="true"
@@ -14,10 +16,7 @@ export function SiteHeader() {
           src="/brand-mark.svg"
           width={34}
         />
-        <span>
-          <strong>up</strong>
-          <small>remastered</small>
-        </span>
+        <strong>{siteName}</strong>
       </Link>
       <Link className="outline-button" href="/request/new">
         Request a file

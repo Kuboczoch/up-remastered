@@ -4,7 +4,7 @@ The public homepage emits one `application/ld+json` block with schema.org `WebSi
 
 Fields are intentionally limited to:
 
-- `name`: `up - remastered`
+- `name`: `Up - Remastered`
 - `description`: the same temporary file hosting description used by page metadata
 - `url`: the validated `UP_PUBLIC_ORIGIN` root
 

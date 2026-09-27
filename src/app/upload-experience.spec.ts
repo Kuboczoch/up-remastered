@@ -195,11 +195,24 @@ test("shows upload percentage in the title and supports mobile text upload", asy
   await expect(page.getByLabel("Or upload text")).toBeVisible();
   await page.getByLabel("Or upload text").fill("mobile text");
   await page.getByRole("button", { name: "Upload text" }).click();
-  await expect(page).toHaveTitle(/\d+% · up/);
+  await expect(page).toHaveTitle(/\d+% · Up - Remastered/);
   await expect(
     page.getByRole("heading", { name: "pasted-text.txt" }),
   ).toBeVisible();
-  await expect(page).toHaveTitle("up - remastered");
+  await expect(page).toHaveTitle("Up - Remastered");
+
+  await page.getByRole("button", { name: "Upload another" }).click();
+  await page.getByLabel("Or upload text").fill("cancelled upload");
+  await page.getByRole("button", { name: "Upload text" }).click();
+  await expect(page).toHaveTitle(/\d+% · Up - Remastered/);
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveTitle("Up - Remastered");
+
+  await page.getByLabel("Or upload text").fill("unmounted upload");
+  await page.getByRole("button", { name: "Upload text" }).click();
+  await expect(page).toHaveTitle(/\d+% · Up - Remastered/);
+  await page.goto("/request/new");
+  await expect(page).toHaveTitle("Request a file | Up - Remastered");
 });
 
 test("persists upload history and separates local removal from server deletion", async ({

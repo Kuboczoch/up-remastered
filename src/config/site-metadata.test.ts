@@ -1,9 +1,16 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { siteDescription, siteName } from "./site";
+import { createPageTitle, siteDescription, siteName } from "./site";
 import { createSiteMetadata } from "./site-metadata";
 
 describe("site metadata", () => {
+  it("uses the exact product name for home and descriptive route titles", () => {
+    expect(siteName).toBe("Up - Remastered");
+    expect(createPageTitle("Request a file")).toBe(
+      "Request a file | Up - Remastered",
+    );
+  });
+
   it("uses the configured public origin for canonical and social URLs", () => {
     const metadata = createSiteMetadata("https://up.example.test");
 
