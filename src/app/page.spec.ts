@@ -107,10 +107,16 @@ test("keeps the shared footer usable across responsive layouts", async ({
   await expect(
     footer.getByRole("link", { name: "Request a file" }),
   ).toHaveAttribute("href", "/request/new");
-  await expect(footer.getByRole("link", { name: "GitHub" })).toHaveAttribute(
+  const repositoryLink = footer.getByRole("link", {
+    name: "GitHub repository (opens in a new tab)",
+  });
+
+  await expect(repositoryLink).toHaveAttribute(
     "href",
     "https://github.com/Kuboczoch/up-remastered",
   );
+  await expect(repositoryLink).toHaveAttribute("rel", "noreferrer");
+  await expect(repositoryLink).toHaveAttribute("target", "_blank");
 
   await page.setViewportSize({ width: 320, height: 700 });
   await expect(footer).toBeVisible();

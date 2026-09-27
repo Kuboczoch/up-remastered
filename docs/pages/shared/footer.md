@@ -4,7 +4,7 @@ The home page and both upload-request routes render the shared semantic `SiteFoo
 
 ## Content
 
-The footer presents the temporary-storage disclaimer, a link for creating an upload request, the project repository, the deployed application version, and the required artwork credit.
+The footer presents the temporary-storage disclaimer, a link for creating an upload request, the project repository, the deployed application version, and the required artwork credit. The repository link opens GitHub in a new tab and announces that behavior in its accessible name.
 
 ## Layout and accessibility
 

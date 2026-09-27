@@ -38,11 +38,16 @@ describe("Home", () => {
     expect(footer.querySelector('a[href="/request/new"]')?.textContent).toBe(
       "Request a file",
     );
-    expect(
-      footer.querySelector(
-        'a[href="https://github.com/Kuboczoch/up-remastered"]',
-      )?.textContent,
-    ).toBe("GitHub");
+    const repositoryLink = getByRole("link", {
+      name: "GitHub repository (opens in a new tab)",
+    });
+
+    expect(repositoryLink.textContent).toBe("GitHub");
+    expect(repositoryLink.getAttribute("href")).toBe(
+      "https://github.com/Kuboczoch/up-remastered",
+    );
+    expect(repositoryLink.getAttribute("rel")).toBe("noreferrer");
+    expect(repositoryLink.getAttribute("target")).toBe("_blank");
     expect(getByText("v1.1.0")).toBeTruthy();
     expect(container.querySelectorAll("h1")).toHaveLength(1);
     await waitFor(() => {
