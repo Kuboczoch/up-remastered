@@ -10,20 +10,21 @@ services:
   up:
     build:
       context: .
-    container_name: up-remastered
     restart: unless-stopped
     depends_on:
       init-data:
         condition: service_completed_successfully
     ports:
-      - "3000:3000"
+      - "${UP_BIND_ADDRESS:-0.0.0.0}:${UP_PORT:-3000}:3000"
     environment:
       DATA_DIR: /data
       UPLOAD_DIR: /data/uploads
       DATABASE_URL: file:/data/app.db
-      MAX_UPLOAD_SIZE: "1073741824"
-      DEFAULT_EXPIRATION_HOURS: "24"
-      UP_PUBLIC_ORIGIN: http://localhost:3000
+      MAX_UPLOAD_SIZE: "${MAX_UPLOAD_SIZE:-1073741824}"
+      MAX_STORED_BYTES: "${MAX_STORED_BYTES:-10737418240}"
+      DEFAULT_EXPIRATION_HOURS: "${DEFAULT_EXPIRATION_HOURS:-24}"
+      MAX_EXPIRATION_HOURS: "${MAX_EXPIRATION_HOURS:-24}"
+      UP_PUBLIC_ORIGIN: "${UP_PUBLIC_ORIGIN:-http://localhost:3000}"
     volumes:
       - ${UP_DATA_DIR:-./data}:/data
     healthcheck:
