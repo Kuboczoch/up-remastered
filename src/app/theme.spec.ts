@@ -37,7 +37,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
       await page.goto("/request/new");
-      await expect(page.getByLabel("Maximum upload size in bytes")).toHaveCSS(
+      await expect(page.getByLabel("Maximum upload size")).toHaveCSS(
         "background-color",
         "rgb(43, 44, 53)",
       );

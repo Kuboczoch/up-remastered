@@ -101,6 +101,6 @@ describe("upload client", () => {
 
   it("formats byte limits for people", () => {
     expect(formatBytes(64)).toBe("64 B");
-    expect(formatBytes(1_048_576)).toBe("1.0 MiB");
+    expect(formatBytes(1_048_576)).toBe("1 MiB");
   });
 });

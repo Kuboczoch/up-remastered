@@ -9,25 +9,7 @@ export type UploadResult = {
 
 export type UploadProgress = (percentage: number) => void;
 
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-
-  const units = ["KiB", "MiB", "GiB", "TiB"];
-  let value = bytes;
-  let unit = "B";
-
-  for (const candidate of units) {
-    value /= 1024;
-    unit = candidate;
-    if (value < 1024) {
-      break;
-    }
-  }
-
-  return `${value >= 10 ? value.toFixed(0) : value.toFixed(1)} ${unit}`;
-}
+export { formatBytes } from "@/lib/format";
 
 function responseMessage(body: unknown, fallback: string): string {
   if (

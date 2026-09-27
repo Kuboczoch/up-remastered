@@ -8,7 +8,9 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
   await expect(
     page.getByRole("heading", { name: "Request a file" }),
   ).toBeVisible();
-  await page.getByLabel("Maximum upload size in bytes").fill("16");
+  await expect(page.getByText("Server maximum: 64 B.")).toBeVisible();
+  await page.getByLabel("Maximum upload size").selectOption("custom");
+  await page.getByLabel("Size amount").fill("16");
   await page.getByRole("button", { name: "Create upload request" }).click();
 
   await expect(
@@ -21,6 +23,8 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
   const managementToken = (await page.locator("code").textContent()) ?? "";
   expect(uploadUrl).toMatch(/\/request\/[a-f0-9]{64}$/);
   expect(managementToken).toMatch(/^[a-f0-9]{64}$/);
+  await expect(page.locator("time")).toHaveAttribute("datetime", /Z$/);
+  await expect(page.getByText(/Expires in \d+ (minute|hour)/)).toBeVisible();
 
   await page.goto(uploadUrl!);
   await page.getByLabel("Choose file").setInputFiles({
@@ -65,7 +69,8 @@ test("lets the owner revoke an unused request without disclosing capabilities", 
   page,
 }) => {
   await page.goto("/request/new");
-  await page.getByLabel("Maximum upload size in bytes").fill("8");
+  await page.getByLabel("Maximum upload size").selectOption("custom");
+  await page.getByLabel("Size amount").fill("8");
   await page.getByRole("button", { name: "Create upload request" }).click();
   const uploadUrl = await page
     .getByText("Send this upload link:")

@@ -11,7 +11,6 @@ import {
 } from "react";
 
 import {
-  formatBytes,
   uploadFile,
   type UploadResult,
 } from "@/components/upload/client-upload";
@@ -29,6 +28,11 @@ import {
   type UploadHistoryEntry,
 } from "@/components/upload/upload-history";
 import { siteName } from "@/config/site";
+import {
+  formatBytes,
+  formatLocalDateTime,
+  formatRelativeExpiry,
+} from "@/lib/format";
 
 type PublicConfiguration = {
   maxTemporaryFileSize: number;
@@ -67,17 +71,6 @@ function isValidFileDrag(
 
   const file = dataTransfer.files[0] ?? fileItems[0]?.getAsFile();
   return !file || maxBytes === null || file.size <= maxBytes;
-}
-
-function expirationLabel(expiresAt: string, now: number): string {
-  const remaining = Math.max(0, new Date(expiresAt).getTime() - now);
-  if (remaining === 0) return "Expired";
-
-  const totalSeconds = Math.ceil(remaining / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${hours}h ${minutes}m ${seconds}s remaining`;
 }
 
 function fileType(name: string): string {
@@ -280,7 +273,7 @@ export function UploadExperience({
         if (current) setQrSvg(svg);
       });
 
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => {
       current = false;
       window.clearInterval(timer);
@@ -692,8 +685,11 @@ export function UploadExperience({
                 {result.originalName}
               </h2>
               <p>
-                {formatBytes(result.size)} ·{" "}
-                {expirationLabel(result.expiresAt, now)}
+                {formatBytes(result.size)} · Expires{" "}
+                {formatRelativeExpiry(result.expiresAt, now)} ·{" "}
+                <time dateTime={result.expiresAt}>
+                  {formatLocalDateTime(result.expiresAt)}
+                </time>
               </p>
             </div>
           </div>
@@ -848,8 +844,9 @@ export function UploadExperience({
                     )}
                     <p>
                       {formatBytes(entry.size)} · Expires{" "}
+                      {formatRelativeExpiry(entry.expiresAt, now)} ·{" "}
                       <time dateTime={entry.expiresAt}>
-                        {new Date(entry.expiresAt).toLocaleString()}
+                        {formatLocalDateTime(entry.expiresAt)}
                       </time>
                     </p>
                   </div>

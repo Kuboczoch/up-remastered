@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default function NewUploadRequestPage() {
-  const { maxUploadBytes } = getUploadLimits();
+  const { maxExpirationMs, maxUploadBytes } = getUploadLimits();
 
   return (
     <>
@@ -28,7 +28,10 @@ export default function NewUploadRequestPage() {
             file.
           </p>
         </header>
-        <CreateRequestForm maxUploadBytes={maxUploadBytes} />
+        <CreateRequestForm
+          maxExpirationMs={maxExpirationMs}
+          maxUploadBytes={maxUploadBytes}
+        />
       </main>
       <SiteFooter />
     </>
