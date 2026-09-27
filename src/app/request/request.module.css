@@ -12,7 +12,7 @@
 
 .header a {
   width: fit-content;
-  color: #617086;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;
@@ -20,7 +20,7 @@
 
 .header h1 {
   margin: 14px 0 0;
-  color: #111b2b;
+  color: var(--ink);
   font-size: clamp(31px, 5vw, 42px);
   line-height: 1;
   letter-spacing: -1.7px;
@@ -28,7 +28,7 @@
 
 .header p {
   margin: 0;
-  color: #617086;
+  color: var(--muted);
 }
 
 .card {
@@ -37,13 +37,22 @@
   min-height: 260px;
   align-content: center;
   padding: 40px;
-  border: 1px solid #cdd6e1;
+  border: 1px solid var(--line);
   border-radius: 13px;
   background:
-    linear-gradient(90deg, #fff 0%, #ffffffe8 42%, #ffffff40 100%),
-    linear-gradient(180deg, #fff0 30%, #fff 100%),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--surface) 96%, transparent) 0%,
+      color-mix(in srgb, var(--surface) 94%, transparent) 42%,
+      color-mix(in srgb, var(--surface) 80%, transparent) 100%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface) 40%, transparent) 30%,
+      var(--surface) 100%
+    ),
     url("/landscape.webp") center 58% / cover no-repeat;
-  box-shadow: 0 7px 20px #20324c10;
+  box-shadow: 0 7px 20px #00000033;
 }
 
 .card h2,
@@ -62,11 +71,11 @@
 .field input {
   width: 100%;
   min-height: 43px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--line);
   border-radius: 7px;
   padding: 0 12px;
-  background: #fff;
-  color: #111b2b;
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .actions {
@@ -82,11 +91,11 @@
   align-items: center;
   justify-content: center;
   width: fit-content;
-  border: 1px solid #1267e9;
+  border: 1px solid var(--accent);
   border-radius: 7px;
   padding: 0 17px;
-  background: #1267e9;
-  color: #fff;
+  background: var(--accent);
+  color: var(--on-accent);
   font: inherit;
   font-size: 12px;
   font-weight: 700;
@@ -95,9 +104,18 @@
 }
 
 .linkButton {
-  border-color: #cbd5e1;
-  background: #fff;
-  color: #111b2b;
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.button:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.linkButton:hover {
+  background: var(--raised);
+  border-color: var(--accent);
 }
 
 .button:disabled {
@@ -108,10 +126,10 @@
   overflow-wrap: anywhere;
 }
 .error {
-  color: #a32626;
+  color: var(--danger);
 }
 .muted {
-  color: #66758a;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -124,7 +142,11 @@
     min-height: 340px;
     padding: 25px 20px;
     background:
-      linear-gradient(180deg, #ffffff55 0%, #fff 100%),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--surface) 90%, transparent) 0%,
+        var(--surface) 100%
+      ),
       url("/landscape.webp") 58% center / auto 100% no-repeat;
   }
   .button,
