@@ -180,6 +180,51 @@ test("rejects ambiguous drops and oversized files before upload", async ({
   await expect(page.getByText(/Maximum size is 64 B/)).toBeVisible();
 });
 
+test("shows a stable drag target and resets it on leave, exit, and drop", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  const dispatchFileDrag = async (
+    type: "dragenter" | "dragleave" | "drop",
+    selector: string,
+  ) => {
+    await page.evaluate(
+      ({ eventType, targetSelector }) => {
+        const data = new DataTransfer();
+        data.items.add(new File(["valid"], "valid.txt"));
+        document.querySelector(targetSelector)?.dispatchEvent(
+          new DragEvent(eventType, {
+            bubbles: true,
+            cancelable: true,
+            dataTransfer: data,
+          }),
+        );
+      },
+      { eventType: type, targetSelector: selector },
+    );
+  };
+
+  await dispatchFileDrag("dragenter", ".drop-zone");
+  await expect(page.getByText("Drop file to upload")).toBeVisible();
+
+  await dispatchFileDrag("dragenter", ".file-panel");
+  await dispatchFileDrag("dragleave", ".file-panel");
+  await expect(page.getByText("Drop file to upload")).toBeVisible();
+
+  await dispatchFileDrag("dragleave", ".drop-zone");
+  await expect(page.getByText("Drop file to upload")).toBeHidden();
+
+  await dispatchFileDrag("dragenter", ".drop-zone");
+  await dispatchFileDrag("dragleave", "html");
+  await expect(page.getByText("Drop file to upload")).toBeHidden();
+
+  await dispatchFileDrag("dragenter", ".drop-zone");
+  await dispatchFileDrag("drop", ".drop-zone");
+  await expect(page.getByText("Drop file to upload")).toBeHidden();
+  await expect(page.getByRole("heading", { name: "valid.txt" })).toBeVisible();
+});
+
 test("shows upload percentage in the title and supports mobile text upload", async ({
   page,
 }) => {
