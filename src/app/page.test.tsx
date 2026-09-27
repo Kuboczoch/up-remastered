@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { axe } from "jest-axe";
 
+import packageMetadata from "../../package.json";
 import Home from "./page";
 
 beforeEach(() => {
@@ -48,7 +49,7 @@ describe("Home", () => {
     );
     expect(repositoryLink.getAttribute("rel")).toBe("noreferrer");
     expect(repositoryLink.getAttribute("target")).toBe("_blank");
-    expect(getByText("v1.1.0")).toBeTruthy();
+    expect(getByText(`v${packageMetadata.version}`)).toBeTruthy();
     expect(container.querySelectorAll("h1")).toHaveLength(1);
     await waitFor(() => {
       expect(getByLabelText("Choose file")).toBeTruthy();

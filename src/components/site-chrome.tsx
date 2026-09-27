@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { siteName } from "@/config/site";
+import packageMetadata from "../../package.json";
 
 export function SiteHeader() {
   return (
@@ -40,7 +41,9 @@ export function SiteFooter() {
           >
             GitHub
           </a>
-          <span className="site-footer-version">v1.1.0</span>
+          <span className="site-footer-version">
+            v{packageMetadata.version}
+          </span>
           <a
             href="https://openclipart.org/detail/285129/forrest-and-mountains-illustration"
             rel="noreferrer"
