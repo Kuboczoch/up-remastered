@@ -32,6 +32,18 @@ describe("Home", () => {
     expect(
       getByText("Everything expires automatically. No account required."),
     ).toBeTruthy();
+    const footer = getByRole("contentinfo");
+
+    expect(footer).toBeTruthy();
+    expect(footer.querySelector('a[href="/request/new"]')?.textContent).toBe(
+      "Request a file",
+    );
+    expect(
+      footer.querySelector(
+        'a[href="https://github.com/Kuboczoch/up-remastered"]',
+      )?.textContent,
+    ).toBe("GitHub");
+    expect(getByText("v1.1.0")).toBeTruthy();
     expect(container.querySelectorAll("h1")).toHaveLength(1);
     await waitFor(() => {
       expect(getByLabelText("Choose file")).toBeTruthy();

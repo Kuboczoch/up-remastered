@@ -28,18 +28,21 @@ export function SiteHeader() {
 export function SiteFooter() {
   return (
     <footer className="site-footer">
-      <span>Temporary by design.</span>
-      <nav aria-label="Footer">
-        <a href="https://github.com/Kuboczoch/up-remastered">GitHub</a>
-        <span>v1.1.0</span>
-        <a
-          href="https://openclipart.org/detail/285129/forrest-and-mountains-illustration"
-          rel="noreferrer"
-          target="_blank"
-        >
-          Artwork
-        </a>
-      </nav>
+      <div className="site-footer-inner">
+        <p>Temporary by design.</p>
+        <nav aria-label="Footer">
+          <Link href="/request/new">Request a file</Link>
+          <a href="https://github.com/Kuboczoch/up-remastered">GitHub</a>
+          <span className="site-footer-version">v1.1.0</span>
+          <a
+            href="https://openclipart.org/detail/285129/forrest-and-mountains-illustration"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Artwork
+          </a>
+        </nav>
+      </div>
     </footer>
   );
 }
