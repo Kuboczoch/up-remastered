@@ -32,7 +32,14 @@ export function SiteFooter() {
         <p>Temporary by design.</p>
         <nav aria-label="Footer">
           <Link href="/request/new">Request a file</Link>
-          <a href="https://github.com/Kuboczoch/up-remastered">GitHub</a>
+          <a
+            aria-label="GitHub repository (opens in a new tab)"
+            href="https://github.com/Kuboczoch/up-remastered"
+            rel="noreferrer"
+            target="_blank"
+          >
+            GitHub
+          </a>
           <span className="site-footer-version">v1.1.0</span>
           <a
             href="https://openclipart.org/detail/285129/forrest-and-mountains-illustration"
