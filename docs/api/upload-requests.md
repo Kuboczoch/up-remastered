@@ -15,6 +15,10 @@ Requested-upload links let one person invite one anonymous upload without creati
 
 `expiresAt` must be strict UTC ISO-8601, future, and no later than `MAX_EXPIRATION_HOURS`. `maxBytes` must be an integer from 1 through `MAX_UPLOAD_SIZE`. The JSON body is capped at 1 KiB; unknown fields are rejected.
 
+The browser form exposes bounded expiration presets plus a custom local date/time. Upload limits use IEC size presets or an exact numeric B/KiB/MiB/GiB conversion. Decimal quantities are accepted only when they convert to a whole, safe integer byte count within `MAX_UPLOAD_SIZE`; server validation remains authoritative.
+
+Displayed sizes use shared IEC formatting. Expirations pair localized relative text with an absolute local `<time datetime>` value, and relative labels refresh once per minute rather than on a page-wide per-second timer.
+
 A successful `201` response returns:
 
 - `uploadUrl`: uploader capability containing a random 256-bit public token;

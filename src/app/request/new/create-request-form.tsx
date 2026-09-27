@@ -1,6 +1,20 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+} from "react";
+
+import {
+  formatBytes,
+  formatLocalDateTime,
+  formatRelativeExpiry,
+  parseByteQuantity,
+  type ByteUnit,
+} from "@/lib/format";
 
 import styles from "../request.module.css";
 
@@ -12,33 +26,135 @@ type CreatedRequest = {
   uploadUrl: string;
 };
 
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
+const EXPIRATION_PRESETS = [
+  { label: "1 hour", value: HOUR },
+  { label: "1 day", value: DAY },
+  { label: "7 days", value: 7 * DAY },
+];
+const SIZE_PRESETS = [1024, 10 * 1024 * 1024, 100 * 1024 * 1024, 1024 ** 3];
+const BYTE_UNITS: ByteUnit[] = ["B", "KiB", "MiB", "GiB"];
+
+function subscribeToHydration() {
+  return () => undefined;
+}
+
+function formatDuration(milliseconds: number): string {
+  if (milliseconds % DAY === 0) return `${milliseconds / DAY} days`;
+  if (milliseconds % HOUR === 0) return `${milliseconds / HOUR} hours`;
+  return `${Math.floor(milliseconds / 60_000)} minutes`;
+}
+
+function toLocalInputValue(date: Date): string {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
 export function CreateRequestForm({
+  maxExpirationMs,
   maxUploadBytes,
 }: {
+  maxExpirationMs: number;
   maxUploadBytes: number;
 }) {
+  const expirationPresets = useMemo(() => {
+    const allowed = EXPIRATION_PRESETS.filter(
+      ({ value }) => value <= maxExpirationMs,
+    );
+    if (!allowed.some(({ value }) => value === maxExpirationMs)) {
+      allowed.push({
+        label: `Maximum (${formatDuration(maxExpirationMs)})`,
+        value: maxExpirationMs,
+      });
+    }
+    return allowed;
+  }, [maxExpirationMs]);
+  const sizePresets = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...SIZE_PRESETS.filter((value) => value < maxUploadBytes),
+          maxUploadBytes,
+        ]),
+      ),
+    [maxUploadBytes],
+  );
   const [created, setCreated] = useState<CreatedRequest>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [defaultExpiration] = useState(() => {
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-    expiresAt.setMinutes(
-      expiresAt.getMinutes() - expiresAt.getTimezoneOffset(),
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
+  const [expirationChoice, setExpirationChoice] = useState(() =>
+    String(expirationPresets[0]?.value ?? maxExpirationMs),
+  );
+  const [customExpiration, setCustomExpiration] = useState("");
+  const [customExpirationMax, setCustomExpirationMax] = useState("");
+  const [sizeChoice, setSizeChoice] = useState(String(maxUploadBytes));
+  const [customSize, setCustomSize] = useState(String(maxUploadBytes));
+  const [customSizeUnit, setCustomSizeUnit] = useState<ByteUnit>("B");
+  const [now, setNow] = useState<number>();
+
+  useEffect(() => {
+    if (!created) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, [created]);
+
+  function selectExpiration(value: string) {
+    setExpirationChoice(value);
+    if (value !== "custom") return;
+
+    const current = Date.now();
+    const defaultDuration = Math.min(HOUR, maxExpirationMs);
+    setCustomExpiration(toLocalInputValue(new Date(current + defaultDuration)));
+    setCustomExpirationMax(
+      toLocalInputValue(new Date(current + maxExpirationMs)),
     );
-    return expiresAt.toISOString().slice(0, 16);
-  });
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError("");
-    const form = new FormData(event.currentTarget);
 
     try {
+      const submittedAt = Date.now();
+      const expiresAt =
+        expirationChoice === "custom"
+          ? new Date(customExpiration)
+          : new Date(submittedAt + Number(expirationChoice));
+      if (
+        !Number.isFinite(expiresAt.getTime()) ||
+        expiresAt.getTime() <= submittedAt ||
+        expiresAt.getTime() > submittedAt + maxExpirationMs
+      ) {
+        throw new RangeError(
+          `Expiration must be in the future and within ${formatDuration(maxExpirationMs)}.`,
+        );
+      }
+
+      const maxBytes =
+        sizeChoice === "custom"
+          ? parseByteQuantity(customSize, customSizeUnit, maxUploadBytes)
+          : Number(sizeChoice);
+      if (
+        !Number.isSafeInteger(maxBytes) ||
+        maxBytes < 1 ||
+        maxBytes > maxUploadBytes
+      ) {
+        throw new RangeError(
+          `Size must be between 1 byte and ${formatBytes(maxUploadBytes)}.`,
+        );
+      }
+
       const response = await fetch("/api/upload-requests", {
         body: JSON.stringify({
-          expiresAt: new Date(String(form.get("expiresAt"))).toISOString(),
-          maxBytes: Number(form.get("maxBytes")),
+          expiresAt: expiresAt.toISOString(),
+          maxBytes,
         }),
         headers: { "content-type": "application/json" },
         method: "POST",
@@ -48,6 +164,7 @@ export function CreateRequestForm({
       };
       if (!response.ok)
         throw new Error(body.error?.message ?? "Request failed.");
+      setNow(Date.now());
       setCreated(body);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Request failed.");
@@ -91,6 +208,17 @@ export function CreateRequestForm({
           Save the management token now. It can inspect or revoke the request
           and cannot be recovered by the server.
         </p>
+        <p>
+          Limit: {formatBytes(created.maxBytes)} · Expires{" "}
+          {formatRelativeExpiry(
+            created.expiresAt,
+            now ?? Date.parse(created.expiresAt),
+          )}{" "}
+          ·{" "}
+          <time dateTime={created.expiresAt}>
+            {formatLocalDateTime(created.expiresAt)}
+          </time>
+        </p>
         <p role="status">Status: {created.status}</p>
         <div className={styles.actions}>
           <button
@@ -118,29 +246,92 @@ export function CreateRequestForm({
     <form className={styles.card} onSubmit={submit}>
       <label className={styles.field}>
         Request expires
-        <input
-          defaultValue={defaultExpiration}
-          name="expiresAt"
-          required
-          type="datetime-local"
-        />
+        <select
+          disabled={!hydrated}
+          name="expirationPreset"
+          onChange={(event) => selectExpiration(event.target.value)}
+          value={expirationChoice}
+        >
+          {expirationPresets.map(({ label, value }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+          <option value="custom">Custom date and time</option>
+        </select>
       </label>
+      {expirationChoice === "custom" ? (
+        <label className={styles.field}>
+          Custom expiration date and time
+          <input
+            max={customExpirationMax}
+            name="expiresAt"
+            onChange={(event) => setCustomExpiration(event.target.value)}
+            required
+            type="datetime-local"
+            value={customExpiration}
+          />
+        </label>
+      ) : null}
       <label className={styles.field}>
-        Maximum upload size in bytes
-        <input
-          defaultValue={maxUploadBytes}
-          max={maxUploadBytes}
-          min="1"
-          name="maxBytes"
-          required
-          step="1"
-          type="number"
-        />
+        Maximum upload size
+        <select
+          disabled={!hydrated}
+          name="sizePreset"
+          onChange={(event) => setSizeChoice(event.target.value)}
+          value={sizeChoice}
+        >
+          {sizePresets.map((bytes) => (
+            <option key={bytes} value={bytes}>
+              {bytes === maxUploadBytes ? "Server maximum: " : ""}
+              {formatBytes(bytes)}
+            </option>
+          ))}
+          <option value="custom">Custom size</option>
+        </select>
       </label>
+      {sizeChoice === "custom" ? (
+        <div className={styles.inlineFields}>
+          <label className={styles.field}>
+            Size amount
+            <input
+              inputMode="decimal"
+              min="0"
+              name="maxBytes"
+              onChange={(event) => setCustomSize(event.target.value)}
+              required
+              step="any"
+              type="number"
+              value={customSize}
+            />
+          </label>
+          <label className={styles.field}>
+            Size unit
+            <select
+              name="sizeUnit"
+              onChange={(event) =>
+                setCustomSizeUnit(event.target.value as ByteUnit)
+              }
+              value={customSizeUnit}
+            >
+              {BYTE_UNITS.map((unit) => (
+                <option key={unit} value={unit}>
+                  {unit}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
       <p className={styles.muted}>
-        The link accepts one successful upload, up to {maxUploadBytes} bytes.
+        The link accepts one successful upload. Server maximum:{" "}
+        {formatBytes(maxUploadBytes)}.
       </p>
-      <button className={styles.button} disabled={busy} type="submit">
+      <button
+        className={styles.button}
+        disabled={!hydrated || busy}
+        type="submit"
+      >
         {busy ? "Creating…" : "Create upload request"}
       </button>
       {error ? (

@@ -53,7 +53,7 @@ describe("Home", () => {
     expect(container.querySelectorAll("h1")).toHaveLength(1);
     await waitFor(() => {
       expect(getByLabelText("Choose file")).toBeTruthy();
-      expect(getByText("1.0 KiB max")).toBeTruthy();
+      expect(getByText("1 KiB max")).toBeTruthy();
     });
     fireEvent.click(getByRole("button", { name: "Text" }));
     expect(getByLabelText("Or upload text")).toBeTruthy();
@@ -72,7 +72,7 @@ describe("Home", () => {
 
   it("has no component-level accessibility violations", async () => {
     const { container, getByText } = render(<Home />);
-    await waitFor(() => expect(getByText("1.0 KiB max")).toBeTruthy());
+    await waitFor(() => expect(getByText("1 KiB max")).toBeTruthy());
     const results = await axe(container);
 
     expect(results.violations).toEqual([]);

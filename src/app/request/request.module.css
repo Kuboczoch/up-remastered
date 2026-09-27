@@ -68,7 +68,8 @@
   font-weight: 700;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   min-height: 43px;
   border: 1px solid var(--line);
@@ -76,6 +77,17 @@
   padding: 0 12px;
   background: var(--surface);
   color: var(--ink);
+}
+
+.inlineFields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(92px, 0.4fr);
+  gap: 9px;
+  max-width: 430px;
+}
+
+.inlineFields .field {
+  min-width: 0;
 }
 
 .actions {
@@ -152,5 +164,8 @@
   .button,
   .linkButton {
     width: 100%;
+  }
+  .inlineFields {
+    grid-template-columns: 1fr;
   }
 }
