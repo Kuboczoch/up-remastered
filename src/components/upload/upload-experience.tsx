@@ -120,6 +120,7 @@ export function UploadExperience({
   const resultHeadingRef = useRef<HTMLHeadingElement>(null);
   const restorePickerFocusRef = useRef(false);
   const abortRef = useRef<(() => void) | null>(null);
+  const copyConfirmationTimerRef = useRef<number | null>(null);
   const requestSequence = useRef(0);
   const originalTitle = useRef(siteName);
 
@@ -163,6 +164,9 @@ export function UploadExperience({
     return () => {
       controller.abort();
       abortRef.current?.();
+      if (copyConfirmationTimerRef.current !== null) {
+        window.clearTimeout(copyConfirmationTimerRef.current);
+      }
       document.title = originalTitle.current;
     };
   }, []);
@@ -382,6 +386,10 @@ export function UploadExperience({
     setQrOpen(false);
     setText("");
     setCopied(false);
+    if (copyConfirmationTimerRef.current !== null) {
+      window.clearTimeout(copyConfirmationTimerRef.current);
+      copyConfirmationTimerRef.current = null;
+    }
     if (inputRef.current) {
       inputRef.current.value = "";
     }
@@ -460,6 +468,13 @@ export function UploadExperience({
     try {
       await navigator.clipboard.writeText(result.shareUrl);
       setCopied(true);
+      if (copyConfirmationTimerRef.current !== null) {
+        window.clearTimeout(copyConfirmationTimerRef.current);
+      }
+      copyConfirmationTimerRef.current = window.setTimeout(() => {
+        setCopied(false);
+        copyConfirmationTimerRef.current = null;
+      }, 2_000);
     } catch {
       setCopied(false);
     }
@@ -692,11 +707,18 @@ export function UploadExperience({
               value={result.shareUrl}
             />
             <button
-              className="primary-action"
+              aria-live="polite"
+              className={`primary-action copy-action${copied ? " is-confirmed" : ""}`}
               onClick={() => void copyUrl()}
               type="button"
             >
-              {copied ? "Copied" : "Copy URL"}
+              {copied ? (
+                <>
+                  Copied <span aria-hidden="true">✓</span>
+                </>
+              ) : (
+                "Copy URL"
+              )}
             </button>
           </div>
           <p className="share-note">Anyone with the link can download.</p>

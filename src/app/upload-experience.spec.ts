@@ -262,6 +262,61 @@ test("shows a stable drag target and resets it on leave, exit, and drop", async 
   await expect(page.getByRole("heading", { name: "valid.txt" })).toBeVisible();
 });
 
+test("uses short feedback motion and honors reduced-motion preferences", async ({
+  context,
+  page,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(["valid"], "valid.txt"));
+    document.querySelector(".drop-zone")?.dispatchEvent(
+      new DragEvent("dragenter", {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: data,
+      }),
+    );
+  });
+  await expect(page.locator(".drop-overlay")).toHaveCSS(
+    "animation-name",
+    "drop-feedback-in",
+  );
+
+  await page.getByText("Advanced options").click();
+  await expect(page.locator(".advanced-options-content")).toHaveCSS(
+    "animation-name",
+    "disclosure-feedback-in",
+  );
+
+  await page.locator("#file-picker").setInputFiles({
+    buffer: Buffer.from("motion"),
+    mimeType: "text/plain",
+    name: "motion.txt",
+  });
+  await expect(page.locator(".result-card")).toHaveCSS(
+    "animation-name",
+    "card-feedback-in",
+  );
+  await page.getByRole("button", { name: "Copy URL" }).click();
+  await expect(page.getByRole("button", { name: "Copied" })).toHaveCSS(
+    "animation-name",
+    "copy-confirm",
+  );
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.getByRole("button", { name: "Upload another file" }).click();
+  await page.getByText("Advanced options").click();
+  const reducedDuration = await page
+    .locator(".advanced-options-content")
+    .evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).animationDuration),
+    );
+  expect(reducedDuration).toBeLessThanOrEqual(0.001);
+});
+
 test("shows upload percentage in the title and supports mobile text upload", async ({
   page,
 }) => {
