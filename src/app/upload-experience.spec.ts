@@ -220,6 +220,10 @@ test("uploads a picked file and exposes result actions", async ({
     "href",
     shareUrl,
   );
+  const downloadFile = page
+    .locator(".result-card")
+    .getByRole("link", { name: "Download file" });
+  await expect(downloadFile).toHaveAttribute("href", `${shareUrl}?download=1`);
 
   await page.getByRole("button", { name: "Copy URL" }).click();
   await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
@@ -237,6 +241,12 @@ test("uploads a picked file and exposes result actions", async ({
   await copyButton.focus();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Open file" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(downloadFile).toBeFocused();
+  const downloadPromise = page.waitForEvent("download");
+  await downloadFile.press("Enter");
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("picked.txt");
   await page.keyboard.press("Tab");
   await expect(
     page.getByRole("button", { name: "Show QR code" }),
@@ -595,6 +605,9 @@ test("persists history across page restarts and keeps local removal separate", a
     page.getByRole("heading", { name: "history.txt" }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: shareUrl })).toBeVisible();
+  await expect(
+    page.locator(".history-card").getByRole("link", { name: "Download" }),
+  ).toHaveAttribute("href", `${shareUrl}?download=1`);
   expect(await page.locator("body").innerText()).not.toContain("accessToken");
 
   await page
