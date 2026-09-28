@@ -108,6 +108,8 @@ export function UploadExperience({
   const [copied, setCopied] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrSvg, setQrSvg] = useState("");
+  const [qrError, setQrError] = useState("");
+  const [qrGenerationAttempt, setQrGenerationAttempt] = useState(0);
   const [history, setHistory] = useState<UploadHistoryEntry[]>([]);
   const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(
     null,
@@ -252,7 +254,7 @@ export function UploadExperience({
   }, [phase]);
 
   useEffect(() => {
-    if (!result) {
+    if (!qrOpen || !result || qrSvg) {
       return;
     }
 
@@ -268,11 +270,25 @@ export function UploadExperience({
       )
       .then((svg) => {
         if (current) setQrSvg(svg);
+      })
+      .catch(() => {
+        if (current) {
+          setQrError("QR code could not be generated. Try again.");
+        }
       });
+
+    return () => {
+      current = false;
+    };
+  }, [qrGenerationAttempt, qrOpen, qrSvg, result]);
+
+  useEffect(() => {
+    if (!result) {
+      return;
+    }
 
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => {
-      current = false;
       window.clearInterval(timer);
     };
   }, [result]);
@@ -294,6 +310,9 @@ export function UploadExperience({
       requestSequence.current = sequence;
       setError("");
       setCopied(false);
+      setQrOpen(false);
+      setQrSvg("");
+      setQrError("");
       setProgress(0);
       setResult(null);
       setPhase("uploading");
@@ -726,7 +745,10 @@ export function UploadExperience({
             <a href={forcedDownloadUrl(result.shareUrl)}>Download file</a>
             <button
               className="outline-button"
-              onClick={() => setQrOpen(true)}
+              onClick={() => {
+                setQrError("");
+                setQrOpen(true);
+              }}
               type="button"
             >
               Show QR code
@@ -739,7 +761,7 @@ export function UploadExperience({
               Upload another file
             </button>
           </div>
-          {qrOpen && qrSvg && (
+          {qrOpen && (
             <div className="qr-modal-backdrop" role="presentation">
               <section
                 aria-labelledby="qr-title"
@@ -756,20 +778,42 @@ export function UploadExperience({
                   ×
                 </button>
                 <h2 id="qr-title">Scan to download</h2>
-                <div
-                  aria-label="QR code for uploaded file"
-                  className="qr-code"
-                  data-testid="qr-code"
-                  dangerouslySetInnerHTML={{ __html: qrSvg }}
-                  role="img"
-                />
-                <a
-                  className="outline-button"
-                  download={`${result.id}-qr.svg`}
-                  href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
-                >
-                  Download QR code
-                </a>
+                {qrSvg ? (
+                  <>
+                    <div
+                      aria-label="QR code for uploaded file"
+                      className="qr-code"
+                      data-testid="qr-code"
+                      dangerouslySetInnerHTML={{ __html: qrSvg }}
+                      role="img"
+                    />
+                    <a
+                      className="outline-button"
+                      download={`${result.id}-qr.svg`}
+                      href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
+                    >
+                      Download QR code
+                    </a>
+                  </>
+                ) : qrError ? (
+                  <div aria-live="polite" role="status">
+                    <p>{qrError}</p>
+                    <button
+                      className="outline-button"
+                      onClick={() => {
+                        setQrError("");
+                        setQrGenerationAttempt((attempt) => attempt + 1);
+                      }}
+                      type="button"
+                    >
+                      Retry QR code
+                    </button>
+                  </div>
+                ) : (
+                  <p aria-live="polite" role="status">
+                    Generating QR code…
+                  </p>
+                )}
               </section>
             </div>
           )}
