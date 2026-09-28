@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
@@ -21,7 +20,9 @@ export default function NewUploadRequestPage() {
       <SiteHeader />
       <main className={styles.shell}>
         <header className={styles.header}>
-          <Link href="/">← Back</Link>
+          {/* Document navigation keeps this form visible until home is ready. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/">← Back to uploads</a>
           <h1>Request a file.</h1>
           <p>
             Create a private, single-use link for someone else to upload one
