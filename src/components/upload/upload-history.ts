@@ -15,11 +15,13 @@ function safeGet(storage: Pick<Storage, "getItem">): string | null {
 function safeSet(
   storage: Pick<Storage, "setItem">,
   entries: UploadHistoryEntry[],
-): void {
+): boolean {
   try {
     storage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    return true;
   } catch {
     // History is optional; uploads must work when storage is unavailable.
+    return false;
   }
 }
 
@@ -66,6 +68,23 @@ function isEntry(value: unknown): value is UploadHistoryEntry {
   );
 }
 
+function normalizeEntries(
+  values: unknown[],
+  now: number,
+): UploadHistoryEntry[] {
+  const seen = new Set<string>();
+  return values
+    .filter(isEntry)
+    .filter((entry) => Date.parse(entry.expiresAt) > now)
+    .sort((left, right) => Date.parse(right.savedAt) - Date.parse(left.savedAt))
+    .filter((entry) => {
+      if (seen.has(entry.id)) return false;
+      seen.add(entry.id);
+      return true;
+    })
+    .slice(0, MAX_ENTRIES);
+}
+
 export function readUploadHistory(
   storage: Pick<Storage, "getItem" | "removeItem" | "setItem">,
   now = Date.now(),
@@ -76,11 +95,8 @@ export function readUploadHistory(
   try {
     const parsed: unknown = JSON.parse(stored);
     if (!Array.isArray(parsed)) throw new Error("Invalid upload history.");
-    const entries = parsed
-      .filter(isEntry)
-      .filter((entry) => Date.parse(entry.expiresAt) > now)
-      .slice(0, MAX_ENTRIES);
-    safeSet(storage, entries);
+    const entries = normalizeEntries(parsed, now);
+    if (stored !== JSON.stringify(entries)) safeSet(storage, entries);
     return entries;
   } catch {
     safeRemove(storage);
@@ -94,11 +110,27 @@ export function saveUploadHistoryEntry(
   now = Date.now(),
 ): UploadHistoryEntry[] {
   const entry = { ...upload, savedAt: new Date(now).toISOString() };
-  const entries = [
-    entry,
-    ...readUploadHistory(storage, now).filter(({ id }) => id !== upload.id),
-  ].slice(0, MAX_ENTRIES);
+  const entries = normalizeEntries(
+    [entry, ...readUploadHistory(storage, now)],
+    now,
+  );
   safeSet(storage, entries);
+  return entries;
+}
+
+export function restoreUploadHistory(
+  persistentStorage: Pick<Storage, "getItem" | "removeItem" | "setItem">,
+  legacyStorage: Pick<Storage, "getItem" | "removeItem" | "setItem">,
+  now = Date.now(),
+): UploadHistoryEntry[] {
+  const persisted = readUploadHistory(persistentStorage, now);
+  const legacy = readUploadHistory(legacyStorage, now);
+  if (legacy.length === 0) return persisted;
+
+  const entries = normalizeEntries([...persisted, ...legacy], now);
+  if (safeSet(persistentStorage, entries)) {
+    safeRemove(legacyStorage);
+  }
   return entries;
 }
 

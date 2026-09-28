@@ -23,6 +23,7 @@ import {
 import {
   readUploadHistory,
   removeUploadHistoryEntry,
+  restoreUploadHistory,
   saveUploadHistoryEntry,
   UPLOAD_HISTORY_STORAGE_KEY,
   type UploadHistoryEntry,
@@ -206,23 +207,14 @@ export function UploadExperience({
 
   useEffect(() => {
     const restoreHistory = () => {
-      const persisted = readUploadHistory(window.localStorage);
-      if (persisted.length > 0) {
-        setHistory(persisted);
-        return;
+      setHistory(
+        restoreUploadHistory(window.localStorage, window.sessionStorage),
+      );
+    };
+    const synchronizeHistory = (event: StorageEvent) => {
+      if (event.key === null || event.key === UPLOAD_HISTORY_STORAGE_KEY) {
+        setHistory(readUploadHistory(window.localStorage));
       }
-
-      const legacy = readUploadHistory(window.sessionStorage);
-      let migrated: UploadHistoryEntry[] = [];
-      for (const entry of [...legacy].reverse()) {
-        migrated = saveUploadHistoryEntry(window.localStorage, entry);
-      }
-      try {
-        window.sessionStorage.removeItem(UPLOAD_HISTORY_STORAGE_KEY);
-      } catch {
-        // Migration is best-effort when browser storage is restricted.
-      }
-      setHistory(migrated);
     };
 
     const timer = window.setTimeout(restoreHistory);
@@ -230,11 +222,11 @@ export function UploadExperience({
       setNow(Date.now());
       setHistory(readUploadHistory(window.localStorage));
     }, 60_000);
-    window.addEventListener("storage", restoreHistory);
+    window.addEventListener("storage", synchronizeHistory);
     return () => {
       window.clearTimeout(timer);
       window.clearInterval(pruneTimer);
-      window.removeEventListener("storage", restoreHistory);
+      window.removeEventListener("storage", synchronizeHistory);
     };
   }, []);
 
