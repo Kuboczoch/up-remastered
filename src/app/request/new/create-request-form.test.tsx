@@ -65,6 +65,7 @@ describe("CreateRequestForm", () => {
       Promise.resolve({
         json: async () => ({
           expiresAt: "2026-01-01T01:00:00.000Z",
+          managementUrl: "https://example.test/request/manage#owner-token",
           managementToken: "owner-token",
           maxBytes: 512,
           status: "active",
@@ -95,5 +96,52 @@ describe("CreateRequestForm", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toMatchObject({ maxBytes: 512 });
+  });
+
+  it("copies the public and private links returned by the server", async () => {
+    const writeText = jest.fn<(value: string) => Promise<void>>(
+      async () => undefined,
+    );
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    global.fetch = jest.fn<typeof fetch>(async () =>
+      Promise.resolve({
+        json: async () => ({
+          expiresAt: "2099-01-01T01:00:00.000Z",
+          managementUrl: "https://example.test/request/manage#owner-token",
+          managementToken: "owner-token",
+          maxBytes: 1024,
+          status: "active",
+          uploadUrl: "https://example.test/request/upload-token",
+        }),
+        ok: true,
+      } as Response),
+    );
+    const { getByRole } = render(
+      <CreateRequestForm
+        maxExpirationMs={24 * 60 * 60_000}
+        maxUploadBytes={1024}
+      />,
+    );
+
+    fireEvent.click(getByRole("button", { name: "Create upload request" }));
+    await waitFor(() =>
+      expect(getByRole("button", { name: "Copy upload link" })).toBeTruthy(),
+    );
+    fireEvent.click(getByRole("button", { name: "Copy upload link" }));
+    fireEvent.click(getByRole("button", { name: "Copy owner link" }));
+
+    await waitFor(() =>
+      expect(writeText).toHaveBeenNthCalledWith(
+        2,
+        "https://example.test/request/manage#owner-token",
+      ),
+    );
+    expect(writeText).toHaveBeenNthCalledWith(
+      1,
+      "https://example.test/request/upload-token",
+    );
   });
 });

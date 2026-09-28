@@ -27,6 +27,8 @@ A successful `201` response returns:
 
 Only SHA-256 token hashes are stored. Tokens never appear in logs or redirect parameters.
 
+The creation result offers separate copy actions for the uploader and owner links. The owner page warns that its private link is a bearer capability, can recreate that link for copying after fragment scrubbing, and keeps the imported capability in same-tab session storage so refresh and back navigation remain usable without persisting it across browser sessions.
+
 ## Uploader
 
 `GET /request/{publicToken}` displays the request only while active. `POST /api/upload-requests/{publicToken}/upload` accepts one file through the normal streaming upload pipeline. The effective limit is the minimum of request `maxBytes`, global per-upload limit, and remaining global storage quota.

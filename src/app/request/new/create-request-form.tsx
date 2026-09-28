@@ -20,6 +20,7 @@ import styles from "../request.module.css";
 
 type CreatedRequest = {
   expiresAt: string;
+  managementUrl: string;
   managementToken: string;
   maxBytes: number;
   status: string;
@@ -81,6 +82,7 @@ export function CreateRequestForm({
     [maxUploadBytes],
   );
   const [created, setCreated] = useState<CreatedRequest>();
+  const [copied, setCopied] = useState<"management" | "upload">();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const hydrated = useSyncExternalStore(
@@ -192,6 +194,16 @@ export function CreateRequestForm({
     }
   }
 
+  async function copyLink(kind: "management" | "upload", value: string) {
+    setError("");
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(kind);
+    } catch {
+      setError("Could not copy the link. Select and copy it manually.");
+    }
+  }
+
   if (created) {
     return (
       <section className={styles.card} aria-labelledby="request-created">
@@ -200,13 +212,27 @@ export function CreateRequestForm({
           Send this upload link:{" "}
           <a href={created.uploadUrl}>{created.uploadUrl}</a>
         </p>
+        <button
+          className={styles.linkButton}
+          onClick={() => copyLink("upload", created.uploadUrl)}
+          type="button"
+        >
+          {copied === "upload" ? "Upload link copied" : "Copy upload link"}
+        </button>
         <p className={styles.result}>
-          <strong>Owner management token (shown once):</strong>{" "}
-          <code>{created.managementToken}</code>
+          <strong>Save this private owner link:</strong>{" "}
+          <a href={created.managementUrl}>{created.managementUrl}</a>
         </p>
+        <button
+          className={styles.linkButton}
+          onClick={() => copyLink("management", created.managementUrl)}
+          type="button"
+        >
+          {copied === "management" ? "Owner link copied" : "Copy owner link"}
+        </button>
         <p>
-          Save the management token now. It can inspect or revoke the request
-          and cannot be recovered by the server.
+          This link can inspect or revoke the request and cannot be recovered by
+          the server.
         </p>
         <p>
           Limit: {formatBytes(created.maxBytes)} · Expires{" "}
