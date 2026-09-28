@@ -12,8 +12,9 @@ test("renders the homepage value proposition and structured data", async ({
     page.getByRole("heading", { name: "Share temporary files and text." }),
   ).toBeVisible();
   await expect(
-    page.getByText("Everything expires automatically. No account required."),
+    page.getByText("Everything expires automatically."),
   ).toBeVisible();
+  await expect(page.getByText("Recent uploads")).toHaveCount(0);
   await expect(page.locator("h1")).toHaveCount(1);
   await expect(page).toHaveTitle("Up - Remastered");
 

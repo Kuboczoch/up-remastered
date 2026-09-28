@@ -30,9 +30,7 @@ describe("Home", () => {
     expect(
       getByRole("heading", { name: "Share temporary files and text." }),
     ).toBeTruthy();
-    expect(
-      getByText("Everything expires automatically. No account required."),
-    ).toBeTruthy();
+    expect(getByText("Everything expires automatically.")).toBeTruthy();
     const footer = getByRole("contentinfo");
 
     expect(footer).toBeTruthy();

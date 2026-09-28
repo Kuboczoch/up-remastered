@@ -568,7 +568,7 @@ export function UploadExperience({
       <div className="workspace-heading">
         <div className="workspace-copy">
           <h1>Share temporary files and text.</h1>
-          <p>Everything expires automatically. No account required.</p>
+          <p>Everything expires automatically.</p>
         </div>
         {(phase === "idle" || phase === "error") && (
           <div className="mode-switch" role="group" aria-label="Upload type">
@@ -819,62 +819,52 @@ export function UploadExperience({
           )}
         </section>
       )}
-      {phase !== "uploading" && (
+      {(phase === "idle" || phase === "error") && (
         <div className="under-card-row">
-          <span>No account needed</span>
-          {(phase === "idle" || phase === "error") && (
-            <details className="advanced-options">
-              <summary>
-                Advanced options <span aria-hidden="true">＋</span>
-              </summary>
-              <div className="advanced-options-content">
-                <div className="text-encoding">
-                  <label htmlFor="text-encoding">Text encoding</label>
-                  <select
-                    id="text-encoding"
-                    onChange={(event) =>
-                      setTextEncoding(event.target.value as TextEncoding)
-                    }
-                    value={textEncoding}
-                  >
-                    {TEXT_ENCODINGS.map((encoding) => (
-                      <option key={encoding.value} value={encoding.value}>
-                        {encoding.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <p>Paste a file or text anywhere on this page.</p>
-                <nav aria-label="Upload integrations">
-                  <a href="/sharex" download>
-                    ShareX config
-                  </a>
-                  <a href="/sh" download>
-                    Shell helper
-                  </a>
-                </nav>
+          <details className="advanced-options">
+            <summary>
+              Advanced options <span aria-hidden="true">＋</span>
+            </summary>
+            <div className="advanced-options-content">
+              <div className="text-encoding">
+                <label htmlFor="text-encoding">Text encoding</label>
+                <select
+                  id="text-encoding"
+                  onChange={(event) =>
+                    setTextEncoding(event.target.value as TextEncoding)
+                  }
+                  value={textEncoding}
+                >
+                  {TEXT_ENCODINGS.map((encoding) => (
+                    <option key={encoding.value} value={encoding.value}>
+                      {encoding.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </details>
-          )}
+              <p>Paste a file or text anywhere on this page.</p>
+              <nav aria-label="Upload integrations">
+                <a href="/sharex" download>
+                  ShareX config
+                </a>
+                <a href="/sh" download>
+                  Shell helper
+                </a>
+              </nav>
+            </div>
+          </details>
         </div>
       )}
-      {(phase === "idle" || phase === "success" || phase === "error") && (
-        <section className="history-card" aria-labelledby="history-heading">
-          <div className="history-header">
-            <h2
-              id="history-heading"
-              aria-label={history.length > 0 ? "Your uploads" : undefined}
-            >
-              Recent uploads
-            </h2>
-            <span>Saved in this browser</span>
-          </div>
-          <div className="history-content">
-            {history.length === 0 ? (
-              <p className="empty-history">
-                Your shared files will appear here.
-              </p>
-            ) : (
+      {history.length > 0 &&
+        (phase === "idle" || phase === "success" || phase === "error") && (
+          <section className="history-card" aria-labelledby="history-heading">
+            <div className="history-header">
+              <h2 id="history-heading" aria-label="Your uploads">
+                Recent uploads
+              </h2>
+              <span>Saved in this browser</span>
+            </div>
+            <div className="history-content">
               <ul className="history-list">
                 {history.map((entry) => (
                   <li key={entry.id}>
@@ -925,10 +915,9 @@ export function UploadExperience({
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
-        </section>
-      )}
+            </div>
+          </section>
+        )}
       <p className="visually-hidden" aria-live="polite">
         {historyStatus}
       </p>
