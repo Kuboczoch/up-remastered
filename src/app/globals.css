@@ -25,6 +25,7 @@
 html {
   color-scheme: dark;
   background: var(--canvas);
+  overflow-y: scroll;
 }
 body {
   margin: 0;
@@ -111,6 +112,11 @@ textarea::placeholder {
   color: var(--accent);
 }
 
+.page-frame {
+  display: flex;
+  min-height: 100svh;
+  flex-direction: column;
+}
 .upload-shell {
   width: min(100% - 40px, 800px);
   margin: 0 auto;
@@ -722,10 +728,16 @@ textarea::placeholder {
 
 .site-footer {
   width: 100%;
-  margin-top: 66px;
+  margin-top: auto;
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 11px;
+  opacity: 0.75;
+  transition: opacity 160ms ease;
+}
+.site-footer:hover,
+.site-footer:focus-within {
+  opacity: 1;
 }
 .site-footer-inner {
   display: flex;
@@ -934,7 +946,7 @@ textarea::placeholder {
     padding: 28px;
   }
   .site-footer {
-    margin-top: 45px;
+    margin-top: auto;
   }
   .site-footer-inner {
     width: calc(100% - 34px);

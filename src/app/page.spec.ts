@@ -96,14 +96,12 @@ test("keeps the shared footer usable across responsive layouts", async ({
 
   const footer = page.getByRole("contentinfo");
   const footerInner = footer.locator(".site-footer-inner");
-  const header = page.locator(".site-header");
 
   await expect(footer).toBeVisible();
   await expect(footer).toHaveCSS("width", "1280px");
   await expect(footerInner).toHaveCSS("width", "800px");
-  expect((await footerInner.boundingBox())?.x).toBe(
-    (await header.boundingBox())?.x,
-  );
+  expect((await footer.boundingBox())?.y).toBeGreaterThanOrEqual(810);
+  await expect(footer).toHaveCSS("opacity", "0.75");
   await expect(
     footer.getByRole("link", { name: "Request a file" }),
   ).toHaveAttribute("href", "/request/new");
@@ -149,13 +147,7 @@ test("keeps the shared footer usable across responsive layouts", async ({
 test("serves browser icons and the web manifest", async ({ page }) => {
   await page.goto("/");
 
-  const brandMark = page
-    .getByRole("link", { name: "Up - Remastered home" })
-    .locator("img");
-  await expect(brandMark).toBeVisible();
-  await expect(brandMark).toHaveAttribute("src", "/brand-mark.svg");
-  await expect(brandMark).toHaveCSS("width", "34px");
-  await expect(brandMark).toHaveCSS("height", "34px");
+  await expect(page.locator(".site-header")).toHaveCount(0);
 
   const browserIcons = page.locator(
     'link[rel="icon"], link[rel="apple-touch-icon"]',
