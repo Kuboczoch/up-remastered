@@ -289,6 +289,16 @@ textarea::placeholder {
   background: var(--danger-surface);
   color: var(--danger);
 }
+.connection-warning {
+  position: fixed;
+  top: 76px;
+  left: 50%;
+  z-index: 10;
+  width: min(calc(100% - 40px), 774px);
+  margin: 0;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 30%);
+  transform: translateX(-50%);
+}
 .inline-error {
   position: relative;
   z-index: 3;
@@ -430,6 +440,10 @@ textarea::placeholder {
   margin: 22px 0;
   color: var(--muted);
   font-size: 12px;
+}
+.history-content {
+  display: flow-root;
+  min-height: 77px;
 }
 .history-list {
   margin: 15px 0 0;
