@@ -185,7 +185,18 @@ test("uploads a picked file and exposes result actions", async ({
   page,
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const deferredScripts: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.resourceType() === "script" &&
+      request.url().includes("/_next/static/chunks/")
+    ) {
+      deferredScripts.push(request.url());
+    }
+  });
   await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  deferredScripts.length = 0;
 
   await page.locator("#file-picker").setInputFiles({
     buffer: Buffer.from("picked"),
@@ -201,8 +212,10 @@ test("uploads a picked file and exposes result actions", async ({
       `^${expectedOrigin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/[0-9A-Z]{5}$`,
     ),
   );
+  expect(deferredScripts).toEqual([]);
   await page.getByRole("button", { name: "Show QR code" }).click();
   await expect(page.getByTestId("qr-code").locator("svg")).toBeVisible();
+  expect(deferredScripts.length).toBeGreaterThan(0);
   await expect(
     page.getByRole("link", { name: "Download QR code" }),
   ).toHaveAttribute("download", /-qr\.svg$/);

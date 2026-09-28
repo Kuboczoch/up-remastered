@@ -91,6 +91,35 @@ the user needs to inspect a QR code.
    current Lighthouse median already has 0 ms TBT and zero CLS, so framework
    replacement or broad component fragmentation is not justified by evidence.
 
+## QR Deferral Verification
+
+The QR candidate is now implemented. Completing an upload no longer imports
+`qrcode`; opening **Show QR code** starts the import and displays an accessible
+loading state while the SVG is generated. A generation failure stays inside the
+dialog and offers a retry without removing the copy, open, or download actions.
+
+A production Chromium payload measurement after the change recorded 161,205
+encoded JavaScript bytes both after the initial navigation and after a completed
+upload with the QR dialog closed. Opening the dialog loaded one additional
+23,741-byte decoded / 8,819-byte encoded chunk. Compared with the 161,085-byte
+initial payload and 8,723-byte QR chunk in the baseline, the normal success path
+fell from 169,808 to 161,205 encoded bytes: 8,603 bytes fewer. The initial route
+increased by 120 encoded bytes for the loading and retry states.
+
+The same production build then ran the baseline command three times serially:
+
+|    Run | FCP   | LCP   | TBT  | CLS | Speed index |
+| -----: | ----- | ----- | ---- | --: | ----------- |
+|      1 | 0.1 s | 0.1 s | 0 ms |   0 | 0.1 s       |
+|      2 | 0.1 s | 0.1 s | 0 ms |   0 | 0.1 s       |
+|      3 | 0.1 s | 0.2 s | 0 ms |   0 | 0.1 s       |
+| Median | 0.1 s | 0.1 s | 0 ms |   0 | 0.1 s       |
+
+All three runs retained 100 scores for performance, accessibility, best
+practices, and SEO. Median LCP improved from 0.2 s to 0.1 s; median FCP, TBT,
+CLS, and speed index were unchanged. HTTPS and HTTP/2 remain deployment-layer
+reverse-proxy checks and are not inferred from this local HTTP bundle test.
+
 The minimum score thresholds are intentionally small and explicit. Update this
 doc and the matching Playwright threshold in the same change whenever the
 homepage baseline changes.
