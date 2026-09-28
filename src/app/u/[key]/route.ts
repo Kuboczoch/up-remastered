@@ -11,7 +11,12 @@ export async function GET(
 ) {
   const { key } = await params;
 
-  return createDownloadResponse(key, request.headers.get("range"));
+  return createDownloadResponse(
+    key,
+    request.headers.get("range"),
+    new Date(),
+    new URL(request.url).searchParams.get("download") === "1",
+  );
 }
 
 export async function HEAD(
@@ -20,5 +25,10 @@ export async function HEAD(
 ) {
   const { key } = await params;
 
-  return createDownloadHeadResponse(key, request.headers.get("range"));
+  return createDownloadHeadResponse(
+    key,
+    request.headers.get("range"),
+    new Date(),
+    new URL(request.url).searchParams.get("download") === "1",
+  );
 }

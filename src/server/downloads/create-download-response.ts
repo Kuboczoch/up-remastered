@@ -7,6 +7,7 @@ import { Readable } from "node:stream";
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { ensureDatabaseMigrated } from "@/server/db/migrate";
 import { getUploadMetadata } from "@/server/db/uploads";
+import { classifyUploadContent } from "@/server/downloads/classify-upload-content";
 import {
   resolveStoredUploadPath,
   sanitizeOriginalName,
@@ -14,8 +15,7 @@ import {
 import { isPublicUploadId } from "@/server/uploads/public-id";
 
 const OPEN_RANGE_CHUNK_BYTES = 4 * 1024 * 1024;
-const SAFE_MEDIA_TYPE =
-  /^[!#$%&'*+.^_`|~0-9A-Za-z-]+\/[!#$%&'*+.^_`|~0-9A-Za-z-]+(?:;\s*charset=[A-Za-z0-9._-]+)?$/;
+const INLINE_CONTENT_SECURITY_POLICY = "sandbox; default-src 'none'";
 const UNAVAILABLE_BODY = "File unavailable.\n";
 
 type ByteRange = { end: number; start: number };
@@ -31,14 +31,41 @@ function unavailableResponse(): Response {
   });
 }
 
-function safeContentType(mimeType: string): string {
-  return SAFE_MEDIA_TYPE.test(mimeType) ? mimeType : "application/octet-stream";
+function extendedFileName(originalName: string): string {
+  const candidate = originalName
+    .replaceAll("\\", "/")
+    .split("/")
+    .at(-1)
+    ?.trim();
+
+  if (!candidate || candidate === "." || candidate === "..") {
+    return "upload";
+  }
+
+  return candidate
+    .replaceAll(/[\u0000-\u001f\u007f]/g, "_")
+    .replace(/^\.+/, "_");
 }
 
-function contentDisposition(originalName: string): string {
-  const fileName = sanitizeOriginalName(originalName);
+function encodeRfc5987Value(value: string): string {
+  return [...Buffer.from(value, "utf8")]
+    .map((byte) => {
+      const character = String.fromCharCode(byte);
+      return /^[!#$&+.^_`|~0-9A-Za-z-]$/.test(character)
+        ? character
+        : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+    })
+    .join("");
+}
 
-  return `attachment; filename="${fileName}"`;
+function contentDisposition(
+  originalName: string,
+  disposition: "attachment" | "inline",
+): string {
+  const fallbackFileName = sanitizeOriginalName(originalName);
+  const encodedFileName = encodeRfc5987Value(extendedFileName(originalName));
+
+  return `${disposition}; filename="${fallbackFileName}"; filename*=UTF-8''${encodedFileName}`;
 }
 
 function parseByteRange(
@@ -93,6 +120,7 @@ async function createFileResponse(
   rangeHeader: string | null,
   now: Date,
   includeBody: boolean,
+  forceDownload: boolean,
 ): Promise<Response> {
   if (!isPublicUploadId(id)) {
     return unavailableResponse();
@@ -145,12 +173,20 @@ async function createFileResponse(
       return unavailableResponse();
     }
 
+    const classification = await classifyUploadContent(fileHandle, stats.size);
+    const disposition = forceDownload
+      ? "attachment"
+      : classification.disposition;
     const range = parseByteRange(rangeHeader, stats.size);
     const headers = new Headers({
       "Accept-Ranges": "bytes",
       "Cache-Control": "no-store",
-      "Content-Disposition": contentDisposition(upload.originalName),
-      "Content-Type": safeContentType(upload.mimeType),
+      "Content-Disposition": contentDisposition(
+        upload.originalName,
+        disposition,
+      ),
+      "Content-Security-Policy": INLINE_CONTENT_SECURITY_POLICY,
+      "Content-Type": classification.contentType,
       "X-Content-Type-Options": "nosniff",
     });
 
@@ -196,14 +232,16 @@ export function createDownloadResponse(
   id: string,
   rangeHeader: string | null = null,
   now = new Date(),
+  forceDownload = false,
 ): Promise<Response> {
-  return createFileResponse(id, rangeHeader, now, true);
+  return createFileResponse(id, rangeHeader, now, true, forceDownload);
 }
 
 export function createDownloadHeadResponse(
   id: string,
   rangeHeader: string | null = null,
   now = new Date(),
+  forceDownload = false,
 ): Promise<Response> {
-  return createFileResponse(id, rangeHeader, now, false);
+  return createFileResponse(id, rangeHeader, now, false, forceDownload);
 }

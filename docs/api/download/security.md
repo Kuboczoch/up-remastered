@@ -11,8 +11,10 @@ Download rules:
 - Reject expired records before opening a file.
 - Return the same unavailable response for malformed IDs, unknown IDs, expiration, unsafe paths, and missing files.
 - Sanitize original filenames before building `Content-Disposition`.
-- Accept only syntactically safe `type/subtype` media types in `Content-Type`; otherwise use `application/octet-stream`.
-- Send every user-controlled file as an attachment with `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`. This intentionally rejects same-origin inline rendering: HTML, SVG, or browser-sniffed content cannot execute with future application credentials.
-- Preserve safe media types and byte-range support for downloads, including `.mov` files reported as `video/quicktime`; attachment disposition hands playback to the browser or operating system without weakening inline-content isolation.
+- Ignore the uploaded filename and declared MIME type when deciding whether content may render inline. Classify bounded head and tail samples from the opened file descriptor.
+- Render only verified raster images, PDF, audio, video, and inert UTF-8 text inline with a server-selected `Content-Type`. Active text formats (including HTML, XML, and SVG), ambiguous/polyglot samples, invalid UTF-8, and unsupported binaries use `application/octet-stream` plus attachment disposition.
+- Send all successful responses with `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`, and `Content-Security-Policy: sandbox; default-src 'none'`. The sandbox is defense in depth for inline inert documents; classification and `nosniff` remain the primary content boundary.
+- Build `Content-Disposition` according to RFC 6266: an ASCII-sanitized `filename` fallback plus UTF-8 `filename*`. Strip paths and neutralize control characters before encoding either value.
+- Let clients force any otherwise safe inline response to attachment with `?download=1`. Forced download does not bypass classification or alter availability, range, or expiration checks.
 
 Password protection and download limits are not implemented yet. Download URLs remain excluded from `sitemap.xml` and must not be made indexable without an explicit crawler review.
