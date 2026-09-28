@@ -23,9 +23,11 @@ A successful `201` response returns:
 
 - `uploadUrl`: uploader capability containing a random 256-bit public token;
 - `managementToken`: separate random 256-bit owner capability, shown once;
+- `managementUrl`: private owner link carrying that token in its URL fragment;
 - expiration, byte cap, and current status.
 
 Only SHA-256 token hashes are stored. Tokens never appear in logs or redirect parameters.
+Creation and owner-management responses send `Cache-Control: no-store` because they contain capabilities or capability-protected state.
 
 The creation result offers separate copy actions for the uploader and owner links. The owner page warns that its private link is a bearer capability, can recreate that link for copying after fragment scrubbing, and keeps the imported capability in same-tab session storage so refresh and back navigation remain usable without persisting it across browser sessions.
 

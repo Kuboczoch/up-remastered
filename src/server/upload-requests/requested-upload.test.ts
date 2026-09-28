@@ -105,6 +105,7 @@ describe("requested uploads", () => {
 
     expect(created).toMatchObject({
       managementToken: MANAGEMENT_TOKEN,
+      managementUrl: `https://up.example/request/manage#${MANAGEMENT_TOKEN}`,
       maxBytes: 16,
       status: "active",
       uploadUrl: `https://up.example/request/${PUBLIC_TOKEN}`,
@@ -164,5 +165,22 @@ describe("requested uploads", () => {
     expect(revokeRequestedUpload(MANAGEMENT_TOKEN, NOW)?.status).toBe(
       "revoked",
     );
+  });
+
+  it("reports expired and consumed owner states without allowing revocation", async () => {
+    createRequest();
+    const expiredAt = new Date("2026-09-26T19:00:00.000Z");
+    expect(inspectRequestedUpload(MANAGEMENT_TOKEN, expiredAt)?.status).toBe(
+      "expired",
+    );
+    expect(revokeRequestedUpload(MANAGEMENT_TOKEN, expiredAt)?.status).toBe(
+      "expired",
+    );
+
+    await fulfillRequestedUpload(PUBLIC_TOKEN, raw("ok"), NOW);
+    expect(revokeRequestedUpload(MANAGEMENT_TOKEN, NOW)).toMatchObject({
+      status: "consumed",
+      uploadId: expect.stringMatching(/^[0-9A-Z]{5}$/),
+    });
   });
 });

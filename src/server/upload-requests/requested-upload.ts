@@ -47,6 +47,7 @@ export type UploadRequestDetails = {
 };
 
 export type CreatedUploadRequest = UploadRequestDetails & {
+  managementUrl: string;
   managementToken: string;
   uploadUrl: string;
 };
@@ -179,6 +180,7 @@ export function createRequestedUpload(
         return {
           ...toDetails(request, now),
           managementToken,
+          managementUrl: getPublicUrl(`/request/manage#${managementToken}`),
           uploadUrl: getPublicUrl(`/request/${publicToken}`),
         };
       } catch (error) {

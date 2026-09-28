@@ -113,6 +113,7 @@ export function revokeUploadRequest(
     .where(
       and(
         eq(uploadRequests.managementTokenHash, managementTokenHash),
+        gt(uploadRequests.expiresAt, now),
         isNull(uploadRequests.revokedAt),
         isNull(uploadRequests.consumedAt),
       ),

@@ -7,12 +7,17 @@ import {
 
 export const runtime = "nodejs";
 
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
 export async function GET(request: Request) {
   const token = bearerToken(request);
   const uploadRequest = token ? inspectRequestedUpload(token) : undefined;
 
   return uploadRequest
-    ? NextResponse.json({ request: uploadRequest })
+    ? NextResponse.json(
+        { request: uploadRequest },
+        { headers: NO_STORE_HEADERS },
+      )
     : unavailableResponse();
 }
 
@@ -21,7 +26,10 @@ export async function DELETE(request: Request) {
   const uploadRequest = token ? revokeRequestedUpload(token) : undefined;
 
   return uploadRequest
-    ? NextResponse.json({ request: uploadRequest })
+    ? NextResponse.json(
+        { request: uploadRequest },
+        { headers: NO_STORE_HEADERS },
+      )
     : unavailableResponse();
 }
 
@@ -39,6 +47,6 @@ function unavailableResponse() {
         message: "This upload request is unavailable.",
       },
     },
-    { status: 404 },
+    { headers: NO_STORE_HEADERS, status: 404 },
   );
 }
