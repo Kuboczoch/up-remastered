@@ -18,6 +18,15 @@ test("renders the homepage value proposition and structured data", async ({
   await expect(page.locator("h1")).toHaveCount(1);
   await expect(page).toHaveTitle("Up - Remastered");
 
+  const uploadCard = page.locator(".upload-card");
+  const fileModeHeight = (await uploadCard.boundingBox())?.height;
+  await page.getByRole("button", { name: "Text" }).click();
+  await expect(page.getByLabel("Or upload text")).toHaveCSS(
+    "max-height",
+    "180px",
+  );
+  expect((await uploadCard.boundingBox())?.height).toBe(fileModeHeight);
+
   const jsonLd = await page
     .locator('script[type="application/ld+json"]')
     .textContent();

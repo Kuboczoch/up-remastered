@@ -617,8 +617,12 @@ export function UploadExperience({
               </button>
             </div>
           )}
-          {mode === "file" ? (
-            <div className="file-panel">
+          <div className="upload-mode-panels">
+            <div
+              aria-hidden={mode !== "file"}
+              className={`file-panel${mode !== "file" ? " is-hidden" : ""}`}
+              inert={mode !== "file"}
+            >
               <input
                 aria-label="Choose file"
                 className="visually-hidden"
@@ -632,8 +636,11 @@ export function UploadExperience({
               </label>
               <p className="drop-hint">or drop one file here</p>
             </div>
-          ) : (
-            <div className="text-upload">
+            <div
+              aria-hidden={mode !== "text"}
+              className={`text-upload${mode !== "text" ? " is-hidden" : ""}`}
+              inert={mode !== "text"}
+            >
               <label htmlFor="text-upload">Or upload text</label>
               <textarea
                 id="text-upload"
@@ -650,7 +657,7 @@ export function UploadExperience({
                 Upload text
               </button>
             </div>
-          )}
+          </div>
           <div className="upload-meta">
             <span>
               {maxBytes === null
