@@ -1,144 +1,79 @@
-# Up - Remastered
+<p align="center">
+  <img src="public/brand-mark.svg" alt="Up — Remastered" width="112" height="112">
+</p>
 
-`up` is a small self-hosted temporary file hosting service. It uses a TypeScript/Next.js backend instead of the original Kotlin service.
+<h1 align="center">Up — Remastered</h1>
 
-Implemented today:
+<p align="center">
+  A small, modern, self-hosted service for sharing files that should not live forever.
+</p>
 
-- streamed anonymous uploads through `POST /api/upload`;
-- responsive picker, drop, clipboard, UTF-8/UTF-16 text, progress, recovery, QR, history, and result UI;
-- expiring, single-use requested-upload links with separate uploader/owner capabilities;
-- five-character share IDs and streamed/ranged downloads from `/{ID}` and `/u/{ID}`;
-- one-time hashed access tokens with details, verify, and delete routes;
-- public configuration plus generated ShareX and POSIX shell clients;
-- SQLite metadata and local filesystem storage;
-- upload-size, total-storage, and expiration limits;
-- lease-safe expired-upload cleanup for cron or Compose;
-- Docker/Compose deployment and automated CI checks.
+<p align="center">
+  <a href="https://github.com/Kuboczoch/up-remastered/actions/workflows/ci.yaml"><img src="https://github.com/Kuboczoch/up-remastered/actions/workflows/ci.yaml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/Starchasers/up"><img src="https://img.shields.io/badge/inspired%20by-Starchasers%2Fup-111b2b" alt="Inspired by Starchasers/up"></a>
+</p>
 
-Password-protected uploads remain planned work. See the [browser upload requirements](docs/browser-upload/requirements.md) and [upstream parity matrix](docs/project/upstream-parity.md).
+## What is it?
 
-## Stack
+**Up — Remastered** is a temporary file-sharing service designed to run on your own server. Upload a file, receive a short link, share it, and let the service remove it when its lifetime ends.
 
-- Next.js App Router and TypeScript
-- Tailwind CSS and shadcn/ui
-- SQLite with Drizzle ORM
-- pnpm with committed `pnpm-lock.yaml`
-- Docker with a mounted `/data` volume
+It is a JavaScript and TypeScript reimplementation of [Starchasers/up](https://github.com/Starchasers/up), rebuilt around a modern web stack without the original JVM backend.
 
-## Local development
+## Highlights
 
-Use Node.js 24.14 and the pnpm version pinned in `package.json`:
+- **Temporary by design** — every upload expires.
+- **Simple sharing** — compact links with streamed downloads and byte-range support.
+- **Flexible uploads** — browser, drag and drop, clipboard, text, API, ShareX, or shell.
+- **Requested uploads** — create a one-use link for somebody else to send you a file.
+- **Private management capabilities** — delete uploads or manage requests using secret owner links.
+- **Self-contained storage** — local files and SQLite, with no external database or object store required.
+- **Deployment controls** — configurable upload size, storage quota, and expiration limits.
+- **Operations-ready** — health checks, automated cleanup, backups, migrations, and container support.
 
-```bash
-corepack enable
-pnpm install
-cp .env.example .env
-pnpm run dev
-```
+## Philosophy
 
-Review `.env` before starting. Its `/data` paths target the default self-hosted layout and must be writable by the current user. Open `http://localhost:3000`.
+Up — Remastered deliberately stays small. It is built for a personal server, VPS, NAS, or similar single-node environment where the operator owns the data and deployment.
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for pull request conventions.
+It is not an account platform, cloud-storage product, or distributed file service. There are no user accounts or permanent uploads. Public deployments should place it behind a trusted reverse proxy that provides HTTPS and appropriate traffic controls.
 
-## Validation
+## Quick start
 
-Run fast checks while working:
+A recent Docker installation with Compose v2 is the easiest way to run it:
 
 ```bash
-pnpm run check
-```
-
-Run the full local validation suite before opening a pull request:
-
-```bash
-pnpm run check:full
-```
-
-`check:full` covers formatting, the no-JVM guard, linting, type checking, unit tests, the production build, and Playwright/Lighthouse tests. CI additionally validates the PR title and builds the Docker image.
-
-## Runtime configuration
-
-Zod validates server configuration at startup through `src/env.ts`. `.env.example` documents every variable:
-
-- `DATA_DIR=/data`
-- `UPLOAD_DIR=/data/uploads`
-- `DATABASE_URL=file:/data/app.db`
-- `MAX_UPLOAD_SIZE=1073741824`
-- `MAX_STORED_BYTES=10737418240`
-- `DEFAULT_EXPIRATION_HOURS=24`
-- `MAX_EXPIRATION_HOURS=24`
-- `UP_PUBLIC_ORIGIN=http://localhost:3000`
-
-## Database
-
-Generate a migration after changing the Drizzle schema, then apply committed migrations manually when needed:
-
-```bash
-pnpm run db:generate
-pnpm run db:migrate
-```
-
-SQLite stores metadata at `DATABASE_URL`; uploaded bytes stay under `UPLOAD_DIR`.
-
-## Docker Compose
-
-Copy the example configuration, then build and start the service:
-
-```bash
+git clone https://github.com/Kuboczoch/up-remastered.git
+cd up-remastered
 cp .env.example .env
 docker compose up --build -d
-docker compose logs -f up
 ```
 
-Open `http://localhost:3000`. Run one-shot expired upload cleanup with:
+Open [http://localhost:3000](http://localhost:3000).
 
-```bash
-docker compose run --rm cleanup
-```
+Compose builds the application locally and stores persistent state in `./data`. Before exposing it publicly, set the public origin and review the deployment and operations documentation.
 
-Stop containers with:
+## Integrations
 
-```bash
-docker compose down
-```
+A running instance provides:
 
-Compose bind-mounts `./data:/data`. Container recreation and `docker compose down` therefore preserve:
+- `/sharex` — generated ShareX configuration;
+- `/sh` — generated POSIX shell upload helper;
+- `/api/upload` — multipart upload endpoint;
+- `/api/configuration` — public client configuration;
+- `/api/health` — health endpoint.
 
-```txt
-data/app.db
-data/uploads/
-```
+The service keeps compatibility with the useful public behavior of the original Up project while documenting deliberate differences in the [upstream parity matrix](docs/project/upstream-parity.md).
 
-The one-shot `init-data` service safely prepares a fresh bind mount for the non-root app. Compose reads these deployment settings from `.env`:
+## Documentation
 
-- `UP_DATA_DIR` selects the persistent host directory;
-- `UP_BIND_ADDRESS` and `UP_PORT` select the published listener;
-- `UP_PUBLIC_ORIGIN` must match the public HTTP(S) URL used by clients;
-- upload, storage, and expiration limits use the runtime variables listed above.
+- [Project overview](docs/project/overview.md)
+- [Deployment requirements](docs/deployment/docker/requirements.md)
+- [Data, backup, and restore](docs/operations/data-volume.md)
+- [Upload clients and public configuration](docs/api/configuration-and-clients.md)
+- [Testing strategy](docs/testing/strategy.md)
+- [Roadmap](docs/project/roadmap.md)
 
-For a reverse proxy on the same host, bind only to loopback and set the external origin, for example:
+## Development
 
-```dotenv
-UP_BIND_ADDRESS=127.0.0.1
-UP_PORT=3000
-UP_PUBLIC_ORIGIN=https://up.example.com
-```
+The project uses Next.js, React, TypeScript, SQLite, Drizzle ORM, Jest, and Playwright.
 
-Forward the proxy to `http://127.0.0.1:3000`. Keep TLS and authentication policy at the proxy. Do not expose the listener directly unless that is intentional.
-
-Back up both the SQLite files and uploads. See [`docs/operations/data-volume.md`](docs/operations/data-volume.md).
-
-## Project documentation
-
-Start with [`docs/ai/context.md`](docs/ai/context.md), then read only the narrow documentation for the changed scope. Examples:
-
-- [`docs/project/upstream-parity.md`](docs/project/upstream-parity.md)
-- [`docs/api/upload/requirements.md`](docs/api/upload/requirements.md)
-- [`docs/api/upload-requests.md`](docs/api/upload-requests.md)
-- [`docs/api/errors.md`](docs/api/errors.md)
-- [`docs/api/configuration-and-clients.md`](docs/api/configuration-and-clients.md)
-- [`docs/api/download/security.md`](docs/api/download/security.md)
-- [`docs/scripts/cleanup-expired-files/requirements.md`](docs/scripts/cleanup-expired-files/requirements.md)
-- [`docs/pages/route-boundaries.md`](docs/pages/route-boundaries.md)
-- [`docs/operations/logging.md`](docs/operations/logging.md)
-- [`docs/ci/workflows.md`](docs/ci/workflows.md)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, validation commands, and pull request conventions.
