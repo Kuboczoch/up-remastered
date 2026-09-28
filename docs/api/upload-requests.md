@@ -54,6 +54,8 @@ Wrong or malformed owner capabilities receive the same non-disclosing 404 respon
 
 The event stream uses the same bearer header rather than placing the owner capability in a URL. It sends an immediate authoritative snapshot, `status` events with deterministic IDs, and accepts `Last-Event-ID` when reconnecting. Terminal `consumed`, `revoked`, and `expired` events close the stream. Non-terminal streams send keep-alive comments and close after 55 seconds so clients reconnect instead of holding unbounded server resources. Responses use `no-store`, disable reverse-proxy buffering, and never include the uploader capability.
 
+The creation result and owner page open one authenticated event stream, announce its connection state, and apply status changes without manual refresh. A dropped non-terminal stream reconnects after a two-second delay; unmounting cancels the request and pending retry. While an upload is in progress, contradictory revocation controls are disabled. A consumed request links directly to the uploaded file.
+
 ## Threat and abuse boundaries
 
 - Single use limits each link to one stored upload.

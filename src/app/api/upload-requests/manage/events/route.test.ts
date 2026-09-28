@@ -60,7 +60,6 @@ function createRequest() {
     { expiresAt: "2026-09-26T19:00:00.000Z", maxBytes: 16 },
     NOW,
     () => tokens.shift()!,
-    () => "R3QST",
   );
 }
 

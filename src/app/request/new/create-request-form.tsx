@@ -17,13 +17,15 @@ import {
 } from "@/lib/format";
 
 import styles from "../request.module.css";
+import {
+  statusConnectionMessage,
+  useUploadRequestStatus,
+  type RequestDetails,
+} from "../use-upload-request-status";
 
-type CreatedRequest = {
-  expiresAt: string;
+type CreatedRequest = RequestDetails & {
   managementUrl: string;
   managementToken: string;
-  maxBytes: number;
-  status: string;
   uploadUrl: string;
 };
 
@@ -99,6 +101,10 @@ export function CreateRequestForm({
   const [customSize, setCustomSize] = useState(String(maxUploadBytes));
   const [customSizeUnit, setCustomSizeUnit] = useState<ByteUnit>("B");
   const [now, setNow] = useState<number>();
+  const { connection, request: liveRequest } = useUploadRequestStatus(
+    created?.managementToken,
+    created,
+  );
 
   useEffect(() => {
     if (!created) return;
@@ -185,8 +191,8 @@ export function CreateRequestForm({
         method: "DELETE",
       });
       if (!response.ok) throw new Error("Could not revoke the request.");
-      const body = (await response.json()) as { request: { status: string } };
-      setCreated({ ...created, status: body.request.status });
+      const body = (await response.json()) as { request: RequestDetails };
+      setCreated({ ...created, ...body.request });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Request failed.");
     } finally {
@@ -205,6 +211,7 @@ export function CreateRequestForm({
   }
 
   if (created) {
+    const displayedRequest = liveRequest ?? created;
     return (
       <section className={styles.card} aria-labelledby="request-created">
         <h2 id="request-created">Upload request created</h2>
@@ -235,21 +242,34 @@ export function CreateRequestForm({
           the server.
         </p>
         <p>
-          Limit: {formatBytes(created.maxBytes)} · Expires{" "}
+          Limit: {formatBytes(displayedRequest.maxBytes)} · Expires{" "}
           {formatRelativeExpiry(
-            created.expiresAt,
-            now ?? Date.parse(created.expiresAt),
+            displayedRequest.expiresAt,
+            now ?? Date.parse(displayedRequest.expiresAt),
           )}{" "}
           ·{" "}
-          <time dateTime={created.expiresAt}>
-            {formatLocalDateTime(created.expiresAt)}
+          <time dateTime={displayedRequest.expiresAt}>
+            {formatLocalDateTime(displayedRequest.expiresAt)}
           </time>
         </p>
-        <p role="status">Status: {created.status}</p>
+        <p className={styles.status} role="status">
+          Status: {displayedRequest.status.replace("_", " ")}
+        </p>
+        <p className={styles.muted} aria-live="polite">
+          {statusConnectionMessage(connection)}
+        </p>
+        {displayedRequest.uploadId ? (
+          <p>
+            Uploaded file:{" "}
+            <a href={`/${displayedRequest.uploadId}`}>Open file</a>
+          </p>
+        ) : null}
         <div className={styles.actions}>
           <button
             className={styles.button}
-            disabled={busy || created.status === "revoked"}
+            disabled={
+              busy || !["active", "retry"].includes(displayedRequest.status)
+            }
             onClick={revoke}
             type="button"
           >

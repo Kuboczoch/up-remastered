@@ -10,21 +10,11 @@ import {
 } from "@/lib/format";
 
 import styles from "../request.module.css";
-
-type RequestStatus =
-  | "active"
-  | "consumed"
-  | "expired"
-  | "in_progress"
-  | "revoked";
-
-type RequestDetails = {
-  createdAt: string;
-  expiresAt: string;
-  maxBytes: number;
-  status: RequestStatus;
-  uploadId?: string;
-};
+import {
+  statusConnectionMessage,
+  useUploadRequestStatus,
+  type RequestDetails,
+} from "../use-upload-request-status";
 
 type ManageResponse = {
   error?: { message?: string };
@@ -74,10 +64,15 @@ function readToken(): string | undefined {
 
 export function ManageRequest() {
   const tokenRef = useRef<string | undefined>(undefined);
-  const [request, setRequest] = useState<RequestDetails>();
+  const [managementToken, setManagementToken] = useState<string>();
+  const [loadedRequest, setLoadedRequest] = useState<RequestDetails>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
   const [copied, setCopied] = useState(false);
+  const { connection, request } = useUploadRequestStatus(
+    managementToken,
+    loadedRequest,
+  );
 
   const load = useCallback(async (managementToken: string) => {
     setBusy(true);
@@ -92,9 +87,9 @@ export function ManageRequest() {
           body.error?.message ?? "This upload request is unavailable.",
         );
       }
-      setRequest(body.request);
+      setLoadedRequest(body.request);
     } catch (caught) {
-      setRequest(undefined);
+      setLoadedRequest(undefined);
       setError(
         caught instanceof Error
           ? caught.message
@@ -108,7 +103,11 @@ export function ManageRequest() {
   useEffect(() => {
     const importedToken = readToken();
     tokenRef.current = importedToken;
-    if (importedToken) void Promise.resolve().then(() => load(importedToken));
+    if (importedToken)
+      void Promise.resolve().then(() => {
+        setManagementToken(importedToken);
+        return load(importedToken);
+      });
     else {
       void Promise.resolve().then(() => {
         setError(
@@ -133,7 +132,7 @@ export function ManageRequest() {
       if (!response.ok || !body.request) {
         throw new Error(body.error?.message ?? "Could not revoke the request.");
       }
-      setRequest(body.request);
+      setLoadedRequest(body.request);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -192,6 +191,9 @@ export function ManageRequest() {
       <p className={styles.status} role="status">
         {request.status.replace("_", " ")}
       </p>
+      <p className={styles.muted} aria-live="polite">
+        {statusConnectionMessage(connection)}
+      </p>
       <dl className={styles.details}>
         <div>
           <dt>Upload limit</dt>
@@ -222,7 +224,7 @@ export function ManageRequest() {
         </button>
         <button
           className={styles.button}
-          disabled={busy || request.status !== "active"}
+          disabled={busy || !["active", "retry"].includes(request.status)}
           onClick={revoke}
           type="button"
         >

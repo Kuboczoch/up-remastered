@@ -10,10 +10,8 @@ const BASE_REQUEST: UploadRequestDetails = {
   createdAt: "2026-09-26T18:00:00.000Z",
   expiresAt: "2026-09-26T19:00:00.000Z",
   maxBytes: 16,
-  shareUrl: "https://up.example/R3QST",
   status: "active",
   statusChangedAt: "2026-09-26T18:00:00.000Z",
-  uploadId: "R3QST",
 };
 
 function state(
