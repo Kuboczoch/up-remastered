@@ -390,7 +390,8 @@ test("shows upload percentage in the title and supports mobile text upload", asy
   await expect(page).toHaveTitle("Request a file | Up - Remastered");
 });
 
-test("persists upload history and separates local removal from server deletion", async ({
+test("persists history across page restarts and keeps local removal separate", async ({
+  context,
   page,
 }) => {
   await page.goto("/");
@@ -405,7 +406,10 @@ test("persists upload history and separates local removal from server deletion",
   );
   expect(stored).toContain('"accessToken"');
 
-  await page.reload();
+  const reopenedPage = await context.newPage();
+  await page.close();
+  page = reopenedPage;
+  await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "Your uploads" }),
   ).toBeVisible();
@@ -471,6 +475,52 @@ test("persists upload history and separates local removal from server deletion",
   expect(missing.status()).toBe(404);
   await expect(
     page.getByRole("heading", { name: "Your uploads" }),
+  ).toBeHidden();
+});
+
+test("synchronizes upload history across open tabs", async ({
+  context,
+  page,
+}) => {
+  await page.goto("/");
+  const otherPage = await context.newPage();
+  await otherPage.goto("/");
+  const textMode = otherPage.getByRole("button", {
+    name: "Text",
+    exact: true,
+  });
+  await textMode.click();
+  await expect(textMode).toHaveAttribute("aria-pressed", "true");
+
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "up-remastered:upload-history:v1",
+      JSON.stringify([
+        {
+          accessToken: "not-rendered",
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          id: "AAAAA",
+          originalName: "synced.txt",
+          savedAt: new Date().toISOString(),
+          shareUrl: `${location.origin}/AAAAA`,
+          size: 6,
+        },
+      ]),
+    );
+  });
+
+  await expect(
+    otherPage.getByRole("heading", { name: "synced.txt" }),
+  ).toBeVisible();
+  expect(await otherPage.locator("body").innerText()).not.toContain(
+    "not-rendered",
+  );
+
+  await page.evaluate(() =>
+    localStorage.removeItem("up-remastered:upload-history:v1"),
+  );
+  await expect(
+    otherPage.getByRole("heading", { name: "synced.txt" }),
   ).toBeHidden();
 });
 

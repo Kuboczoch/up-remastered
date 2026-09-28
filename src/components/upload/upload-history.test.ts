@@ -4,6 +4,7 @@ import type { UploadResult } from "./client-upload";
 import {
   readUploadHistory,
   removeUploadHistoryEntry,
+  restoreUploadHistory,
   saveUploadHistoryEntry,
 } from "./upload-history";
 
@@ -76,6 +77,78 @@ describe("upload history", () => {
     expect(result).toHaveLength(50);
     expect(result.some(({ id }) => id === "ZZZZZ")).toBe(false);
     expect(result.some(({ id }) => id === "YYYYY")).toBe(false);
+  });
+
+  it("prunes entries exactly at the expiry boundary and deduplicates IDs", () => {
+    const target = storage();
+    target.setItem(
+      "up-remastered:upload-history:v1",
+      JSON.stringify([
+        {
+          ...upload("AAAAA", { expiresAt: new Date(NOW).toISOString() }),
+          savedAt: new Date(NOW + 3).toISOString(),
+        },
+        {
+          ...upload("BBBBB"),
+          savedAt: new Date(NOW + 2).toISOString(),
+        },
+        {
+          ...upload("BBBBB", { originalName: "older.txt" }),
+          savedAt: new Date(NOW + 1).toISOString(),
+        },
+      ]),
+    );
+
+    expect(readUploadHistory(target, NOW)).toMatchObject([
+      { id: "BBBBB", originalName: "BBBBB.txt" },
+    ]);
+  });
+
+  it("migrates and merges session history once without duplicate IDs", () => {
+    const persistent = storage();
+    const legacy = storage();
+    saveUploadHistoryEntry(persistent, upload("AAAAA"), NOW);
+    saveUploadHistoryEntry(
+      legacy,
+      upload("AAAAA", { originalName: "newer.txt" }),
+      NOW + 2,
+    );
+    saveUploadHistoryEntry(legacy, upload("BBBBB"), NOW + 1);
+
+    expect(restoreUploadHistory(persistent, legacy, NOW)).toMatchObject([
+      { id: "AAAAA", originalName: "newer.txt" },
+      { id: "BBBBB" },
+    ]);
+    expect(legacy.values.size).toBe(0);
+    expect(restoreUploadHistory(persistent, legacy, NOW)).toHaveLength(2);
+  });
+
+  it("retains legacy history when persistent migration storage fails", () => {
+    const legacy = storage();
+    saveUploadHistoryEntry(legacy, upload("AAAAA"), NOW);
+    const unavailable = {
+      getItem: () => null,
+      removeItem: () => undefined,
+      setItem: () => {
+        throw new DOMException("quota exceeded");
+      },
+    };
+
+    expect(restoreUploadHistory(unavailable, legacy, NOW)).toMatchObject([
+      { id: "AAAAA" },
+    ]);
+    expect(legacy.values.size).toBe(1);
+  });
+
+  it("rejects unsupported storage schemas", () => {
+    const target = storage();
+    target.setItem(
+      "up-remastered:upload-history:v1",
+      JSON.stringify({ version: 2, entries: [] }),
+    );
+
+    expect(readUploadHistory(target, NOW)).toEqual([]);
+    expect(target.values.size).toBe(0);
   });
 
   it("removes corrupt JSON rather than throwing", () => {
