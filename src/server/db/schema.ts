@@ -34,6 +34,7 @@ export const uploadRequests = sqliteTable("upload_requests", {
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
   claimId: text("claim_id"),
   claimedAt: integer("claimed_at", { mode: "timestamp_ms" }),
+  retryAt: integer("retry_at", { mode: "timestamp_ms" }),
   consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
   revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
   uploadId: text("upload_id"),

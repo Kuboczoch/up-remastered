@@ -58,7 +58,7 @@ export function claimUploadRequest(
 ): UploadRequest | undefined {
   return db
     .update(uploadRequests)
-    .set({ claimId, claimedAt: now })
+    .set({ claimId, claimedAt: now, retryAt: null })
     .where(
       and(
         eq(uploadRequests.publicTokenHash, publicTokenHash),
@@ -76,10 +76,11 @@ export function releaseUploadRequestClaim(
   db: DbClient,
   publicTokenHash: string,
   claimId: string,
+  now: Date,
 ): boolean {
   const result = db
     .update(uploadRequests)
-    .set({ claimId: null, claimedAt: null })
+    .set({ claimId: null, claimedAt: null, retryAt: now })
     .where(
       and(
         eq(uploadRequests.publicTokenHash, publicTokenHash),

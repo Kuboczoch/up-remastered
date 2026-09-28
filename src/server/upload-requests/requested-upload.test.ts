@@ -115,6 +115,7 @@ describe("requested uploads", () => {
       maxBytes: 16,
       shareUrl: `https://up.example/${RESERVED_UPLOAD_ID}`,
       status: "active",
+      statusChangedAt: NOW.toISOString(),
       uploadId: RESERVED_UPLOAD_ID,
       uploadUrl: `https://up.example/request/${PUBLIC_TOKEN}`,
     });
@@ -157,7 +158,7 @@ describe("requested uploads", () => {
     await expect(
       fulfillRequestedUpload(PUBLIC_TOKEN, raw("x".repeat(17)), NOW),
     ).rejects.toMatchObject({ code: "upload_too_large", status: 413 });
-    expect(getActiveRequestedUpload(PUBLIC_TOKEN, NOW)?.status).toBe("active");
+    expect(getActiveRequestedUpload(PUBLIC_TOKEN, NOW)?.status).toBe("retry");
     await expect(
       fulfillRequestedUpload(PUBLIC_TOKEN, raw("ok"), NOW),
     ).resolves.toMatchObject({

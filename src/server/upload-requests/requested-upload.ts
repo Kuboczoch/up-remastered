@@ -40,6 +40,7 @@ export type RequestedUploadStatus =
   | "consumed"
   | "expired"
   | "in_progress"
+  | "retry"
   | "revoked";
 
 export type UploadRequestDetails = {
@@ -48,6 +49,7 @@ export type UploadRequestDetails = {
   maxBytes: number;
   shareUrl?: string;
   status: RequestedUploadStatus;
+  statusChangedAt: string;
   uploadId?: string;
 };
 
@@ -62,7 +64,18 @@ function statusOf(request: UploadRequest, now: Date): RequestedUploadStatus {
   if (request.consumedAt) return "consumed";
   if (request.expiresAt.getTime() <= now.getTime()) return "expired";
   if (request.claimId) return "in_progress";
+  if (request.retryAt) return "retry";
   return "active";
+}
+
+function statusChangedAt(request: UploadRequest, now: Date): Date {
+  const status = statusOf(request, now);
+  if (status === "revoked") return request.revokedAt!;
+  if (status === "consumed") return request.consumedAt!;
+  if (status === "expired") return request.expiresAt;
+  if (status === "in_progress") return request.claimedAt!;
+  if (status === "retry") return request.retryAt!;
+  return request.createdAt;
 }
 
 function toDetails(request: UploadRequest, now: Date): UploadRequestDetails {
@@ -74,6 +87,7 @@ function toDetails(request: UploadRequest, now: Date): UploadRequestDetails {
       ? { shareUrl: getPublicUrl(`/${request.uploadId}`) }
       : {}),
     status: statusOf(request, now),
+    statusChangedAt: statusChangedAt(request, now).toISOString(),
     ...(request.uploadId ? { uploadId: request.uploadId } : {}),
   };
 }
@@ -186,6 +200,7 @@ export function createRequestedUpload(
           managementTokenHash: hashCapabilityToken(managementToken),
           maxBytes: validated.maxBytes,
           publicTokenHash: hashCapabilityToken(publicToken),
+          retryAt: null,
           revokedAt: null,
           uploadId,
         };
@@ -222,7 +237,9 @@ export function getActiveRequestedUpload(
       createDbClient(connection),
       hashCapabilityToken(publicToken),
     );
-    return request && statusOf(request, now) === "active"
+    if (!request) return undefined;
+    const status = statusOf(request, now);
+    return status === "active" || status === "retry"
       ? toDetails(request, now)
       : undefined;
   } finally {
@@ -321,6 +338,7 @@ export async function fulfillRequestedUpload(
         createDbClient(releaseConnection),
         publicTokenHash,
         claimId,
+        now,
       );
     } finally {
       releaseConnection.close();
