@@ -6,14 +6,26 @@ import type { DbClient } from "@/server/db/client";
 import {
   type NewUploadRequest,
   type UploadRequest,
+  uploadIdReservations,
   uploadRequests,
 } from "@/server/db/schema";
 
-export function insertUploadRequest(
+export function insertUploadRequestWithReservation(
   db: DbClient,
   request: NewUploadRequest,
+  reservedAt: Date,
 ): void {
-  db.insert(uploadRequests).values(request).run();
+  if (!request.uploadId) {
+    throw new Error("Upload requests require a reserved upload ID.");
+  }
+  const uploadId = request.uploadId;
+
+  db.transaction((tx) => {
+    tx.insert(uploadIdReservations)
+      .values({ id: uploadId, createdAt: reservedAt })
+      .run();
+    tx.insert(uploadRequests).values(request).run();
+  });
 }
 
 export function getUploadRequestByPublicHash(

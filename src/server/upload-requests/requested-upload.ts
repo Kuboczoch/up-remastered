@@ -8,7 +8,7 @@ import {
   consumeUploadRequest,
   getUploadRequestByManagementHash,
   getUploadRequestByPublicHash,
-  insertUploadRequest,
+  insertUploadRequestWithReservation,
   releaseUploadRequestClaim,
   revokeUploadRequest as revokeStoredUploadRequest,
 } from "@/server/db/upload-requests";
@@ -20,6 +20,10 @@ import {
 } from "@/server/uploads/create-upload";
 import { UploadRequestError } from "@/server/uploads/errors";
 import { deleteUploadWithAccessToken } from "@/server/uploads/manage-upload";
+import {
+  createPublicUploadId,
+  isPublicUploadId,
+} from "@/server/uploads/public-id";
 
 import {
   createCapabilityToken,
@@ -42,6 +46,7 @@ export type UploadRequestDetails = {
   createdAt: string;
   expiresAt: string;
   maxBytes: number;
+  shareUrl?: string;
   status: RequestedUploadStatus;
   uploadId?: string;
 };
@@ -65,6 +70,9 @@ function toDetails(request: UploadRequest, now: Date): UploadRequestDetails {
     createdAt: request.createdAt.toISOString(),
     expiresAt: request.expiresAt.toISOString(),
     maxBytes: request.maxBytes,
+    ...(request.uploadId
+      ? { shareUrl: getPublicUrl(`/${request.uploadId}`) }
+      : {}),
     status: statusOf(request, now),
     ...(request.uploadId ? { uploadId: request.uploadId } : {}),
   };
@@ -138,6 +146,7 @@ export function createRequestedUpload(
   input: unknown,
   now = new Date(),
   createToken: () => string = createCapabilityToken,
+  createId: () => string = createPublicUploadId,
 ): CreatedUploadRequest {
   const validated = validateUploadRequestInput(input, now);
   ensureDatabaseMigrated();
@@ -152,6 +161,7 @@ export function createRequestedUpload(
     ) {
       const publicToken = createToken();
       const managementToken = createToken();
+      const uploadId = createId();
 
       if (
         !isCapabilityToken(publicToken) ||
@@ -160,6 +170,10 @@ export function createRequestedUpload(
         throw new Error(
           "Capability token generator returned an invalid token.",
         );
+      }
+
+      if (!isPublicUploadId(uploadId)) {
+        throw new Error("Upload ID generator returned an invalid ID.");
       }
 
       try {
@@ -173,9 +187,9 @@ export function createRequestedUpload(
           maxBytes: validated.maxBytes,
           publicTokenHash: hashCapabilityToken(publicToken),
           revokedAt: null,
-          uploadId: null,
+          uploadId,
         };
-        insertUploadRequest(db, request);
+        insertUploadRequestWithReservation(db, request, now);
 
         return {
           ...toDetails(request, now),
@@ -277,6 +291,7 @@ export async function fulfillRequestedUpload(
   try {
     const upload = await createUpload(request, undefined, undefined, {
       maxUploadBytes: claimed.maxBytes,
+      ...(claimed.uploadId ? { reservedUploadId: claimed.uploadId } : {}),
     });
     const consumeConnection = createSqliteConnection();
     let consumed: boolean;

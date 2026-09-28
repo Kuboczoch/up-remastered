@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
-import { uploadMetadata } from "@/server/db/schema";
+import { ensureDatabaseMigrated } from "@/server/db/migrate";
+import { uploadIdReservations, uploadMetadata } from "@/server/db/schema";
 import { hashUploadAccessToken } from "@/server/uploads/access-token";
 import { createUpload } from "@/server/uploads/create-upload";
 import { UploadRequestError } from "@/server/uploads/errors";
@@ -144,6 +145,24 @@ describe("createUpload", () => {
     await expect(
       readFile(readUploadRow(secondUpload.id)?.storagePath ?? "", "utf8"),
     ).resolves.toBe("second");
+  });
+
+  it("skips IDs reserved before upload metadata exists", async () => {
+    ensureDatabaseMigrated();
+    const connection = createSqliteConnection();
+    createDbClient(connection)
+      .insert(uploadIdReservations)
+      .values({ id: "AAAAA", createdAt: new Date() })
+      .run();
+    connection.close();
+    const candidateIds = ["AAAAA", "BBBBB"];
+
+    const upload = await createUpload(
+      createRawRequest("reserved namespace"),
+      () => candidateIds.shift() ?? "CCCCC",
+    );
+
+    expect(upload.id).toBe("BBBBB");
   });
 
   it("persists simultaneous upload requests without breaking SQLite", async () => {

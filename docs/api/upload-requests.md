@@ -24,9 +24,10 @@ A successful `201` response returns:
 - `uploadUrl`: uploader capability containing a random 256-bit public token;
 - `managementToken`: separate random 256-bit owner capability, shown once;
 - `managementUrl`: private owner link carrying that token in its URL fragment;
+- `uploadId` and `shareUrl`: the final file identity and share URL, reserved immediately;
 - expiration, byte cap, and current status.
 
-Only SHA-256 token hashes are stored. Tokens never appear in logs or redirect parameters.
+Only SHA-256 token hashes are stored. Tokens never appear in logs or redirect parameters. Reserved upload IDs share one namespace with ordinary uploads and remain reserved after expiration, revocation, file deletion, or cleanup, so a disclosed share URL is never reassigned to different content.
 Creation and owner-management responses send `Cache-Control: no-store` because they contain capabilities or capability-protected state.
 
 The creation result offers separate copy actions for the uploader and owner links. The owner page warns that its private link is a bearer capability, can recreate that link for copying after fragment scrubbing, and keeps the imported capability in same-tab session storage so refresh and back navigation remain usable without persisting it across browser sessions.
@@ -35,7 +36,7 @@ The creation result offers separate copy actions for the uploader and owner link
 
 `GET /request/{publicToken}` displays the request only while active. `POST /api/upload-requests/{publicToken}/upload` accepts one file through the normal streaming upload pipeline. The effective limit is the minimum of request `maxBytes`, global per-upload limit, and remaining global storage quota.
 
-The server atomically claims the request before reading the upload. Concurrent reuse fails with the same non-disclosing `404 upload_request_unavailable` response used for invalid, expired, revoked, consumed, and in-progress links. A failed validation/upload releases the claim for retry. A successful upload consumes the request. If consumption loses a revocation race, the newly created upload is deleted before an unavailable response is returned.
+The server atomically claims the request before reading the upload. Concurrent reuse fails with the same non-disclosing `404 upload_request_unavailable` response used for invalid, expired, revoked, consumed, and in-progress links. A failed validation/upload releases the claim for retry. A successful upload consumes the request and uses the ID/share URL reserved when the request was created. If consumption loses a revocation race, the newly created upload is deleted before an unavailable response is returned.
 
 The uploader receives the ordinary upload access token for managing the uploaded file, but never receives the owner management token.
 

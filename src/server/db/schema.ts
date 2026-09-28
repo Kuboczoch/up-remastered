@@ -1,5 +1,12 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+export const uploadIdReservations = sqliteTable("upload_id_reservations", {
+  id: text("id").primaryKey(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+export type NewUploadIdReservation = typeof uploadIdReservations.$inferInsert;
+
 export const uploadMetadata = sqliteTable("upload_metadata", {
   accessTokenHash: text("access_token_hash"),
   id: text("id").primaryKey(),
@@ -29,9 +36,7 @@ export const uploadRequests = sqliteTable("upload_requests", {
   claimedAt: integer("claimed_at", { mode: "timestamp_ms" }),
   consumedAt: integer("consumed_at", { mode: "timestamp_ms" }),
   revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
-  uploadId: text("upload_id").references(() => uploadMetadata.id, {
-    onDelete: "set null",
-  }),
+  uploadId: text("upload_id"),
 });
 
 export type UploadRequest = typeof uploadRequests.$inferSelect;
