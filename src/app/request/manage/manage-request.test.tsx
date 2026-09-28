@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, render, waitFor } from "@testing-library/react";
+import { ReadableStream } from "node:stream/web";
+import { TextDecoder, TextEncoder } from "node:util";
 
 import { ManageRequest } from "./manage-request";
 
@@ -44,6 +46,7 @@ describe("ManageRequest", () => {
         expiresAt: "2099-01-01T01:00:00.000Z",
         maxBytes: 1024,
         status: "active",
+        statusChangedAt: "2026-01-01T00:00:00.000Z",
       }),
     );
     global.fetch = fetchMock;
@@ -67,10 +70,12 @@ describe("ManageRequest", () => {
       expiresAt: "2099-01-01T01:00:00.000Z",
       maxBytes: 1024,
       status: "active",
+      statusChangedAt: "2026-01-01T00:00:00.000Z",
     };
     const fetchMock = jest
       .fn<typeof fetch>()
       .mockResolvedValueOnce(response(active))
+      .mockResolvedValueOnce({ ok: false } as Response)
       .mockResolvedValueOnce(response({ ...active, status: "revoked" }));
     global.fetch = fetchMock;
 
@@ -95,6 +100,7 @@ describe("ManageRequest", () => {
         expiresAt: "2099-01-01T01:00:00.000Z",
         maxBytes: 1024,
         status: "consumed",
+        statusChangedAt: "2026-01-01T00:01:00.000Z",
         uploadId: "A1B2C",
       }),
     );
@@ -124,6 +130,7 @@ describe("ManageRequest", () => {
         expiresAt: "2099-01-01T01:00:00.000Z",
         maxBytes: 1024,
         status: "active",
+        statusChangedAt: "2026-01-01T00:00:00.000Z",
       }),
     );
 
@@ -139,5 +146,54 @@ describe("ManageRequest", () => {
         `http://localhost/request/manage#${TOKEN}`,
       ),
     );
+  });
+
+  it("applies live status events and exposes the completed upload", async () => {
+    window.history.replaceState(null, "", `/request/manage#${TOKEN}`);
+    Object.defineProperty(globalThis, "TextDecoder", {
+      configurable: true,
+      value: TextDecoder,
+    });
+    const active = {
+      createdAt: "2026-01-01T00:00:00.000Z",
+      expiresAt: "2099-01-01T01:00:00.000Z",
+      maxBytes: 1024,
+      status: "active",
+      statusChangedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const consumed = {
+      ...active,
+      status: "consumed",
+      statusChangedAt: "2026-01-01T00:01:00.000Z",
+      uploadId: "A1B2C",
+    };
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            `event: status\ndata: ${JSON.stringify({ request: consumed })}\n\n`,
+          ),
+        );
+        controller.close();
+      },
+    });
+    global.fetch = jest.fn<typeof fetch>(async (input) =>
+      String(input).endsWith("/events")
+        ? ({ body, ok: true } as Response)
+        : response(active),
+    );
+
+    const { getByRole } = render(<ManageRequest />);
+
+    await waitFor(() =>
+      expect(getByRole("status").textContent).toBe("consumed"),
+    );
+    expect(getByRole("link", { name: "Open file" }).getAttribute("href")).toBe(
+      "/A1B2C",
+    );
+    expect(
+      (getByRole("button", { name: "Revoke request" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
   });
 });

@@ -6,6 +6,7 @@ import type { DbClient } from "@/server/db/client";
 import {
   type NewUploadMetadata,
   type UploadMetadata,
+  uploadIdReservations,
   uploadMetadata,
 } from "@/server/db/schema";
 
@@ -20,7 +21,7 @@ export function getTotalStoredUploadBytes(db: DbClient): number {
   return Number(row?.totalBytes ?? 0);
 }
 
-export function insertUploadMetadataWithinQuota(
+export function insertNewUploadMetadataWithinQuota(
   db: DbClient,
   metadata: NewUploadMetadata,
   maxStoredBytes: number,
@@ -32,16 +33,57 @@ export function insertUploadMetadataWithinQuota(
       })
       .from(uploadMetadata)
       .get();
-    const totalBytes = Number(row?.totalBytes ?? 0);
 
-    if (totalBytes + metadata.size > maxStoredBytes) {
+    if (Number(row?.totalBytes ?? 0) + metadata.size > maxStoredBytes) {
       return false;
     }
 
+    tx.insert(uploadIdReservations)
+      .values({ id: metadata.id, createdAt: metadata.createdAt })
+      .run();
     tx.insert(uploadMetadata).values(metadata).run();
 
     return true;
   });
+}
+
+export function insertReservedUploadMetadataWithinQuota(
+  db: DbClient,
+  metadata: NewUploadMetadata,
+  maxStoredBytes: number,
+): boolean {
+  return db.transaction((tx) => {
+    const row = tx
+      .select({
+        totalBytes: sql<number>`coalesce(sum(${uploadMetadata.size}), 0)`,
+      })
+      .from(uploadMetadata)
+      .get();
+
+    if (Number(row?.totalBytes ?? 0) + metadata.size > maxStoredBytes) {
+      return false;
+    }
+
+    const reservation = tx
+      .select({ id: uploadIdReservations.id })
+      .from(uploadIdReservations)
+      .where(eq(uploadIdReservations.id, metadata.id))
+      .get();
+
+    if (!reservation) {
+      throw new Error(`Upload ID ${metadata.id} is not reserved.`);
+    }
+
+    tx.insert(uploadMetadata).values(metadata).run();
+    return true;
+  });
+}
+
+export function restoreUploadMetadata(
+  db: DbClient,
+  metadata: NewUploadMetadata,
+): void {
+  db.insert(uploadMetadata).values(metadata).run();
 }
 
 export function deleteUploadMetadata(db: DbClient, id: string): void {
@@ -50,9 +92,9 @@ export function deleteUploadMetadata(db: DbClient, id: string): void {
 
 export function hasUploadId(db: DbClient, id: string): boolean {
   const row = db
-    .select({ id: uploadMetadata.id })
-    .from(uploadMetadata)
-    .where(eq(uploadMetadata.id, id))
+    .select({ id: uploadIdReservations.id })
+    .from(uploadIdReservations)
+    .where(eq(uploadIdReservations.id, id))
     .get();
 
   return row !== undefined;

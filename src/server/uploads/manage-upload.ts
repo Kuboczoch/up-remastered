@@ -9,7 +9,7 @@ import type { UploadMetadata } from "@/server/db/schema";
 import {
   deleteUploadMetadata,
   getUploadMetadata,
-  insertUploadMetadataWithinQuota,
+  restoreUploadMetadata,
 } from "@/server/db/uploads";
 import { resolveStoredUploadPath } from "@/server/storage/uploads";
 import { matchesUploadAccessToken } from "@/server/uploads/access-token";
@@ -135,13 +135,13 @@ export async function deleteUploadWithAccessToken(
     try {
       await fileOperations.unlink(tombstonePath);
     } catch (error) {
-      insertUploadMetadataWithinQuota(db, upload, Number.MAX_SAFE_INTEGER);
+      restoreUploadMetadata(db, upload);
       await fileOperations.rename(tombstonePath, storagePath);
       throw error;
     }
   } catch (error) {
     if (getUploadMetadata(db, id) === undefined) {
-      insertUploadMetadataWithinQuota(db, upload, Number.MAX_SAFE_INTEGER);
+      restoreUploadMetadata(db, upload);
     }
     await fileOperations
       .rename(tombstonePath, storagePath)
