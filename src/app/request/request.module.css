@@ -145,6 +145,38 @@
   font-size: 12px;
 }
 
+.status {
+  width: fit-content;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: var(--raised);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.details {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.details div {
+  display: grid;
+  gap: 3px;
+}
+
+.details dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.details dd {
+  margin: 0;
+}
+
 @media (max-width: 600px) {
   .shell {
     width: calc(100% - 34px);

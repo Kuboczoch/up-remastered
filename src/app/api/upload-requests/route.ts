@@ -6,6 +6,7 @@ import { createRequestedUpload } from "@/server/upload-requests/requested-upload
 export const runtime = "nodejs";
 
 const MAX_CREATE_BODY_BYTES = 1024;
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
 export async function POST(request: Request) {
   try {
@@ -38,7 +39,10 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json(createRequestedUpload(input), { status: 201 });
+    return NextResponse.json(createRequestedUpload(input), {
+      headers: NO_STORE_HEADERS,
+      status: 201,
+    });
   } catch (error) {
     if (isUploadRequestError(error)) {
       return errorResponse(error.status, error.code, error.message);
@@ -48,5 +52,8 @@ export async function POST(request: Request) {
 }
 
 function errorResponse(status: number, code: string, message: string) {
-  return NextResponse.json({ error: { code, message } }, { status });
+  return NextResponse.json(
+    { error: { code, message } },
+    { headers: NO_STORE_HEADERS, status },
+  );
 }
