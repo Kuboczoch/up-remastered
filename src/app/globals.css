@@ -904,7 +904,7 @@ textarea::placeholder {
     flex-direction: column;
     gap: 5px;
   }
-  .history-actions a {
+  .history-actions .history-copy-link {
     display: none;
   }
   .result-card {

@@ -14,6 +14,8 @@ DELETE /api/u/[id]
 
 `id` is exactly five characters from `0-9A-Z`. Invalid IDs, missing metadata, expired uploads, unsafe stored paths, and missing physical files all return the same `404 File unavailable` response so availability details are not disclosed.
 
+Both public download aliases accept `?download=1` on `GET` and `HEAD`. This keeps the verified content type but forces `Content-Disposition: attachment`; other `download` values do not change the normal safe-inline policy.
+
 Before sending bytes, the route must:
 
 - Validate the public ID shape.
@@ -21,6 +23,7 @@ Before sending bytes, the route must:
 - Reject uploads whose `expiresAt` is at or before the current time.
 - Resolve the server-generated stored name under `UPLOAD_DIR`.
 - Verify and open a regular physical file without following symlinks.
+- Classify bounded bytes from the opened descriptor instead of trusting the uploaded filename or declared MIME type.
 
 The App Router handlers export `runtime = "nodejs"` and only pass route input to server-side download/management logic under `src/server/**`.
 

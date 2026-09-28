@@ -82,6 +82,12 @@ function fileType(name: string): string {
     : "FILE";
 }
 
+function forcedDownloadUrl(shareUrl: string): string {
+  const url = new URL(shareUrl);
+  url.searchParams.set("download", "1");
+  return url.toString();
+}
+
 export function UploadExperience({
   initialMaxBytes,
 }: {
@@ -717,6 +723,7 @@ export function UploadExperience({
             <a href={result.shareUrl} rel="noreferrer" target="_blank">
               Open file
             </a>
+            <a href={forcedDownloadUrl(result.shareUrl)}>Download file</a>
             <button
               className="outline-button"
               onClick={() => setQrOpen(true)}
@@ -845,9 +852,14 @@ export function UploadExperience({
                       </p>
                     </div>
                     <div className="history-actions">
-                      <a aria-label={entry.shareUrl} href={entry.shareUrl}>
+                      <a
+                        aria-label={entry.shareUrl}
+                        className="history-copy-link"
+                        href={entry.shareUrl}
+                      >
                         Copy link
                       </a>
+                      <a href={forcedDownloadUrl(entry.shareUrl)}>Download</a>
                       <button
                         aria-label={`Remove ${entry.originalName} from history`}
                         onClick={() => removeHistoryEntry(entry)}

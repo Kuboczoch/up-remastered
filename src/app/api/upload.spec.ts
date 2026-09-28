@@ -48,7 +48,7 @@ test("POST /api/upload accepts multipart files", async ({ request }) => {
   );
   expect(downloadResponse.headers()["content-length"]).toBe("2");
   expect(downloadResponse.headers()["content-disposition"]).toBe(
-    'attachment; filename="ok.txt"',
+    "inline; filename=\"ok.txt\"; filename*=UTF-8''ok.txt",
   );
   expect(await downloadResponse.text()).toBe("ok");
 
