@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -205,26 +206,24 @@ export function UploadExperience({
     }
   }, [phase]);
 
-  useEffect(() => {
-    const restoreHistory = () => {
-      setHistory(
-        restoreUploadHistory(window.localStorage, window.sessionStorage),
-      );
-    };
+  useLayoutEffect(() => {
+    // Restore before paint so browser-only history cannot move visible content.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHistory(
+      restoreUploadHistory(window.localStorage, window.sessionStorage),
+    );
     const synchronizeHistory = (event: StorageEvent) => {
       if (event.key === null || event.key === UPLOAD_HISTORY_STORAGE_KEY) {
         setHistory(readUploadHistory(window.localStorage));
       }
     };
 
-    const timer = window.setTimeout(restoreHistory);
     const pruneTimer = window.setInterval(() => {
       setNow(Date.now());
       setHistory(readUploadHistory(window.localStorage));
     }, 60_000);
     window.addEventListener("storage", synchronizeHistory);
     return () => {
-      window.clearTimeout(timer);
       window.clearInterval(pruneTimer);
       window.removeEventListener("storage", synchronizeHistory);
     };
@@ -819,55 +818,59 @@ export function UploadExperience({
             </h2>
             <span>Saved in this browser</span>
           </div>
-          {history.length === 0 ? (
-            <p className="empty-history">Your shared files will appear here.</p>
-          ) : (
-            <ul className="history-list">
-              {history.map((entry) => (
-                <li key={entry.id}>
-                  <span className="file-type">
-                    {fileType(entry.originalName)}
-                  </span>
-                  <div className="history-file">
-                    {phase === "success" ? (
-                      <p className="history-name">{entry.originalName}</p>
-                    ) : (
-                      <h3>{entry.originalName}</h3>
-                    )}
-                    <p>
-                      {formatBytes(entry.size)} · Expires{" "}
-                      {formatRelativeExpiry(entry.expiresAt, now)} ·{" "}
-                      <time dateTime={entry.expiresAt}>
-                        {formatLocalDateTime(entry.expiresAt)}
-                      </time>
-                    </p>
-                  </div>
-                  <div className="history-actions">
-                    <a aria-label={entry.shareUrl} href={entry.shareUrl}>
-                      Copy link
-                    </a>
-                    <button
-                      aria-label={`Remove ${entry.originalName} from history`}
-                      onClick={() => removeHistoryEntry(entry)}
-                      type="button"
-                    >
-                      Remove
-                    </button>
-                    <button
-                      aria-label={`Delete ${entry.originalName}`}
-                      disabled={deletingHistoryId === entry.id}
-                      onClick={() => void deleteHistoryEntry(entry)}
-                      type="button"
-                    >
-                      {deletingHistoryId === entry.id
-                        ? "Deleting…"
-                        : "Delete file"}
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="history-content">
+            {history.length === 0 ? (
+              <p className="empty-history">
+                Your shared files will appear here.
+              </p>
+            ) : (
+              <ul className="history-list">
+                {history.map((entry) => (
+                  <li key={entry.id}>
+                    <span className="file-type">
+                      {fileType(entry.originalName)}
+                    </span>
+                    <div className="history-file">
+                      {phase === "success" ? (
+                        <p className="history-name">{entry.originalName}</p>
+                      ) : (
+                        <h3>{entry.originalName}</h3>
+                      )}
+                      <p>
+                        {formatBytes(entry.size)} · Expires{" "}
+                        {formatRelativeExpiry(entry.expiresAt, now)} ·{" "}
+                        <time dateTime={entry.expiresAt}>
+                          {formatLocalDateTime(entry.expiresAt)}
+                        </time>
+                      </p>
+                    </div>
+                    <div className="history-actions">
+                      <a aria-label={entry.shareUrl} href={entry.shareUrl}>
+                        Copy link
+                      </a>
+                      <button
+                        aria-label={`Remove ${entry.originalName} from history`}
+                        onClick={() => removeHistoryEntry(entry)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                      <button
+                        aria-label={`Delete ${entry.originalName}`}
+                        disabled={deletingHistoryId === entry.id}
+                        onClick={() => void deleteHistoryEntry(entry)}
+                        type="button"
+                      >
+                        {deletingHistoryId === entry.id
+                          ? "Deleting…"
+                          : "Delete file"}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
       )}
       <p className="visually-hidden" aria-live="polite">

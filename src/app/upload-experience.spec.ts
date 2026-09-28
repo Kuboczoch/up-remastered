@@ -1,6 +1,184 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+type LayoutProbe = Window & {
+  __layoutGeometry?: Array<{
+    headingY: number;
+    uploadY: number;
+  }>;
+  __layoutShifts?: Array<{ sources: string[]; value: number }>;
+};
+
+const layoutCases = [
+  {
+    name: "desktop delayed configuration",
+    width: 1280,
+    height: 900,
+    configuration: "delayed",
+    offline: false,
+  },
+  {
+    name: "desktop failed configuration",
+    width: 1280,
+    height: 900,
+    configuration: "failed",
+    offline: false,
+  },
+  {
+    name: "desktop offline initialization",
+    width: 1280,
+    height: 900,
+    configuration: "normal",
+    offline: true,
+  },
+  {
+    name: "mobile delayed configuration",
+    width: 390,
+    height: 844,
+    configuration: "delayed",
+    offline: false,
+  },
+  {
+    name: "mobile failed configuration",
+    width: 390,
+    height: 844,
+    configuration: "failed",
+    offline: false,
+  },
+  {
+    name: "mobile offline initialization",
+    width: 390,
+    height: 844,
+    configuration: "normal",
+    offline: true,
+  },
+] as const;
+
+for (const layoutCase of layoutCases) {
+  test(`keeps initial layout stable with ${layoutCase.name}`, async ({
+    baseURL,
+    page,
+  }) => {
+    await page.setViewportSize({
+      width: layoutCase.width,
+      height: layoutCase.height,
+    });
+    await page.addInitScript(
+      ({ offline, origin }) => {
+        const probe = window as LayoutProbe;
+        probe.__layoutShifts = [];
+        probe.__layoutGeometry = [];
+        Object.defineProperty(navigator, "onLine", {
+          configurable: true,
+          get: () => !offline,
+        });
+        const history = JSON.stringify([
+          {
+            accessToken: "layout-test-token",
+            expiresAt: "2099-01-01T00:00:00.000Z",
+            id: "A1B2C",
+            originalName: "stable-layout.txt",
+            savedAt: "2098-01-01T00:00:00.000Z",
+            shareUrl: `${origin}/A1B2C`,
+            size: 12,
+          },
+        ]);
+        localStorage.setItem("up-remastered:upload-history:v1", history);
+        sessionStorage.setItem("up-remastered:upload-history:v1", history);
+        new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            const shift = entry as PerformanceEntry & {
+              hadRecentInput: boolean;
+              sources?: Array<{ node?: Node }>;
+              value: number;
+            };
+            if (!shift.hadRecentInput) {
+              probe.__layoutShifts?.push({
+                sources:
+                  shift.sources?.map((source) =>
+                    source.node instanceof Element
+                      ? `${source.node.tagName}.${source.node.className}`
+                      : "unknown",
+                  ) ?? [],
+                value: shift.value,
+              });
+            }
+          }
+        }).observe({ buffered: true, type: "layout-shift" });
+        addEventListener("DOMContentLoaded", () => {
+          const sample = () => {
+            const heading = document.querySelector(".workspace-heading");
+            const upload = document.querySelector(".upload-card");
+            if (heading && upload) {
+              probe.__layoutGeometry?.push({
+                headingY: heading.getBoundingClientRect().y,
+                uploadY: upload.getBoundingClientRect().y,
+              });
+            }
+            if (performance.now() < 1_500) requestAnimationFrame(sample);
+          };
+          requestAnimationFrame(sample);
+        });
+      },
+      {
+        offline: layoutCase.offline,
+        origin: new URL(baseURL ?? "http://127.0.0.1:3000").origin,
+      },
+    );
+
+    if (layoutCase.configuration !== "normal") {
+      await page.route("**/api/configuration", async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        if (layoutCase.configuration === "failed") {
+          await route.abort("failed");
+          return;
+        }
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ maxTemporaryFileSize: 64 }),
+        });
+      });
+    }
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (attempt === 0) await page.goto("/");
+      else await page.reload();
+
+      await expect(
+        page.getByRole("heading", { name: "stable-layout.txt" }),
+      ).toBeVisible();
+      if (layoutCase.offline) {
+        await expect(page.getByRole("status")).toHaveText(/offline/i);
+      }
+      if (layoutCase.configuration === "failed") {
+        await expect(page.locator(".warning-note")).toBeVisible();
+      }
+      await page.waitForTimeout(500);
+
+      const result = await page.evaluate(() => {
+        const probe = window as LayoutProbe;
+        const geometry = probe.__layoutGeometry ?? [];
+        const spread = (values: number[]) =>
+          Math.max(...values) - Math.min(...values);
+        return {
+          cls: (probe.__layoutShifts ?? []).reduce(
+            (sum, shift) => sum + shift.value,
+            0,
+          ),
+          shifts: probe.__layoutShifts ?? [],
+          headingSpread: spread(geometry.map(({ headingY }) => headingY)),
+          samples: geometry.length,
+          uploadSpread: spread(geometry.map(({ uploadY }) => uploadY)),
+        };
+      });
+      expect(result.samples).toBeGreaterThan(1);
+      expect(result.headingSpread).toBeLessThanOrEqual(0.5);
+      expect(result.uploadSpread).toBeLessThanOrEqual(0.5);
+      expect(result.cls, JSON.stringify(result.shifts)).toBe(0);
+    }
+  });
+}
+
 test("uploads a picked file and exposes result actions", async ({
   baseURL,
   context,
