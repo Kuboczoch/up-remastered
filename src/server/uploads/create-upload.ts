@@ -33,6 +33,7 @@ import {
   isUploadRequestError,
   UploadRequestError,
 } from "@/server/uploads/errors";
+import { resolveMaxDownloads } from "@/server/uploads/download-limit";
 import { resolveUploadExpiration } from "@/server/uploads/expiration";
 import {
   createPublicUploadId,
@@ -53,6 +54,7 @@ export type CreatedUpload = {
   accessToken: string;
   expiresAt: string;
   id: string;
+  maxDownloads: number | null;
   mimeType: string;
   originalName: string;
   shareUrl: string;
@@ -68,6 +70,7 @@ const TEXT_FIELD_NAME = "text";
 const FILE_FIELD_NAME = "file";
 const MAX_MULTIPART_FIELD_BYTES = 8 * 1024;
 const ALLOWED_MULTIPART_FIELD_NAMES = new Set([
+  "maxDownloads",
   "expiresAt",
   "expiresInHours",
   "expiresInMinutes",
@@ -360,6 +363,14 @@ async function parseMultipartUpload(
       return;
     }
 
+    if (name === "maxDownloads" && fields.has(name)) {
+      uploadError = new UploadRequestError(
+        "Provide maxDownloads only once.",
+        400,
+        "invalid_max_downloads",
+      );
+      return;
+    }
     fields.set(name, value);
   });
   parser.on("filesLimit", () => {
@@ -518,6 +529,7 @@ export async function createUpload(
     );
     const now = new Date();
     const expiresAt = resolveUploadExpiration(fields, limits, now);
+    const maxDownloads = resolveMaxDownloads(fields.get("maxDownloads"));
     const accessToken = createAccessToken();
     const accessTokenHash = hashUploadAccessToken(accessToken);
     let uploadId: string | undefined;
@@ -539,6 +551,7 @@ export async function createUpload(
             createdAt: now,
             expiresAt,
             id: candidateId,
+            maxDownloads,
             mimeType: content.mimeType,
             originalName: content.originalName,
             size: content.size,
@@ -582,6 +595,7 @@ export async function createUpload(
       accessToken,
       expiresAt: expiresAt.toISOString(),
       id: uploadId,
+      maxDownloads,
       mimeType: content.mimeType,
       originalName: content.originalName,
       shareUrl: getPublicUrl(`/${uploadId}`),

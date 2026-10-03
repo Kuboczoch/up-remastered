@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, it } from "@jest/globals";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { eq } from "drizzle-orm";
-import { access, mkdtemp, rm } from "node:fs/promises";
+import {
+  access,
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -28,6 +37,69 @@ async function createTempDatabasePath() {
 }
 
 describe("SQLite metadata persistence", () => {
+  it("upgrades the previous journal without losing legacy metadata and is idempotent", async () => {
+    const databasePath = await createTempDatabasePath();
+    const previousFolder = join(tempDir!, "previous");
+    await mkdir(join(previousFolder, "meta"), { recursive: true });
+    const journal = JSON.parse(
+      await readFile(join(process.cwd(), "drizzle/meta/_journal.json"), "utf8"),
+    ) as {
+      entries: Array<{ idx: number; tag: string; when: number }>;
+    };
+    expect(journal.entries.at(-1)?.tag).toBe("0007_download_limits");
+    expect(
+      journal.entries.every(
+        (entry, i) =>
+          entry.idx === i &&
+          (i === 0 || entry.when > journal.entries[i - 1]!.when),
+      ),
+    ).toBe(true);
+    const previous = { ...journal, entries: journal.entries.slice(0, -1) };
+    await writeFile(
+      join(previousFolder, "meta/_journal.json"),
+      JSON.stringify(previous),
+    );
+    for (const entry of previous.entries)
+      await copyFile(
+        join(process.cwd(), "drizzle", `${entry.tag}.sql`),
+        join(previousFolder, `${entry.tag}.sql`),
+      );
+    const connection = createSqliteConnection(databasePath);
+    try {
+      migrate(createDbClient(connection), { migrationsFolder: previousFolder });
+      connection
+        .prepare(
+          `INSERT INTO upload_metadata (id, original_name, stored_name, mime_type, size, storage_path, created_at, expires_at)
+        VALUES ('ABCDE', 'old.txt', 'ABCDE.bin', 'text/plain', 5, '/legacy/ABCDE.bin', 1, 2)`,
+        )
+        .run();
+    } finally {
+      connection.close();
+    }
+    migrateDatabase(databasePath);
+    migrateDatabase(databasePath);
+    const upgraded = createSqliteConnection(databasePath);
+    try {
+      expect(
+        upgraded
+          .prepare(
+            "SELECT original_name, max_downloads, download_count FROM upload_metadata WHERE id = 'ABCDE'",
+          )
+          .get(),
+      ).toEqual({
+        original_name: "old.txt",
+        max_downloads: null,
+        download_count: 0,
+      });
+      expect(
+        upgraded
+          .prepare("SELECT count(*) AS count FROM __drizzle_migrations")
+          .get(),
+      ).toEqual({ count: journal.entries.length });
+    } finally {
+      upgraded.close();
+    }
+  });
   it("resolves the default database path from DATABASE_URL", () => {
     expect(getDatabasePath("file:/data/app.db")).toBe("/data/app.db");
   });

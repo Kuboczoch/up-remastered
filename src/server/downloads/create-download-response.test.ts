@@ -45,12 +45,14 @@ afterEach(async () => {
 function insertUpload({
   expiresAt = new Date("2026-02-01T00:00:00.000Z"),
   id = "A7Z20",
+  maxDownloads = null,
   mimeType = "text/plain",
   originalName = "report.txt",
   storedName = `${id}.bin`,
 }: {
   expiresAt?: Date;
   id?: string;
+  maxDownloads?: number | null;
   mimeType?: string;
   originalName?: string;
   storedName?: string;
@@ -64,6 +66,7 @@ function insertUpload({
         createdAt: new Date("2026-01-01T00:00:00.000Z"),
         expiresAt,
         id,
+        maxDownloads,
         mimeType,
         originalName,
         size: 5,
@@ -79,6 +82,99 @@ function insertUpload({
 }
 
 describe("createDownloadResponse", () => {
+  function count(id: string) {
+    const connection = createSqliteConnection();
+    try {
+      return connection
+        .prepare(
+          "SELECT download_count AS count FROM upload_metadata WHERE id = ?",
+        )
+        .get(id) as { count: number };
+    } finally {
+      connection.close();
+    }
+  }
+  const now = new Date("2026-01-02T00:00:00.000Z");
+  it("atomically admits only one concurrent GET across both route aliases", async () => {
+    const { GET: direct, HEAD: directHead } = await import("@/app/[id]/route");
+    const { GET: alias, HEAD: aliasHead } = await import("@/app/u/[key]/route");
+    const { id, storedName } = insertUpload({
+      maxDownloads: 1,
+      expiresAt: new Date(Date.now() + 3600000),
+    });
+    await writeFile(join(process.env.UPLOAD_DIR!, storedName), "hello");
+    expect(
+      (
+        await directHead(new Request(`http://localhost/${id}`), {
+          params: Promise.resolve({ id }),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await aliasHead(new Request(`http://localhost/u/${id}`), {
+          params: Promise.resolve({ key: id }),
+        })
+      ).status,
+    ).toBe(200);
+    expect(count(id).count).toBe(0);
+    const responses = await Promise.all(
+      Array.from({ length: 12 }, (_, i) =>
+        i % 2
+          ? direct(new Request(`http://localhost/${id}`), {
+              params: Promise.resolve({ id }),
+            })
+          : alias(new Request(`http://localhost/u/${id}`), {
+              params: Promise.resolve({ key: id }),
+            }),
+      ),
+    );
+    expect(
+      responses.filter((response) => response.status === 200),
+    ).toHaveLength(1);
+    expect(
+      responses.filter((response) => response.status === 404),
+    ).toHaveLength(11);
+    await Promise.all(responses.map((response) => response.body?.cancel()));
+    expect(count(id).count).toBe(1);
+    expect((await createDownloadHeadResponse(id)).status).toBe(404);
+  });
+  it("counts valid ranges, retries and cancelled bodies once each without refund", async () => {
+    const { id, storedName } = insertUpload({ maxDownloads: 3 });
+    await writeFile(join(process.env.UPLOAD_DIR!, storedName), "hello");
+    const first = await createDownloadResponse(id, "bytes=0-1", now);
+    expect(first.status).toBe(206);
+    await first.body?.cancel();
+    const retry = await createDownloadResponse(id, "bytes=0-1", now);
+    expect(await retry.text()).toBe("he");
+    expect((await createDownloadHeadResponse(id, null, now)).status).toBe(200);
+    expect(count(id).count).toBe(2);
+    const last = await createDownloadResponse(id, null, now);
+    expect(await last.text()).toBe("hello");
+    expect((await createDownloadResponse(id, null, now)).status).toBe(404);
+    expect(count(id).count).toBe(3);
+  });
+  it.each(["bytes=5-", "bytes=3-1", "bogus", "bytes=0-1,3-4", "bytes=-2"])(
+    "does not consume an invalid range %s",
+    async (range) => {
+      const { id, storedName } = insertUpload({ maxDownloads: 1 });
+      await writeFile(join(process.env.UPLOAD_DIR!, storedName), "hello");
+      expect((await createDownloadResponse(id, range, now)).status).toBe(416);
+      expect(count(id).count).toBe(0);
+    },
+  );
+  it("does not count missing physical files and keeps unlimited requests available", async () => {
+    const { id, storedName } = insertUpload();
+    expect((await createDownloadResponse(id, null, now)).status).toBe(404);
+    expect(count(id).count).toBe(0);
+    await writeFile(join(process.env.UPLOAD_DIR!, storedName), "hello");
+    for (let i = 0; i < 12; i++) {
+      const response = await createDownloadResponse(id, null, now);
+      expect(response.status).toBe(200);
+      await response.text();
+    }
+    expect(count(id).count).toBe(12);
+  });
   it("streams verified inert text inline with isolated response headers", async () => {
     const { id, storedName } = insertUpload();
     await writeFile(join(process.env.UPLOAD_DIR!, storedName), "hello");
@@ -139,7 +235,7 @@ describe("createDownloadResponse", () => {
     await expect(response.text()).resolves.toBe("ell");
   });
 
-  it("falls back to full content for unsupported ranges", async () => {
+  it("rejects unsupported ranges without falling back to full content", async () => {
     const { id, storedName } = insertUpload();
     await writeFile(join(process.env.UPLOAD_DIR!, storedName), "hello");
 
@@ -149,8 +245,8 @@ describe("createDownloadResponse", () => {
       new Date("2026-01-02T00:00:00.000Z"),
     );
 
-    expect(response.status).toBe(200);
-    await expect(response.text()).resolves.toBe("hello");
+    expect(response.status).toBe(416);
+    expect(response.headers.get("Content-Range")).toBe("bytes */5");
   });
 
   it("returns 416 when a range starts beyond EOF", async () => {

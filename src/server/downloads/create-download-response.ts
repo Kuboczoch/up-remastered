@@ -6,7 +6,11 @@ import { Readable } from "node:stream";
 
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { ensureDatabaseMigrated } from "@/server/db/migrate";
-import { getUploadMetadata } from "@/server/db/uploads";
+import {
+  admitUploadDownload,
+  getUploadMetadata,
+  isUploadAvailable,
+} from "@/server/db/uploads";
 import { classifyUploadContent } from "@/server/downloads/classify-upload-content";
 import {
   resolveStoredUploadPath,
@@ -72,15 +76,12 @@ function parseByteRange(
   header: string | null,
   size: number,
 ): ByteRange | "unsatisfiable" | null {
-  if (!header || header.includes(",")) {
-    return null;
-  }
+  if (!header) return null;
+  if (header.includes(",")) return "unsatisfiable";
 
   const match = header.match(/^bytes=(\d+)-(\d*)$/i);
 
-  if (!match) {
-    return null;
-  }
+  if (!match) return "unsatisfiable";
 
   const start = Number(match[1]);
   const requestedEnd = match[2] ? Number(match[2]) : undefined;
@@ -93,7 +94,7 @@ function parseByteRange(
     requestedEnd !== undefined &&
     (!Number.isSafeInteger(requestedEnd) || requestedEnd < start)
   ) {
-    return null;
+    return "unsatisfiable";
   }
 
   const end = Math.min(
@@ -126,6 +127,7 @@ async function createFileResponse(
     return unavailableResponse();
   }
 
+  const admissionClockStarted = Date.now();
   ensureDatabaseMigrated();
 
   const connection = createSqliteConnection();
@@ -138,7 +140,7 @@ async function createFileResponse(
     connection.close();
   }
 
-  if (!upload || upload.expiresAt.getTime() <= now.getTime()) {
+  if (!upload || !isUploadAvailable(upload, now)) {
     return unavailableResponse();
   }
 
@@ -216,7 +218,30 @@ async function createFileResponse(
       : fileHandle.createReadStream({ autoClose: true });
     const body = Readable.toWeb(readStream) as ReadableStream<Uint8Array>;
 
-    return new Response(body, { headers, status: range ? 206 : 200 });
+    // Build the stream and response before admission so synchronous setup errors
+    // cannot spend the limit. No asynchronous work occurs between admission and return.
+    const response = new Response(body, { headers, status: range ? 206 : 200 });
+    const admissionConnection = createSqliteConnection();
+    let admitted: boolean;
+    try {
+      admitted = admitUploadDownload(
+        createDbClient(admissionConnection),
+        id,
+        new Date(
+          now.getTime() + Math.max(0, Date.now() - admissionClockStarted),
+        ),
+      );
+    } catch (error) {
+      await body.cancel().catch(() => undefined);
+      throw error;
+    } finally {
+      admissionConnection.close();
+    }
+    if (!admitted) {
+      await body.cancel().catch(() => undefined);
+      return unavailableResponse();
+    }
+    return response;
   } catch (error) {
     await fileHandle.close().catch(() => undefined);
 

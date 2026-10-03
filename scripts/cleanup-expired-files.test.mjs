@@ -107,6 +107,35 @@ test("deletes expired and missing files, preserves live rows, and is idempotent"
   assert.deepEqual(ids(), ["CCCCC"]);
 });
 
+test("reclaims exhausted rows, preserves finite live and unlimited rows", async () => {
+  for (const id of ["AAAAA", "BBBBB", "CCCCC"]) {
+    insertUpload({ id, expiresAt: new Date(NOW.getTime() + 3600000) });
+    await writeFile(join(uploads, `${id}.bin`), "hello");
+  }
+  database
+    .prepare(
+      "UPDATE upload_metadata SET max_downloads = 1, download_count = 1 WHERE id = 'AAAAA'",
+    )
+    .run();
+  database
+    .prepare(
+      "UPDATE upload_metadata SET max_downloads = 2, download_count = 1 WHERE id = 'BBBBB'",
+    )
+    .run();
+  database
+    .prepare(
+      "UPDATE upload_metadata SET download_count = 100 WHERE id = 'CCCCC'",
+    )
+    .run();
+  const result = await cleanupExpiredUploads({
+    database,
+    uploadDirectory: uploads,
+    now: NOW,
+  });
+  assert.equal(result.deleted, 1);
+  assert.deepEqual(ids(), ["BBBBB", "CCCCC"]);
+});
+
 test("releases failed claims for a later retry", async () => {
   insertUpload({ id: "AAAAA", expiresAt: new Date(NOW.getTime() - 1) });
   await writeFile(join(uploads, "AAAAA.bin"), "bytes");

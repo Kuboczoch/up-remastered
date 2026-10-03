@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { migrateDatabase } from "@/server/db/migrate";
 import { uploadMetadata } from "@/server/db/schema";
+import { createDownloadResponse } from "@/server/downloads/create-download-response";
 import { getUploadMetadata } from "@/server/db/uploads";
 import { hashUploadAccessToken } from "@/server/uploads/access-token";
 import {
@@ -67,12 +68,49 @@ function readRow() {
 }
 
 describe("upload management", () => {
+  it("hides exhausted uploads and their counter/token from public access", () => {
+    insertUpload();
+    const connection = createSqliteConnection();
+    connection
+      .prepare(
+        "UPDATE upload_metadata SET max_downloads = 1, download_count = 1",
+      )
+      .run();
+    connection.close();
+    expect(getPublicUploadDetails("A7K2Q", NOW)).toBeUndefined();
+    expect(verifyUploadAccess("A7K2Q", TOKEN, NOW)).toBe("not-found");
+  });
+  it("fences download admission during deletion and preserves count on failed deletion", async () => {
+    insertUpload();
+    const path = join(process.env.UPLOAD_DIR!, "A7K2Q.bin");
+    await writeFile(path, "hello");
+    const admitted = await createDownloadResponse("A7K2Q", null, NOW);
+    expect(await admitted.text()).toBe("hello");
+    await expect(
+      deleteUploadWithAccessToken("A7K2Q", TOKEN, NOW, {
+        rename: async (from, to) => {
+          expect(
+            (await createDownloadResponse("A7K2Q", null, NOW)).status,
+          ).toBe(404);
+          await rename(from, to);
+        },
+        unlink: async () => {
+          throw new Error("failed unlink");
+        },
+      }),
+    ).rejects.toThrow("failed unlink");
+    expect(readRow()).toMatchObject({ downloadCount: 1, cleanupClaimId: null });
+    const retry = await createDownloadResponse("A7K2Q", null, NOW);
+    expect(await retry.text()).toBe("hello");
+    expect(readRow()?.downloadCount).toBe(2);
+  });
   it("returns public details without exposing the access token hash", () => {
     insertUpload();
 
     expect(getPublicUploadDetails("A7K2Q", NOW)).toEqual({
       expirationDate: "2026-01-02T00:00:00.000Z",
       key: "A7K2Q",
+      maxDownloads: null,
       name: "report.txt",
       permanent: false,
       size: 5,

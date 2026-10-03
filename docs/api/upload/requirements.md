@@ -55,6 +55,7 @@ Rules:
 - Generate stored filenames on the server and never trust client-provided paths.
 - Write SQLite metadata only after storage succeeds.
 - Multipart metadata fields are intentionally small; use raw uploads for large text payloads.
+- Optional multipart `maxDownloads` must be exactly `unlimited` or a decimal integer string from `1` through `10`. Omission defaults to unlimited (`null` in metadata/results). Reject empty, padded, fractional, signed, out-of-range, or duplicate values with 400 `invalid_max_downloads`. Raw uploads remain unlimited. Store the limit and an initial zero admission counter; do not expose the counter or access-token hash in public details.
 - Default expiration is `DEFAULT_EXPIRATION_HOURS`, currently 24h in production config.
 - Requested expiration can use strict UTC ISO `expiresAt`, `expiresInHours`, `expiresInMinutes`, or `expiresInSeconds`.
 - The effective maximum is the lesser of `MAX_EXPIRATION_HOURS` and 24 hours; legacy deployment settings cannot raise the 24-hour ceiling. The effective default is capped by that maximum.

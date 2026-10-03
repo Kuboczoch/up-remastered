@@ -10,6 +10,81 @@ import {
   uploadMetadata,
 } from "@/server/db/schema";
 
+export function isUploadAvailable(upload: UploadMetadata, now: Date): boolean {
+  return (
+    upload.expiresAt.getTime() > now.getTime() &&
+    upload.cleanupClaimId === null &&
+    (upload.maxDownloads === null || upload.downloadCount < upload.maxDownloads)
+  );
+}
+
+// The single UPDATE is the admission linearization point across workers/routes.
+export function admitUploadDownload(
+  db: DbClient,
+  id: string,
+  now: Date,
+): boolean {
+  return (
+    db
+      .update(uploadMetadata)
+      .set({ downloadCount: sql`${uploadMetadata.downloadCount} + 1` })
+      .where(
+        sql`${uploadMetadata.id} = ${id}
+      AND ${uploadMetadata.expiresAt} > ${now.getTime()}
+      AND ${uploadMetadata.cleanupClaimId} IS NULL
+      AND (${uploadMetadata.maxDownloads} IS NULL OR ${uploadMetadata.downloadCount} < ${uploadMetadata.maxDownloads})`,
+      )
+      .run().changes === 1
+  );
+}
+
+export function claimUploadDeletion(
+  db: DbClient,
+  id: string,
+  claimId: string,
+  now: Date,
+): boolean {
+  return (
+    db
+      .update(uploadMetadata)
+      .set({ cleanupClaimId: claimId, cleanupClaimedAt: now })
+      .where(
+        sql`${uploadMetadata.id} = ${id}
+      AND ${uploadMetadata.expiresAt} > ${now.getTime()}
+      AND ${uploadMetadata.cleanupClaimId} IS NULL
+      AND (${uploadMetadata.maxDownloads} IS NULL OR ${uploadMetadata.downloadCount} < ${uploadMetadata.maxDownloads})`,
+      )
+      .run().changes === 1
+  );
+}
+
+export function releaseUploadDeletion(
+  db: DbClient,
+  id: string,
+  claimId: string,
+): void {
+  db.update(uploadMetadata)
+    .set({ cleanupClaimId: null, cleanupClaimedAt: null })
+    .where(
+      sql`${uploadMetadata.id} = ${id} AND ${uploadMetadata.cleanupClaimId} = ${claimId}`,
+    )
+    .run();
+}
+
+export function finishUploadDeletion(
+  db: DbClient,
+  id: string,
+  claimId: string,
+): void {
+  const result = db
+    .delete(uploadMetadata)
+    .where(
+      sql`${uploadMetadata.id} = ${id} AND ${uploadMetadata.cleanupClaimId} = ${claimId}`,
+    )
+    .run();
+  if (result.changes !== 1) throw new Error("Upload deletion claim was lost.");
+}
+
 export function getTotalStoredUploadBytes(db: DbClient): number {
   const row = db
     .select({
