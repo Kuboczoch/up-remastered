@@ -1,13 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-test.beforeEach(async ({ page }) => {
-  // Existing history regressions explicitly opt in; new layered tests cover default-off.
-  await page.addInitScript(() =>
-    localStorage.setItem("up-remastered:history-consent", "true"),
-  );
-});
-
 type LayoutProbe = Window & {
   __layoutGeometry?: Array<{
     headingY: number;
@@ -153,7 +146,7 @@ for (const layoutCase of layoutCases) {
 
       await expect(
         page.getByRole("heading", { name: "stable-layout.txt" }),
-      ).toBeVisible();
+      ).toBeHidden();
       if (layoutCase.offline) {
         await expect(page.getByRole("status")).toHaveText(/offline/i);
       }
@@ -319,7 +312,7 @@ test("uploads pasted text and clipboard files", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("uses the selected encoding for pasted text bytes and MIME charset", async ({
+test("keeps the disabled encoding at UTF-8 for pasted text bytes and MIME charset", async ({
   page,
 }) => {
   let uploadBody: Buffer | null = null;
@@ -344,7 +337,8 @@ test("uses the selected encoding for pasted text bytes and MIME charset", async 
   await page.getByRole("tab", { name: "Text" }).click();
   await expect(page.getByLabel("Or upload text")).toBeVisible();
   await page.getByRole("button", { name: /Advanced options/ }).click();
-  await page.getByLabel("Text encoding").selectOption("utf-16le");
+  await expect(page.getByLabel("Text encoding")).toBeDisabled();
+  await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
   await page.getByRole("button", { name: "Close advanced options" }).click();
 
   await page.evaluate(() => {
@@ -360,11 +354,9 @@ test("uses the selected encoding for pasted text bytes and MIME charset", async 
   ).toBeVisible();
   expect(uploadBody).not.toBeNull();
   expect(uploadBody!.toString("latin1")).toContain(
-    "Content-Type: text/plain;charset=utf-16le",
+    "Content-Type: text/plain;charset=utf-8",
   );
-  expect(uploadBody!.includes(Buffer.from([0x41, 0x00, 0xe9, 0x00]))).toBe(
-    true,
-  );
+  expect(uploadBody!.includes(Buffer.from("Aé", "utf8"))).toBe(true);
 });
 
 test("keeps advanced settings collapsed, accessible, and narrow-layout safe", async ({
@@ -594,7 +586,7 @@ test("shows upload percentage in the title and supports mobile text upload", asy
   await expect(page).toHaveTitle("Request a file | Up - Remastered");
 });
 
-test("persists history across page restarts and keeps local removal separate", async ({
+test("disabled history stays empty across page restarts", async ({
   context,
   page,
 }) => {
@@ -604,136 +596,57 @@ test("persists history across page restarts and keeps local removal separate", a
     mimeType: "text/plain",
     name: "history.txt",
   });
-  const shareUrl = await page.locator(".result-url").inputValue();
-  const stored = await page.evaluate(() =>
-    localStorage.getItem("up-remastered:upload-history:v1"),
-  );
-  expect(stored).toContain('"accessToken"');
-
-  const reopenedPage = await context.newPage();
-  await page.close();
-  page = reopenedPage;
-  await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "Your uploads" }),
-  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "history.txt" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Copy link", exact: true }),
-  ).toBeVisible();
-  await page.getByLabel("More actions for history.txt").click();
-  await expect(
-    page.locator(".history-card").getByRole("link", { name: "Download" }),
-  ).toHaveAttribute("href", `${shareUrl}?download=1`);
-  expect(await page.locator("body").innerText()).not.toContain("accessToken");
-
-  await page
-    .getByRole("button", { name: "Remove history.txt from history" })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "Your uploads" }),
-  ).toBeHidden();
-  expect((await page.request.get(shareUrl)).ok()).toBe(true);
+  const shareUrl = await page.locator(".result-url").inputValue();
   expect(
     await page.evaluate(() =>
       localStorage.getItem("up-remastered:upload-history:v1"),
     ),
-  ).toBe("[]");
-
-  await page.evaluate((value) => {
-    if (value) localStorage.setItem("up-remastered:upload-history:v1", value);
-  }, stored);
-  await page.reload();
-
-  await page.getByLabel("More actions for history.txt").click();
-  const [deleted] = await Promise.all([
-    page.waitForResponse(
-      (response) =>
-        response.request().method() === "DELETE" &&
-        response.url().includes("/api/u/"),
-    ),
-    page.getByRole("button", { name: "Delete history.txt" }).click(),
-  ]);
-  expect(deleted.status()).toBe(200);
-  expect(deleted.request().postDataJSON()).toMatchObject({
-    accessToken: expect.any(String),
-  });
-  await expect(
-    page.getByRole("heading", { name: "Your uploads" }),
-  ).toBeHidden();
-  expect(
-    await page.evaluate(() =>
-      localStorage.getItem("up-remastered:upload-history:v1"),
-    ),
-  ).toBe("[]");
-
-  await page.evaluate((value) => {
-    if (value) {
-      localStorage.setItem("up-remastered:upload-history:v1", value);
-    }
-  }, stored);
-  await page.reload();
-  await page.getByLabel("More actions for history.txt").click();
-  const [missing] = await Promise.all([
-    page.waitForResponse(
-      (response) =>
-        response.request().method() === "DELETE" &&
-        response.url().includes("/api/u/"),
-    ),
-    page.getByRole("button", { name: "Delete history.txt" }).click(),
-  ]);
-  expect(missing.status()).toBe(404);
-  await expect(
-    page.getByRole("heading", { name: "Your uploads" }),
-  ).toBeHidden();
+  ).toBeNull();
+  const reopenedPage = await context.newPage();
+  await page.close();
+  await reopenedPage.goto("/");
+  await expect(reopenedPage.locator(".history-card")).toBeHidden();
+  expect((await reopenedPage.request.get(shareUrl)).ok()).toBe(true);
 });
 
-test("synchronizes upload history across open tabs", async ({
+test("storage events cannot activate disabled history across tabs", async ({
   context,
   page,
 }) => {
   await page.goto("/");
   const otherPage = await context.newPage();
   await otherPage.goto("/");
-  const textMode = otherPage.getByRole("tab", {
-    name: "Text",
-    exact: true,
-  });
-  await textMode.click();
-  await expect(textMode).toHaveAttribute("aria-selected", "true");
-
   await page.evaluate(() => {
+    localStorage.setItem("up-remastered:history-consent", "true");
     localStorage.setItem(
       "up-remastered:upload-history:v1",
       JSON.stringify([
         {
           accessToken: "not-rendered",
-          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          expiresAt: "2099-01-01T00:00:00Z",
           id: "AAAAA",
           originalName: "synced.txt",
-          savedAt: new Date().toISOString(),
+          savedAt: "2026-01-01T00:00:00Z",
           shareUrl: `${location.origin}/AAAAA`,
           size: 6,
         },
       ]),
     );
   });
-
+  await otherPage.getByRole("button", { name: /Advanced options/ }).click();
   await expect(
-    otherPage.getByRole("heading", { name: "synced.txt" }),
-  ).toBeVisible();
+    otherPage.getByRole("switch", { name: "Save history" }),
+  ).not.toBeChecked();
+  await expect(
+    otherPage.getByRole("switch", { name: "Save history" }),
+  ).toBeDisabled();
+  await expect(otherPage.locator(".history-card")).toBeHidden();
   expect(await otherPage.locator("body").innerText()).not.toContain(
     "not-rendered",
   );
-
-  await page.evaluate(() =>
-    localStorage.removeItem("up-remastered:upload-history:v1"),
-  );
-  await expect(
-    otherPage.getByRole("heading", { name: "synced.txt" }),
-  ).toBeHidden();
 });
 
 test("announces offline status and clears it after reconnection", async ({

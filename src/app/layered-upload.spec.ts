@@ -51,11 +51,16 @@ for (const width of [390, 1366, 1536]) {
   });
 }
 
-test("default history opt-out and clearing never removes server data", async ({
+test("disabled history never persists uploads or removes server data", async ({
   page,
   request,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /Advanced options/ }).click();
+  await expect(
+    page.getByRole("switch", { name: "Save history" }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Close advanced options" }).click();
   await page.locator("#file-picker").setInputFiles({
     buffer: Buffer.from("history"),
     name: "history.txt",
@@ -71,20 +76,11 @@ test("default history opt-out and clearing never removes server data", async ({
       localStorage.getItem("up-remastered:upload-history:v1"),
     ),
   ).toBeNull();
-  await page.getByRole("button", { name: "Upload another file" }).click();
-  await page.getByRole("button", { name: /Advanced options/ }).click();
-  await page.getByRole("switch", { name: "Save history" }).check();
-  await page.getByRole("button", { name: "Close advanced options" }).click();
-  await page.locator("#file-picker").setInputFiles({
-    buffer: Buffer.from("saved"),
-    name: "saved.txt",
-    mimeType: "text/plain",
-  });
-  await expect(
-    page.getByRole("button", { name: "Clear history" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Clear history" }).click();
-  await expect(page.locator(".history-card")).toBeHidden();
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("up-remastered:history-consent"),
+    ),
+  ).toBeNull();
   expect((await request.get(link)).status()).toBe(200);
 });
 
@@ -98,126 +94,114 @@ const legacyRecords = Array.from({ length: 6 }, (_, index) => ({
   shareUrl: `http://127.0.0.1:3132/AAA${index}A#key=SECRET`,
 }));
 
-test("legacy session consent and dynamically mounted mobile history isolation", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 960 });
-  await page.addInitScript((records) => {
-    sessionStorage.setItem(
-      "up-remastered:upload-history:v1",
-      JSON.stringify(records),
-    );
-  }, legacyRecords);
-  await page.goto("/");
-  await expect(page.locator(".upload-card")).toBeVisible();
-  await page.getByRole("button", { name: /Advanced options/ }).click();
-  expect(
-    await page.evaluate(() =>
-      localStorage.getItem("up-remastered:upload-history:v1"),
-    ),
-  ).toBeNull();
-  expect(
-    await page.evaluate(() =>
-      sessionStorage.getItem("up-remastered:upload-history:v1"),
-    ),
-  ).not.toContain("SECRET");
-  await page.getByRole("switch", { name: "Save history" }).check();
-  await expect(page.locator(".history-card")).toBeVisible();
-  expect(
-    await page
-      .locator(".history-card")
-      .evaluate((element) => !!element.closest("[inert]")),
-  ).toBe(true);
-  await page
-    .locator(".clear-history")
-    .evaluate((element: HTMLButtonElement) => element.focus());
-  await expect(page.locator(".clear-history")).not.toBeFocused();
-});
-
 for (const width of [320, 390, 768, 1024, 1440]) {
-  test(`lower-row history actions remain reachable without clipping at ${width}px`, async ({
+  test(`all Advanced settings are disabled and uniformly dimmed at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 960 });
-    await page.addInitScript(
-      (records) => {
-        localStorage.setItem("up-remastered:history-consent", "true");
-        localStorage.setItem(
-          "up-remastered:upload-history:v1",
-          JSON.stringify(records),
-        );
-      },
-      legacyRecords.map((record) => ({
-        ...record,
-        shareUrl: record.shareUrl.split("#")[0],
-      })),
-    );
     await page.goto("/");
-    const action = page.getByLabel("More actions for legacy-0.txt");
-    await action.click();
-    const remove = page.getByRole("button", {
-      name: "Remove legacy-0.txt from history",
-      exact: true,
-    });
-    const deleteAction = page.getByRole("button", {
-      name: "Delete legacy-0.txt",
-      exact: true,
-    });
-    expect(
-      await deleteAction.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        return element.contains(
-          document.elementFromPoint(
-            rect.left + rect.width / 2,
-            rect.top + rect.height / 2,
-          ),
-        );
-      }),
-    ).toBe(true);
-    expect(
-      await remove.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        return (
-          rect.left >= 0 &&
-          rect.top >= 0 &&
-          rect.right <= innerWidth &&
-          rect.bottom <= innerHeight &&
-          element.contains(
-            document.elementFromPoint(
-              rect.left + rect.width / 2,
-              rect.top + rect.height / 2,
-            ),
-          )
-        );
-      }),
-    ).toBe(true);
-    await remove.click();
-    await expect(page.getByLabel("More actions for legacy-0.txt")).toHaveCount(
-      0,
-    );
+    await page.getByRole("tab", { name: "Text", exact: true }).click();
+    await page.getByRole("button", { name: /Advanced options/ }).click();
+    const panel = page.locator("#advanced-options");
+    const settings = panel.locator(".option-setting");
+    const controls = panel.locator("input, select");
+    await expect(controls).toHaveCount(5);
+    for (let index = 0; index < 5; index++) {
+      await expect(controls.nth(index)).toBeDisabled();
+      await expect(controls.nth(index)).toHaveCSS("opacity", "1");
+      await expect(settings.nth(index)).toHaveCSS("opacity", "0.5");
+      await controls.nth(index).evaluate((element: HTMLInputElement) => {
+        element.click();
+        element.focus();
+      });
+      await expect(controls.nth(index)).not.toBeFocused();
+    }
+    await expect(
+      page.getByRole("switch", { name: "Save history" }),
+    ).not.toBeChecked();
+    await expect(
+      page.getByRole("switch", { name: "Key protect" }),
+    ).not.toBeChecked();
+    await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
+    await expect(panel).not.toContainText(/coming later|not available yet/i);
+    const close = page.getByRole("button", { name: "Close advanced options" });
+    const done = panel.locator(".options-done");
+    await expect(close).toBeEnabled();
+    await expect(done).toBeEnabled();
+    await expect(close).toHaveCSS("opacity", "1");
+    await expect(done).toHaveCSS("opacity", "1");
+    if (width < 761) {
+      await close.focus();
+      await page.keyboard.press("Tab");
+      await expect(done).toBeFocused();
+      await done.click();
+    } else {
+      await close.click();
+    }
+    await expect(panel).toBeHidden();
   });
 }
 
-test("history mounted after mobile dialog opens is inert", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 960 });
-  await page.addInitScript(
-    (records) =>
+for (const width of [390, 1366]) {
+  test(`retained consent and legacy history remain untouched at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 960 });
+    await page.addInitScript((records) => {
+      localStorage.setItem("up-remastered:history-consent", "true");
       localStorage.setItem(
         "up-remastered:upload-history:v1",
         JSON.stringify(records),
+      );
+      sessionStorage.setItem(
+        "up-remastered:upload-history:v1",
+        JSON.stringify(records),
+      );
+    }, legacyRecords);
+    await page.goto("/");
+    await page.getByRole("button", { name: /Advanced options/ }).click();
+    await expect(
+      page.getByRole("switch", { name: "Save history" }),
+    ).not.toBeChecked();
+    await expect(page.locator(".history-card")).toBeHidden();
+    await page.evaluate(() =>
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "up-remastered:history-consent",
+          newValue: "true",
+        }),
       ),
-    legacyRecords,
-  );
-  await page.goto("/");
-  await page.getByRole("button", { name: /Advanced options/ }).click();
-  await page.getByRole("switch", { name: "Save history" }).check();
-  await expect(page.locator(".history-card")).toBeVisible();
-  expect(
-    await page
-      .locator(".history-card")
-      .evaluate((element) => !!element.closest("[inert]")),
-  ).toBe(true);
-});
+    );
+    await expect(
+      page.getByRole("switch", { name: "Save history" }),
+    ).not.toBeChecked();
+    await page.getByRole("button", { name: "Close advanced options" }).click();
+    await page.locator("#file-picker").setInputFiles({
+      buffer: Buffer.from("unchanged"),
+      name: "unchanged.txt",
+      mimeType: "text/plain",
+    });
+    await expect(
+      page.getByRole("heading", { name: "unchanged.txt" }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(() =>
+        localStorage.getItem("up-remastered:upload-history:v1"),
+      ),
+    ).toBe(JSON.stringify(legacyRecords));
+    expect(
+      await page.evaluate(() =>
+        sessionStorage.getItem("up-remastered:upload-history:v1"),
+      ),
+    ).toBe(JSON.stringify(legacyRecords));
+    expect(
+      await page.evaluate(() =>
+        localStorage.getItem("up-remastered:history-consent"),
+      ),
+    ).toBe("true");
+    await expect(page.locator(".history-card")).toBeHidden();
+  });
+}
 
 for (const width of [320, 390, 768, 1024, 1440]) {
   test(`front and rear preserve document geometry, scroll, drafts and inactive panels at ${width}px`, async ({
@@ -274,7 +258,9 @@ for (const width of [320, 390, 768, 1024, 1440]) {
       page.getByRole("switch", { name: "Key protect" }),
     ).toBeDisabled();
     await expect(page.getByRole("slider")).toBeDisabled();
-    await page.getByRole("switch", { name: "Save history" }).check();
+    await expect(
+      page.getByRole("switch", { name: "Save history" }),
+    ).toBeDisabled();
     await page
       .getByRole("button", {
         name: width < 761 ? "Done" : "Close advanced options",

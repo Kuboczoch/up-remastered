@@ -1102,6 +1102,14 @@ html {
   color: var(--muted);
   cursor: pointer;
 }
+.options-panel .option-setting {
+  /* Dim the entire setting uniformly, including its retained label. */
+  opacity: 0.5;
+}
+.options-panel .option-setting :disabled {
+  opacity: 1;
+  cursor: not-allowed;
+}
 .option-setting {
   padding: 17px 0;
   border-top: 1px solid #41404c;

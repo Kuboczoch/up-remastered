@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -25,8 +24,6 @@ import {
 } from "@/components/upload/text-encoding";
 import {
   removeUploadHistoryEntry,
-  restoreUploadHistory,
-  saveUploadHistoryEntry,
   UPLOAD_HISTORY_STORAGE_KEY,
   type UploadHistoryEntry,
 } from "@/components/upload/upload-history";
@@ -84,16 +81,6 @@ function fileType(name: string): string {
     : "FILE";
 }
 
-function historyConsent(): boolean {
-  try {
-    return (
-      window.localStorage.getItem("up-remastered:history-consent") === "true"
-    );
-  } catch {
-    return false;
-  }
-}
-
 function forcedDownloadUrl(shareUrl: string): string {
   const url = new URL(shareUrl);
   url.searchParams.set("download", "1");
@@ -107,10 +94,10 @@ export function UploadExperience({
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [mobile, setMobile] = useState(false);
-  const [saveHistory, setSaveHistory] = useState(false);
+  // Advanced settings are placeholders; never read consent or mutate history.
+  const saveHistory = false;
   const optionsRef = useRef<HTMLElement>(null);
   const optionsTriggerRef = useRef<HTMLButtonElement>(null);
-  const historyConsentRef = useRef(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
@@ -119,9 +106,7 @@ export function UploadExperience({
   const [configurationWarning, setConfigurationWarning] = useState("");
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"file" | "text">("file");
-  const [textEncoding, setTextEncoding] = useState<TextEncoding>(
-    DEFAULT_TEXT_ENCODING,
-  );
+  const textEncoding: TextEncoding = DEFAULT_TEXT_ENCODING;
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -233,60 +218,6 @@ export function UploadExperience({
     }
   }, [phase]);
 
-  useLayoutEffect(() => {
-    const consent = historyConsent();
-    // Restore before paint so browser-only history cannot move visible content.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHistory(
-      restoreUploadHistory(
-        window.localStorage,
-        window.sessionStorage,
-        Date.now(),
-        consent,
-      ),
-    );
-    historyConsentRef.current = consent;
-    setSaveHistory(consent);
-    const synchronizeHistory = (event: StorageEvent) => {
-      if (event.key === "up-remastered:history-consent" || event.key === null) {
-        const enabled = historyConsent();
-        historyConsentRef.current = enabled;
-        setSaveHistory(enabled);
-      }
-      if (
-        event.key === null ||
-        event.key === UPLOAD_HISTORY_STORAGE_KEY ||
-        event.key === "up-remastered:history-consent"
-      ) {
-        setHistory(
-          restoreUploadHistory(
-            window.localStorage,
-            window.sessionStorage,
-            Date.now(),
-            historyConsentRef.current,
-          ),
-        );
-      }
-    };
-
-    const pruneTimer = window.setInterval(() => {
-      setNow(Date.now());
-      setHistory(
-        restoreUploadHistory(
-          window.localStorage,
-          window.sessionStorage,
-          Date.now(),
-          historyConsentRef.current,
-        ),
-      );
-    }, 60_000);
-    window.addEventListener("storage", synchronizeHistory);
-    return () => {
-      window.clearInterval(pruneTimer);
-      window.removeEventListener("storage", synchronizeHistory);
-    };
-  }, []);
-
   useEffect(() => {
     document.title =
       phase === "uploading"
@@ -377,9 +308,6 @@ export function UploadExperience({
         }
         setProgress(100);
         setResult(upload);
-        if (historyConsentRef.current) {
-          setHistory(saveUploadHistoryEntry(window.localStorage, upload));
-        }
         setNow(Date.now());
         setPhase("success");
       } catch (uploadError) {
@@ -595,27 +523,6 @@ export function UploadExperience({
       () => optionsTriggerRef.current?.focus({ preventScroll: true }),
       0,
     );
-  }
-
-  function toggleHistory(enabled: boolean) {
-    historyConsentRef.current = enabled;
-    setSaveHistory(enabled);
-    setHistory(
-      restoreUploadHistory(
-        window.localStorage,
-        window.sessionStorage,
-        Date.now(),
-        enabled,
-      ),
-    );
-    try {
-      window.localStorage.setItem(
-        "up-remastered:history-consent",
-        String(enabled),
-      );
-    } catch {
-      /* Optional browser storage. */
-    }
   }
 
   useEffect(() => {
@@ -1079,7 +986,7 @@ export function UploadExperience({
               ×
             </button>
           </div>
-          <div className="option-setting switch-setting">
+          <div className="option-setting switch-setting" aria-disabled="true">
             <div>
               <label htmlFor="save-history">Save history</label>
               <small>In this browser only</small>
@@ -1089,23 +996,12 @@ export function UploadExperience({
               type="checkbox"
               role="switch"
               checked={saveHistory}
-              onChange={(event) => toggleHistory(event.target.checked)}
+              disabled
             />
           </div>
-          <p className="option-help">
-            Disabling hides existing records and stops saving new uploads. Clear
-            history removes browser records only, not server files.
-          </p>
-          <div className="option-setting">
-            <label htmlFor="expiry-hours">
-              Expires after <small>Coming later</small>
-            </label>
-            <select
-              id="expiry-hours"
-              value={24}
-              disabled
-              aria-describedby="expiry-warning"
-            >
+          <div className="option-setting" aria-disabled="true">
+            <label htmlFor="expiry-hours">Expires after</label>
+            <select id="expiry-hours" value={24} disabled>
               {[1, 3, 6, 12, 24].map((hours) => (
                 <option value={hours} key={hours}>
                   {hours} {hours === 1 ? "hour" : "hours"}
@@ -1113,14 +1009,8 @@ export function UploadExperience({
               ))}
             </select>
           </div>
-          <p id="expiry-warning" className="option-help">
-            Custom expiration is not available yet. The server’s default
-            expiration applies.
-          </p>
-          <div className="option-setting">
-            <label htmlFor="download-limit">
-              Download limit <output>Coming later</output>
-            </label>
+          <div className="option-setting" aria-disabled="true">
+            <label htmlFor="download-limit">Download limit</label>
             <input
               type="range"
               id="download-limit"
@@ -1129,8 +1019,7 @@ export function UploadExperience({
               step={1}
               value={11}
               disabled
-              aria-valuetext="Unavailable"
-              aria-describedby="download-limit-warning"
+              aria-valuetext="Unlimited"
             />
             <div className="limit-ticks" aria-hidden="true">
               <span>1</span>
@@ -1138,15 +1027,10 @@ export function UploadExperience({
               <span>10</span>
               <span>∞</span>
             </div>
-            <small id="download-limit-warning">
-              Download limits are not available yet. No limit is configured
-              here.
-            </small>
           </div>
-          <div className="option-setting switch-setting">
+          <div className="option-setting switch-setting" aria-disabled="true">
             <div>
               <label htmlFor="key-protect">Key protect</label>
-              <small>Coming later</small>
             </div>
             <input
               id="key-protect"
@@ -1154,26 +1038,12 @@ export function UploadExperience({
               role="switch"
               checked={false}
               disabled
-              aria-describedby="key-protect-warning"
             />
           </div>
-          <p
-            id="key-protect-warning"
-            className="option-help deferred-protection-warning"
-          >
-            Coming later — client-side encryption is not available yet. Uploads
-            are not encrypted.
-          </p>
           {mode === "text" && (
-            <div className="option-setting">
+            <div className="option-setting" aria-disabled="true">
               <label htmlFor="text-encoding">Text encoding</label>
-              <select
-                id="text-encoding"
-                onChange={(event) =>
-                  setTextEncoding(event.target.value as TextEncoding)
-                }
-                value={textEncoding}
-              >
+              <select id="text-encoding" disabled value={textEncoding}>
                 {TEXT_ENCODINGS.map((encoding) => (
                   <option key={encoding.value} value={encoding.value}>
                     {encoding.label}

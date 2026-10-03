@@ -92,9 +92,8 @@ for (const width of [320, 1440]) {
     await expect(
       page.getByRole("switch", { name: "Key protect" }),
     ).not.toBeChecked();
-    const warning = page.locator("#key-protect-warning");
-    await expect(warning).toHaveText(
-      "Coming later — client-side encryption is not available yet. Uploads are not encrypted.",
+    await expect(page.locator("#advanced-options")).not.toContainText(
+      /coming later|not available yet/i,
     );
     await page.locator("#advanced-options").evaluate(async (element) => {
       await Promise.all(
@@ -103,11 +102,6 @@ for (const width of [320, 1440]) {
     });
     await page.screenshot({
       path: testInfo.outputPath(`ui-${width}-options.png`),
-      fullPage: true,
-    });
-    await warning.scrollIntoViewIfNeeded();
-    await page.screenshot({
-      path: testInfo.outputPath(`ui-${width}-warning.png`),
       fullPage: true,
     });
     await page
