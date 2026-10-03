@@ -95,7 +95,7 @@ const legacyRecords = Array.from({ length: 6 }, (_, index) => ({
 }));
 
 for (const width of [320, 390, 768, 1024, 1440]) {
-  test(`all Advanced settings are disabled and uniformly dimmed at ${width}px`, async ({
+  test(`deferred Advanced settings remain disabled and dimmed at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 960 });
@@ -106,7 +106,7 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     const settings = panel.locator(".option-setting");
     const controls = panel.locator("input, select");
     await expect(controls).toHaveCount(5);
-    for (let index = 0; index < 5; index++) {
+    for (let index = 0; index < 4; index++) {
       await expect(controls.nth(index)).toBeDisabled();
       await expect(controls.nth(index)).toHaveCSS("opacity", "1");
       await expect(settings.nth(index)).toHaveCSS("opacity", "0.5");
@@ -133,7 +133,7 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     if (width < 761) {
       await close.focus();
       await page.keyboard.press("Tab");
-      await expect(done).toBeFocused();
+      await expect(page.getByLabel("Text encoding")).toBeFocused();
       await done.click();
     } else {
       await close.click();

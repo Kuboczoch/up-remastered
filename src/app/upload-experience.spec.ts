@@ -312,7 +312,7 @@ test("uploads pasted text and clipboard files", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("keeps the disabled encoding at UTF-8 for pasted text bytes and MIME charset", async ({
+test("uses selected UTF-16LE for pasted text bytes and MIME charset", async ({
   page,
 }) => {
   let uploadBody: Buffer | null = null;
@@ -337,8 +337,9 @@ test("keeps the disabled encoding at UTF-8 for pasted text bytes and MIME charse
   await page.getByRole("tab", { name: "Text" }).click();
   await expect(page.getByLabel("Or upload text")).toBeVisible();
   await page.getByRole("button", { name: /Advanced options/ }).click();
-  await expect(page.getByLabel("Text encoding")).toBeDisabled();
-  await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
+  await expect(page.getByLabel("Text encoding")).toBeEnabled();
+  await page.getByLabel("Text encoding").selectOption("utf-16le");
+  await expect(page.getByLabel("Text encoding")).toHaveValue("utf-16le");
   await page.getByRole("button", { name: "Close advanced options" }).click();
 
   await page.evaluate(() => {
@@ -354,9 +355,9 @@ test("keeps the disabled encoding at UTF-8 for pasted text bytes and MIME charse
   ).toBeVisible();
   expect(uploadBody).not.toBeNull();
   expect(uploadBody!.toString("latin1")).toContain(
-    "Content-Type: text/plain;charset=utf-8",
+    "Content-Type: text/plain;charset=utf-16le",
   );
-  expect(uploadBody!.includes(Buffer.from("Aé", "utf8"))).toBe(true);
+  expect(uploadBody!.includes(Buffer.from("Aé", "utf16le"))).toBe(true);
 });
 
 test("keeps advanced settings collapsed, accessible, and narrow-layout safe", async ({
