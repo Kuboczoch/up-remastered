@@ -23,6 +23,10 @@ Current upload metadata fields:
 - `storagePath`
 - `createdAt`
 - `expiresAt`
+- `maxDownloads` (nullable: unlimited; finite values validated 1–10)
+- `downloadCount` (non-null, default zero; one atomic increment per admitted GET)
+- `encrypted` (boolean, default false; only a ciphertext marker, no key)
+- `cleanupClaimId` and `cleanupClaimedAt` (cleanup coordination)
 
 Use Drizzle ORM and `better-sqlite3` for schema, migrations, and queries. Do not introduce Prisma or PostgreSQL.
 
@@ -43,4 +47,4 @@ pnpm run db:generate
 pnpm run db:migrate
 ```
 
-Expiration must be enforced at read/download time. Cleanup is maintenance, not the only availability check.
+Expiration and exhausted download limits must be enforced at read/download time. Cleanup is maintenance, not the only availability check. Migration `0007_layered_upload` preserves preexisting rows with unlimited downloads, a zero count, and the unencrypted marker. SQLite performs a single conditional UPDATE to reserve each download, rechecking expiry, cleanup claims, and remaining slots across connections/processes.

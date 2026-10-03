@@ -7,9 +7,10 @@ import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { ensureDatabaseMigrated } from "@/server/db/migrate";
 import type { UploadMetadata } from "@/server/db/schema";
 import {
-  deleteUploadMetadata,
+  claimUploadOwnerDeletion,
+  completeUploadOwnerDeletion,
   getUploadMetadata,
-  restoreUploadMetadata,
+  releaseUploadOwnerDeletion,
 } from "@/server/db/uploads";
 import { resolveStoredUploadPath } from "@/server/storage/uploads";
 import { matchesUploadAccessToken } from "@/server/uploads/access-token";
@@ -18,6 +19,8 @@ import { isPublicUploadId } from "@/server/uploads/public-id";
 export type UploadAccessResult = "forbidden" | "not-found" | "valid";
 
 export type PublicUploadDetails = {
+  encrypted: boolean;
+  maxDownloads: number | null;
   expirationDate: string;
   key: string;
   name: string;
@@ -36,7 +39,11 @@ function getAvailableUpload(id: string, now: Date): UploadMetadata | undefined {
 
   try {
     const upload = getUploadMetadata(createDbClient(connection), id);
-    return upload && upload.expiresAt.getTime() > now.getTime()
+    return upload &&
+      upload.expiresAt.getTime() > now.getTime() &&
+      upload.cleanupClaimId === null &&
+      (upload.maxDownloads === null ||
+        upload.downloadCount < upload.maxDownloads)
       ? upload
       : undefined;
   } finally {
@@ -60,6 +67,8 @@ export function getPublicUploadDetails(
   return upload
     ? {
         expirationDate: upload.expiresAt.toISOString(),
+        encrypted: upload.encrypted,
+        maxDownloads: upload.maxDownloads,
         key: upload.id,
         name: upload.originalName,
         permanent: false,
@@ -114,39 +123,35 @@ export async function deleteUploadWithAccessToken(
     return "not-found";
   }
 
-  const tombstonePath = `${storagePath}.deleting-${randomUUID()}`;
-
-  try {
-    await fileOperations.rename(storagePath, tombstonePath);
-  } catch (error) {
-    if (isMissingFileError(error)) {
-      return "not-found";
-    }
-    throw error;
-  }
-
-  ensureDatabaseMigrated();
+  const claimId = randomUUID();
+  const tombstonePath = `${storagePath}.deleting-${claimId}`;
   const connection = createSqliteConnection();
   const db = createDbClient(connection);
+  let renamed = false;
 
   try {
-    deleteUploadMetadata(db, id);
-
+    if (
+      !claimUploadOwnerDeletion(db, id, upload.accessTokenHash!, claimId, now)
+    ) {
+      return "not-found";
+    }
     try {
+      await fileOperations.rename(storagePath, tombstonePath);
+      renamed = true;
       await fileOperations.unlink(tombstonePath);
     } catch (error) {
-      restoreUploadMetadata(db, upload);
-      await fileOperations.rename(tombstonePath, storagePath);
+      // Keep admission blocked until the original path is restored. Release
+      // only our claim; never restore a pre-await metadata/counter snapshot.
+      if (renamed) {
+        await fileOperations.rename(tombstonePath, storagePath);
+      }
+      releaseUploadOwnerDeletion(db, id, claimId);
+      if (!renamed && isMissingFileError(error)) {
+        return "not-found";
+      }
       throw error;
     }
-  } catch (error) {
-    if (getUploadMetadata(db, id) === undefined) {
-      restoreUploadMetadata(db, upload);
-    }
-    await fileOperations
-      .rename(tombstonePath, storagePath)
-      .catch(() => undefined);
-    throw error;
+    completeUploadOwnerDeletion(db, id, claimId);
   } finally {
     connection.close();
   }

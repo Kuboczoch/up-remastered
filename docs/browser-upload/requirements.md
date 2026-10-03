@@ -16,9 +16,11 @@ Production browser tests verify the palette with light and dark OS preferences o
 
 - Choose one file with the native picker.
 - Drop exactly one file. A page-wide, fixed-size overlay makes a valid active drop explicit without layout shift; nested drag events cannot flicker it, and leaving the window resets it. Folder entries, oversized files, and ambiguous multi-file drops are rejected before any request.
-- Paste one clipboard file or plain text anywhere on the page. Text defaults to UTF-8; selecting UTF-16 little-endian or UTF-16 big-endian in the collapsed, right-aligned Advanced options disclosure changes the bytes and `text/plain` MIME charset used for pasted text. Normal uploads require no advanced interaction.
+- Paste one clipboard file or plain text outside editable fields and Advanced options. Text defaults to UTF-8; selecting UTF-16 little-endian or UTF-16 big-endian in Advanced options changes the bytes and `text/plain` MIME charset used for pasted text. Normal uploads require no advanced interaction.
 - Enter text explicitly on narrow/mobile layouts when clipboard events are unavailable. The same encoding selection applies, and the generated text file has no byte-order mark.
-- Advanced options uses a native keyboard-accessible disclosure and contains text encoding plus the ShareX and shell integration downloads. Its content consumes no layout space while collapsed and remains within the viewport on narrow layouts.
+- Advanced options opens an attached side wing on wide desktops, an attached lower wing at intermediate widths, and a modal bottom sheet on mobile. It never moves/resizes the front card. The sheet uses a scrim, background inertness, contained keyboard focus, Escape/Done dismissal and trigger-focus restoration. ShareX and shell downloads live in the subdued footer.
+- Controls are Save history (default off), expiration (1/3/6/12/24 hours; default 24), download limit (1–10 plus Unlimited; default Unlimited), Key protect (default off) and text encoding in Text mode. The next upload receives these settings; the server validates and enforces expiration/download limits independently.
+- Key protect creates a local ZIP then AES-256-GCM encrypts it before uploading. The full fragment-key URL is copied/opened/encoded in QR; only opaque ciphertext with a generic filename/MIME reaches the server. Failure never falls back to plaintext. The in-memory implementation supports up to 32 MiB plaintext and envelope overhead also counts against server size limits. See [encrypted download](../pages/download/encryption.md).
 - The server-rendered maximum upload size is refreshed from `GET /api/configuration`; oversized files are rejected before upload.
 
 ## States
@@ -28,6 +30,10 @@ The client exposes idle, uploading, error, and success states. Upload progress i
 Short, feedback-driven motion reinforces drag activation, progress changes, error and success entry, Advanced options expansion, and successful URL copying. These transitions do not loop or delay interaction. `prefers-reduced-motion: reduce` reduces every animation and transition to effectively instant feedback.
 
 The one-time access token returned by the upload endpoint is never rendered or logged. Successful uploads, including their deletion tokens, are kept in versioned `localStorage` so bounded history survives browser restarts and synchronizes across open tabs. Existing `sessionStorage` history is migrated once without duplicate records. History is validated and pruned to 50 unexpired entries on startup, writes, storage events, and every minute while the page remains open. Storage failures never block uploads. This is convenience storage, not an XSS boundary: users can clear local browser storage, and script executing on this origin can read the history and tokens, so the application must maintain its Content Security Policy and avoid unsafe script injection. Deleting a history entry sends its token to `DELETE /api/u/{id}`; a successful deletion, or a `404` for an already-missing file, removes the local entry.
+
+## History consent and privacy
+
+Save history is off by default. Explicit opt-in persists browser-only records and synchronizes consent across tabs; disabling hides retained records and stops new writes. Clear history removes browser records only, not server files. Every stored/restored share URL has its fragment stripped, including legacy records; encryption keys never persist here. Protected rows explain that the full link must be retained and keys cannot be recovered. Compact rows expose Copy link directly for unprotected files; download/remove/server-delete appear in a native expandable action menu. Countdown expiry has the exact local date/time in its hover tooltip. Paste into editable fields remains normal editing, not immediate upload.
 
 ## Verification
 

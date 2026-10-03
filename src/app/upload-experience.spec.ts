@@ -1,6 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  // Existing history regressions explicitly opt in; new layered tests cover default-off.
+  await page.addInitScript(() =>
+    localStorage.setItem("up-remastered:history-consent", "true"),
+  );
+});
+
 type LayoutProbe = Window & {
   __layoutGeometry?: Array<{
     headingY: number;
@@ -135,7 +142,7 @@ for (const layoutCase of layoutCases) {
         }
         await route.fulfill({
           contentType: "application/json",
-          body: JSON.stringify({ maxTemporaryFileSize: 64 }),
+          body: JSON.stringify({ maxTemporaryFileSize: 512 }),
         });
       });
     }
@@ -223,7 +230,7 @@ test("uploads a picked file and exposes result actions", async ({
   await expect(
     page
       .locator(".result-card p")
-      .filter({ hasText: /Expires in (?:60 minutes|1 hour)/ }),
+      .filter({ hasText: /Expires in (?:24 hours|1 day)/ }),
   ).toBeVisible();
   await expect(page.locator(".result-card time")).toHaveAttribute(
     "datetime",
@@ -279,11 +286,12 @@ test("uploads a picked file and exposes result actions", async ({
 
 test("uploads pasted text and clipboard files", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Text" }).click();
+  await page.getByRole("tab", { name: "Text" }).click();
   await expect(page.getByLabel("Or upload text")).toBeVisible();
-  await expect(page.getByText("64 B max")).toBeVisible();
-  await page.getByText("Advanced options").click();
+  await expect(page.getByText("512 B max")).toBeVisible();
+  await page.getByRole("button", { name: /Advanced options/ }).click();
   await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
+  await page.getByRole("button", { name: "Close advanced options" }).click();
 
   await page.evaluate(() => {
     const data = new DataTransfer();
@@ -333,10 +341,11 @@ test("uses the selected encoding for pasted text bytes and MIME charset", async 
     });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Text" }).click();
+  await page.getByRole("tab", { name: "Text" }).click();
   await expect(page.getByLabel("Or upload text")).toBeVisible();
-  await page.getByText("Advanced options").click();
+  await page.getByRole("button", { name: /Advanced options/ }).click();
   await page.getByLabel("Text encoding").selectOption("utf-16le");
+  await page.getByRole("button", { name: "Close advanced options" }).click();
 
   await page.evaluate(() => {
     const data = new DataTransfer();
@@ -363,31 +372,25 @@ test("keeps advanced settings collapsed, accessible, and narrow-layout safe", as
 }) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto("/");
-
-  const details = page.locator("details.advanced-options");
-  const summary = page.getByText("Advanced options");
-  await expect(details).not.toHaveAttribute("open", "");
-  await expect(page.getByLabel("Text encoding")).toBeHidden();
-  await expect(page.getByRole("link", { name: "ShareX config" })).toBeHidden();
-
-  await summary.focus();
-  await expect(summary).toBeFocused();
+  const trigger = page.getByRole("button", { name: /Advanced options/ });
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("#advanced-options")).toBeHidden();
+  await expect(page.getByRole("link", { name: "ShareX config" })).toBeVisible();
+  await trigger.focus();
   await page.keyboard.press("Enter");
-
-  await expect(details).toHaveAttribute("open", "");
-  await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
-  await expect(
-    page.getByRole("navigation", { name: "Upload integrations" }),
-  ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Shell helper" })).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Advanced options" });
+  await expect(dialog).toBeVisible();
+  await expect(page.getByLabel("Expires after")).toHaveValue("24");
   expect(
-    await details.evaluate(
+    await dialog.evaluate(
       (element) => element.getBoundingClientRect().right <= window.innerWidth,
     ),
   ).toBe(true);
-
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
 });
 
 test("rejects ambiguous drops and oversized files before upload", async ({
@@ -419,11 +422,11 @@ test("rejects ambiguous drops and oversized files before upload", async ({
 
   await page.getByRole("button", { name: "Try again" }).click();
   await page.locator("#file-picker").setInputFiles({
-    buffer: Buffer.alloc(65, "x"),
+    buffer: Buffer.alloc(513, "x"),
     mimeType: "text/plain",
     name: "too-large.txt",
   });
-  await expect(page.getByText(/Maximum size is 64 B/)).toBeVisible();
+  await expect(page.getByText(/Maximum size is 512 B/)).toBeVisible();
 });
 
 test("shows a stable drag target and resets it on leave, exit, and drop", async ({
@@ -494,7 +497,7 @@ test("uses short feedback motion and honors reduced-motion preferences", async (
     "drop-feedback-in",
   );
 
-  await page.getByText("Advanced options").click();
+  await page.getByRole("button", { name: /Advanced options/ }).click();
   await expect(page.locator(".advanced-options-content")).toHaveCSS(
     "animation-name",
     "disclosure-feedback-in",
@@ -517,7 +520,7 @@ test("uses short feedback motion and honors reduced-motion preferences", async (
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.getByRole("button", { name: "Upload another file" }).click();
-  await page.getByText("Advanced options").click();
+  await page.getByRole("button", { name: /Advanced options/ }).click();
   const reducedDuration = await page
     .locator(".advanced-options-content")
     .evaluate((element) =>
@@ -551,7 +554,7 @@ test("shows upload percentage in the title and supports mobile text upload", asy
     });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Text" }).click();
+  await page.getByRole("tab", { name: "Text" }).click();
 
   await expect(page.getByLabel("Or upload text")).toBeVisible();
   await page.getByLabel("Or upload text").fill("mobile text");
@@ -617,7 +620,10 @@ test("persists history across page restarts and keeps local removal separate", a
   await expect(
     page.getByRole("heading", { name: "history.txt" }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: shareUrl })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Copy link", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("More actions for history.txt").click();
   await expect(
     page.locator(".history-card").getByRole("link", { name: "Download" }),
   ).toHaveAttribute("href", `${shareUrl}?download=1`);
@@ -641,6 +647,7 @@ test("persists history across page restarts and keeps local removal separate", a
   }, stored);
   await page.reload();
 
+  await page.getByLabel("More actions for history.txt").click();
   const [deleted] = await Promise.all([
     page.waitForResponse(
       (response) =>
@@ -668,6 +675,7 @@ test("persists history across page restarts and keeps local removal separate", a
     }
   }, stored);
   await page.reload();
+  await page.getByLabel("More actions for history.txt").click();
   const [missing] = await Promise.all([
     page.waitForResponse(
       (response) =>
@@ -689,12 +697,12 @@ test("synchronizes upload history across open tabs", async ({
   await page.goto("/");
   const otherPage = await context.newPage();
   await otherPage.goto("/");
-  const textMode = otherPage.getByRole("button", {
+  const textMode = otherPage.getByRole("tab", {
     name: "Text",
     exact: true,
   });
   await textMode.click();
-  await expect(textMode).toHaveAttribute("aria-pressed", "true");
+  await expect(textMode).toHaveAttribute("aria-selected", "true");
 
   await page.evaluate(() => {
     localStorage.setItem(

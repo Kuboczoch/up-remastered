@@ -133,7 +133,7 @@ test("POST /api/upload rejects files above the e2e upload limit", async ({
   const response = await request.post("/api/upload", {
     multipart: {
       file: {
-        buffer: Buffer.alloc(65, "x"),
+        buffer: Buffer.alloc(513, "x"),
         mimeType: "text/plain",
         name: "too-large.txt",
       },
