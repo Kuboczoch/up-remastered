@@ -1,3 +1,11 @@
+import { encryptFile } from "./encryption";
+
+export type UploadOptions = {
+  expirationHours?: number;
+  maxDownloads?: number;
+  protection?: boolean;
+};
+
 export type UploadResult = {
   accessToken: string;
   expiresAt: string;
@@ -69,10 +77,14 @@ export function parseUploadResponse(body: unknown): UploadResult {
 export function uploadFile(
   file: File,
   onProgress: UploadProgress,
-  options: { expirationHours?: number; maxDownloads?: number } = {},
+  options: UploadOptions = {},
 ): { abort: () => void; promise: Promise<UploadResult> } {
   const request = new XMLHttpRequest();
+  const controller = new AbortController();
+  let rejectOperation: (error: unknown) => void = () => {};
+  let encryptionKey: string | undefined;
   const promise = new Promise<UploadResult>((resolve, reject) => {
+    rejectOperation = reject;
     request.open("POST", "/api/upload");
     request.responseType = "json";
     request.upload.addEventListener("progress", (event) => {
@@ -102,22 +114,53 @@ export function uploadFile(
       }
 
       try {
-        resolve(parseUploadResponse(request.response));
+        const result = parseUploadResponse(request.response);
+        if (encryptionKey) {
+          const url = new URL(
+            result.shareUrl,
+            globalThis.location?.origin ?? "http://localhost",
+          );
+          url.hash = `key=${encryptionKey}`;
+          result.shareUrl = url.toString();
+          result.originalName = file.name;
+          result.size = file.size;
+        }
+        resolve(result);
       } catch (error) {
         reject(error);
       }
     });
 
-    const form = new FormData();
-    form.set("file", file);
-    if (options.expirationHours !== undefined) {
-      form.set("expiresInHours", String(options.expirationHours));
+    const send = (upload: File) => {
+      if (controller.signal.aborted) return;
+      const form = new FormData();
+      if (options.expirationHours !== undefined)
+        form.set("expiresInHours", String(options.expirationHours));
+      if (options.maxDownloads !== undefined)
+        form.set("maxDownloads", String(options.maxDownloads));
+      if (options.protection) form.set("encrypted", "true");
+      form.set("file", upload);
+      if (options.protection) onProgress(0);
+      request.send(form);
+    };
+    if (options.protection) {
+      void encryptFile(file, controller.signal)
+        .then((encrypted) => {
+          encryptionKey = encrypted.key;
+          send(encrypted.file);
+        })
+        .catch(reject);
+    } else {
+      send(file);
     }
-    if (options.maxDownloads !== undefined) {
-      form.set("maxDownloads", String(options.maxDownloads));
-    }
-    request.send(form);
   });
 
-  return { abort: () => request.abort(), promise };
+  return {
+    abort: () => {
+      controller.abort();
+      rejectOperation(new DOMException("Upload cancelled.", "AbortError"));
+      request.abort();
+    },
+    promise,
+  };
 }

@@ -104,6 +104,9 @@ export function UploadExperience({
   const [downloadLimit, setDownloadLimit] = useState(11);
   const [expirationHours, setExpirationHours] = useState(24);
   const [saveHistory, setSaveHistory] = useState(false);
+  const [protection, setProtection] = useState(false);
+  const [expirationHours, setExpirationHours] = useState(24);
+  const [downloadLimit, setDownloadLimit] = useState(11);
   const historyConsentRef = useRef(false);
   const optionsRef = useRef<HTMLElement>(null);
   const optionsTriggerRef = useRef<HTMLButtonElement>(null);
@@ -230,7 +233,7 @@ export function UploadExperience({
   useEffect(() => {
     document.title =
       phase === "uploading"
-        ? `${progress}% · ${siteName}`
+        ? `${progress < 0 ? "Encrypting" : `${progress}%`} · ${siteName}`
         : originalTitle.current;
   }, [phase, progress]);
 
@@ -303,12 +306,13 @@ export function UploadExperience({
       setQrOpen(false);
       setQrSvg("");
       setQrError("");
-      setProgress(0);
+      setProgress(protection ? -1 : 0);
       setResult(null);
       setPhase("uploading");
 
       setOptionsOpen(false);
       const operation = uploadFile(file, setProgress, {
+        protection,
         expirationHours,
         maxDownloads: downloadLimit === 11 ? undefined : downloadLimit,
       });
@@ -358,7 +362,7 @@ export function UploadExperience({
         }
       }
     },
-    [maxBytes, phase, expirationHours, downloadLimit],
+    [maxBytes, phase, protection, expirationHours, downloadLimit],
   );
 
   useEffect(() => {
@@ -915,17 +919,26 @@ export function UploadExperience({
             aria-busy="true"
           >
             <div className="scene" aria-hidden="true" />
-            <p className="state-label">Uploading</p>
-            <h2>{progress}%</h2>
+            <p className="state-label">
+              {progress < 0 ? "Encrypting in your browser" : "Uploading"}
+            </p>
+            <h2>
+              {progress < 0 ? "Preparing protected file…" : `${progress}%`}
+            </h2>
             <div
               className="progress-track"
               role="progressbar"
               aria-label="Upload progress"
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={progress}
+              aria-valuenow={progress < 0 ? undefined : progress}
+              aria-valuetext={
+                progress < 0
+                  ? "Encrypting; network upload has not started"
+                  : undefined
+              }
             >
-              <span style={{ width: `${progress}%` }} />
+              <span style={{ width: `${Math.max(0, progress)}%` }} />
             </div>
             <button className="outline-button" onClick={reset} type="button">
               Cancel
@@ -1168,16 +1181,20 @@ export function UploadExperience({
               <span>∞</span>
             </div>
           </div>
-          <div className="option-setting switch-setting" aria-disabled="true">
+          <div className="option-setting switch-setting" style={{ opacity: 1 }}>
             <div>
               <label htmlFor="key-protect">Key protect</label>
+              <small>
+                AES-256-GCM in your browser, up to 32 MiB. Keep the complete
+                link: history cannot recover keys.
+              </small>
             </div>
             <input
               id="key-protect"
               type="checkbox"
               role="switch"
-              checked={false}
-              disabled
+              checked={protection}
+              onChange={(event) => setProtection(event.target.checked)}
             />
           </div>
           {mode === "text" && (
@@ -1250,8 +1267,21 @@ export function UploadExperience({
                         </p>
                       </div>
                       <div className="history-actions">
+                        {new URL(entry.shareUrl).pathname.startsWith(
+                          "/decrypt/",
+                        ) && <span>Key not saved</span>}
                         <button
                           className="history-copy-link"
+                          disabled={new URL(entry.shareUrl).pathname.startsWith(
+                            "/decrypt/",
+                          )}
+                          title={
+                            new URL(entry.shareUrl).pathname.startsWith(
+                              "/decrypt/",
+                            )
+                              ? "Keep the complete link: history cannot recover the key"
+                              : undefined
+                          }
                           type="button"
                           onClick={() => {
                             void navigator.clipboard.writeText(entry.shareUrl);
@@ -1273,9 +1303,13 @@ export function UploadExperience({
                             className="history-menu"
                             popover="auto"
                           >
-                            <a href={forcedDownloadUrl(entry.shareUrl)}>
-                              Download
-                            </a>
+                            {!new URL(entry.shareUrl).pathname.startsWith(
+                              "/decrypt/",
+                            ) && (
+                              <a href={forcedDownloadUrl(entry.shareUrl)}>
+                                Download
+                              </a>
+                            )}
                             <button
                               aria-label={`Remove ${entry.originalName} from history`}
                               onClick={() => removeHistoryEntry(entry)}

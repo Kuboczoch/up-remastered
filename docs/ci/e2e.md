@@ -19,9 +19,9 @@ The Playwright web server defaults upload-related env vars to small local values
 
 - `DATABASE_URL=file://<repo>/.playwright-data/app.db`
 - `UPLOAD_DIR=<repo>/.playwright-data/uploads`
-- `MAX_UPLOAD_SIZE=64`
+- `MAX_UPLOAD_SIZE=4096`
 - `MAX_STORED_BYTES=1048576`
 - `DEFAULT_EXPIRATION_HOURS=1`
 - `MAX_EXPIRATION_HOURS=24`
 
-These defaults keep upload endpoint E2E checks fast while production config can keep the 1 GiB per-upload limit.
+The 4096-byte cap includes authenticated-envelope overhead. Oversize endpoint and browser regressions submit 4097 bytes and still require rejection. These defaults keep upload endpoint E2E checks fast while production config can keep the 1 GiB per-upload limit.

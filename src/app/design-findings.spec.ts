@@ -78,7 +78,7 @@ for (const width of [320, 1440]) {
     await expect(trigger).toBeFocused();
   });
 
-  test(`deferred controls are disabled and uploads retain the existing contract at ${width}px`, async ({
+  test(`implemented controls are enabled and legacy uploads remain unprotected at ${width}px`, async ({
     page,
   }, testInfo) => {
     await page.setViewportSize({ width, height: 960 });
@@ -88,7 +88,7 @@ for (const width of [320, 1440]) {
     await expect(page.getByRole("slider")).toBeEnabled();
     await expect(
       page.getByRole("switch", { name: "Key protect" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await expect(
       page.getByRole("switch", { name: "Key protect" }),
     ).not.toBeChecked();
@@ -140,7 +140,7 @@ for (const width of [320, 1440]) {
       };
     });
     expect(submitted).toEqual({
-      fields: ["file", "expiresInHours"],
+      fields: ["expiresInHours", "file"],
       name: "ui-plain.txt",
       bytes: "Plaintext UI fixture",
     });

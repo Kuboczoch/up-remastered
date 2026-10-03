@@ -63,7 +63,7 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
   await expect(
     page.getByRole("heading", { name: "Request a file" }),
   ).toBeVisible();
-  await expect(page.getByText("Server maximum: 64 B.")).toBeVisible();
+  await expect(page.getByText("Server maximum: 4 KiB.")).toBeVisible();
   await page.getByLabel("Maximum upload size").selectOption("custom");
   await page.getByLabel("Size amount").fill("16");
   const [createResponse] = await Promise.all([

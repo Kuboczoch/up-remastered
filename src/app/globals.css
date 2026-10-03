@@ -1441,3 +1441,43 @@ html {
     margin-top: 89px;
   }
 }
+
+.decrypt-experience {
+  max-width: 640px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.decrypt-experience h1 {
+  margin: 12px 0;
+  font-size: clamp(24px, 5vw, 36px);
+}
+.decrypt-experience p {
+  line-height: 1.6;
+  color: var(--muted);
+}
+.decrypt-experience label {
+  display: block;
+  margin: 24px 0 8px;
+}
+.decrypt-experience input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--canvas);
+  color: var(--ink);
+}
+.decrypt-experience [role="alert"] {
+  color: var(--danger);
+}
+.decrypt-experience button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.decrypt-experience [role="status"] {
+  margin-top: 16px;
+}
