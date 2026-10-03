@@ -106,7 +106,9 @@ export function UploadExperience({
   const [configurationWarning, setConfigurationWarning] = useState("");
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"file" | "text">("file");
-  const textEncoding: TextEncoding = DEFAULT_TEXT_ENCODING;
+  const [textEncoding, setTextEncoding] = useState<TextEncoding>(
+    DEFAULT_TEXT_ENCODING,
+  );
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -1043,9 +1045,15 @@ export function UploadExperience({
             />
           </div>
           {mode === "text" && (
-            <div className="option-setting" aria-disabled="true">
+            <div className="option-setting">
               <label htmlFor="text-encoding">Text encoding</label>
-              <select id="text-encoding" disabled value={textEncoding}>
+              <select
+                id="text-encoding"
+                value={textEncoding}
+                onChange={(event) =>
+                  setTextEncoding(event.target.value as TextEncoding)
+                }
+              >
                 {TEXT_ENCODINGS.map((encoding) => (
                   <option key={encoding.value} value={encoding.value}>
                     {encoding.label}

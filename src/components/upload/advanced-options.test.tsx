@@ -24,7 +24,9 @@ it("disables every Advanced setting without restoring or migrating history", () 
     HTMLInputElement | HTMLSelectElement
   >("#advanced-options input, #advanced-options select");
   expect(controls).toHaveLength(5);
-  controls.forEach((control) => expect(control.disabled).toBe(true));
+  controls.forEach((control) =>
+    expect(control.disabled).toBe(control.id !== "text-encoding"),
+  );
   const history = getByRole("switch", {
     name: "Save history",
   }) as HTMLInputElement;
