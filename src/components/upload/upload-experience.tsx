@@ -92,7 +92,11 @@ export function UploadExperience({
 }: {
   initialMaxBytes: number;
 }) {
-  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [optionsState, setOptionsState] = useState<
+    "closed" | "open" | "closing"
+  >("closed");
+  const optionsOpen = optionsState === "open";
+  const optionsPresent = optionsState !== "closed";
   const [mobile, setMobile] = useState(false);
   // Advanced settings are placeholders; never read consent or mutate history.
   const saveHistory = false;
@@ -298,7 +302,12 @@ export function UploadExperience({
       setResult(null);
       setPhase("uploading");
 
-      setOptionsOpen(false);
+      setOptionsState((current) =>
+        current === "closed" ||
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+          ? "closed"
+          : "closing",
+      );
       const operation = uploadFile(file, setProgress);
       abortRef.current = operation.abort;
       try {
@@ -517,13 +526,19 @@ export function UploadExperience({
     setHistoryStatus(`${entry.originalName} was removed from this browser.`);
   }
 
-  function closeOptions() {
-    setOptionsOpen(false);
-    setTimeout(
-      () => optionsTriggerRef.current?.focus({ preventScroll: true }),
-      0,
+  const closeOptions = useCallback(() => {
+    setOptionsState(
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+        ? "closed"
+        : "closing",
     );
-  }
+  }, []);
+
+  useEffect(() => {
+    if (optionsState !== "closing") return;
+    const timer = window.setTimeout(() => setOptionsState("closed"), 180);
+    return () => window.clearTimeout(timer);
+  }, [optionsState]);
 
   useEffect(() => {
     if (!window.matchMedia) return;
@@ -545,6 +560,7 @@ export function UploadExperience({
         ".workspace-heading, .upload-card, .upload-back, .history-region, .site-footer",
       ),
     ];
+    const previousInert = background.map((element) => element.inert);
     const previousOverflow = document.body.style.overflow;
     if (mobile) {
       background.forEach((element) => {
@@ -555,17 +571,18 @@ export function UploadExperience({
     const keyboard = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        setOptionsOpen(false);
-        setTimeout(
-          () => optionsTriggerRef.current?.focus({ preventScroll: true }),
-          0,
-        );
+        closeOptions();
       }
       if (mobile && event.key === "Tab") {
         const controls = [
           ...(panel?.querySelectorAll<HTMLElement>("button, input, select") ??
             []),
-        ].filter((element) => element.getClientRects().length);
+        ].filter(
+          (element) =>
+            element.getClientRects().length &&
+            !element.matches(":disabled") &&
+            !element.closest("[inert]"),
+        );
         const first = controls[0];
         const last = controls.at(-1);
         if (event.shiftKey && document.activeElement === first) {
@@ -579,13 +596,16 @@ export function UploadExperience({
     };
     document.addEventListener("keydown", keyboard);
     return () => {
-      background.forEach((element) => {
-        element.inert = false;
+      background.forEach((element, index) => {
+        element.inert = previousInert[index];
       });
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", keyboard);
+      if (optionsTriggerRef.current?.isConnected) {
+        optionsTriggerRef.current.focus({ preventScroll: true });
+      }
     };
-  }, [optionsOpen, mobile]);
+  }, [optionsOpen, mobile, closeOptions]);
 
   return (
     <div
@@ -693,7 +713,7 @@ export function UploadExperience({
               aria-expanded={optionsOpen}
               aria-controls="advanced-options"
               onClick={() =>
-                optionsOpen ? closeOptions() : setOptionsOpen(true)
+                optionsOpen ? closeOptions() : setOptionsState("open")
               }
             >
               Advanced options{" "}
@@ -957,9 +977,12 @@ export function UploadExperience({
             )}
           </section>
         )}
-        {optionsOpen && mobile && (
+        {optionsPresent && mobile && (
           <button
             className="options-scrim"
+            data-state={optionsState}
+            inert={!optionsOpen}
+            aria-hidden={!optionsOpen}
             aria-label="Dismiss advanced options"
             tabIndex={-1}
             onClick={closeOptions}
@@ -969,7 +992,10 @@ export function UploadExperience({
         <section
           id="advanced-options"
           ref={optionsRef}
-          hidden={!optionsOpen}
+          hidden={!optionsPresent}
+          inert={!optionsOpen}
+          aria-hidden={!optionsOpen}
+          data-state={optionsState}
           className="advanced-options-content options-panel"
           role={mobile ? "dialog" : "region"}
           aria-modal={mobile && optionsOpen ? true : undefined}
@@ -1040,7 +1066,12 @@ export function UploadExperience({
               disabled
             />
           </div>
-          {mode === "text" && (
+          <div
+            className="option-encoding"
+            data-visible={mode === "text"}
+            aria-hidden={mode !== "text"}
+            inert={mode !== "text"}
+          >
             <div className="option-setting" aria-disabled="true">
               <label htmlFor="text-encoding">Text encoding</label>
               <select id="text-encoding" disabled value={textEncoding}>
@@ -1051,7 +1082,7 @@ export function UploadExperience({
                 ))}
               </select>
             </div>
-          )}
+          </div>
           <button
             className="primary-action options-done"
             onClick={closeOptions}
