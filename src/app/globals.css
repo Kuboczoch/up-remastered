@@ -1080,67 +1080,6 @@ html {
   box-shadow: 12px 20px 40px #12121940;
   animation: disclosure-feedback-in 180ms ease-out;
 }
-.option-encoding[data-visible="false"] {
-  /* Reserve the Text-only row without exposing a File-mode setting. */
-  visibility: hidden;
-}
-.options-panel[data-state="closing"] {
-  pointer-events: none;
-  animation: options-wing-out 180ms ease-in both;
-}
-@keyframes options-wing-out {
-  from {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateX(-12px);
-  }
-}
-@keyframes options-sheet-in {
-  from {
-    opacity: 0;
-    transform: translateY(100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes options-sheet-out {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(100%);
-  }
-}
-@keyframes options-scrim-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@keyframes options-scrim-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .options-panel,
-  .options-panel[data-state="closing"],
-  .options-scrim {
-    animation: none !important;
-  }
-}
 .options-panel[hidden] {
   display: none;
 }
@@ -1423,16 +1362,6 @@ html {
     border-radius: 22px 22px 0 0;
     z-index: 30;
   }
-  .options-panel {
-    animation: options-sheet-in 180ms ease-out both;
-  }
-  .options-panel[data-state="closing"] {
-    animation: options-sheet-out 180ms ease-in both;
-  }
-  .options-scrim[data-state="closing"] {
-    pointer-events: none;
-    animation: options-scrim-out 180ms ease-in both;
-  }
   .options-heading h2 {
     font-size: 17px;
   }
@@ -1463,7 +1392,6 @@ html {
     z-index: 20;
     border: 0;
     background: #10111677;
-    animation: options-scrim-in 180ms ease-out both;
   }
   .history-card {
     margin-top: 89px;
