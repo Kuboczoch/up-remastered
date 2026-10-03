@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   useCallback,
   useEffect,
@@ -22,7 +24,6 @@ import {
   type TextEncoding,
 } from "@/components/upload/text-encoding";
 import {
-  readUploadHistory,
   removeUploadHistoryEntry,
   restoreUploadHistory,
   saveUploadHistoryEntry,
@@ -82,6 +83,16 @@ function fileType(name: string): string {
     : "FILE";
 }
 
+function historyConsent(): boolean {
+  try {
+    return (
+      window.localStorage.getItem("up-remastered:history-consent") === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
 function forcedDownloadUrl(shareUrl: string): string {
   const url = new URL(shareUrl);
   url.searchParams.set("download", "1");
@@ -93,6 +104,15 @@ export function UploadExperience({
 }: {
   initialMaxBytes: number;
 }) {
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [mobile, setMobile] = useState(false);
+  const [saveHistory, setSaveHistory] = useState(false);
+  const [expiryHours, setExpiryHours] = useState(24);
+  const [downloadLimit, setDownloadLimit] = useState(11);
+  const [keyProtect, setKeyProtect] = useState(false);
+  const optionsRef = useRef<HTMLElement>(null);
+  const optionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const historyConsentRef = useRef(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
@@ -215,20 +235,51 @@ export function UploadExperience({
   }, [phase]);
 
   useLayoutEffect(() => {
+    const consent = historyConsent();
     // Restore before paint so browser-only history cannot move visible content.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHistory(
-      restoreUploadHistory(window.localStorage, window.sessionStorage),
+      restoreUploadHistory(
+        window.localStorage,
+        window.sessionStorage,
+        Date.now(),
+        consent,
+      ),
     );
+    historyConsentRef.current = consent;
+    setSaveHistory(consent);
     const synchronizeHistory = (event: StorageEvent) => {
-      if (event.key === null || event.key === UPLOAD_HISTORY_STORAGE_KEY) {
-        setHistory(readUploadHistory(window.localStorage));
+      if (event.key === "up-remastered:history-consent" || event.key === null) {
+        const enabled = historyConsent();
+        historyConsentRef.current = enabled;
+        setSaveHistory(enabled);
+      }
+      if (
+        event.key === null ||
+        event.key === UPLOAD_HISTORY_STORAGE_KEY ||
+        event.key === "up-remastered:history-consent"
+      ) {
+        setHistory(
+          restoreUploadHistory(
+            window.localStorage,
+            window.sessionStorage,
+            Date.now(),
+            historyConsentRef.current,
+          ),
+        );
       }
     };
 
     const pruneTimer = window.setInterval(() => {
       setNow(Date.now());
-      setHistory(readUploadHistory(window.localStorage));
+      setHistory(
+        restoreUploadHistory(
+          window.localStorage,
+          window.sessionStorage,
+          Date.now(),
+          historyConsentRef.current,
+        ),
+      );
     }, 60_000);
     window.addEventListener("storage", synchronizeHistory);
     return () => {
@@ -317,7 +368,12 @@ export function UploadExperience({
       setResult(null);
       setPhase("uploading");
 
-      const operation = uploadFile(file, setProgress);
+      setOptionsOpen(false);
+      const operation = uploadFile(file, setProgress, {
+        expiresInSeconds: expiryHours * 3600,
+        maxDownloads: downloadLimit === 11 ? undefined : downloadLimit,
+        encrypt: keyProtect,
+      });
       abortRef.current = operation.abort;
       try {
         const upload = await operation.promise;
@@ -326,7 +382,9 @@ export function UploadExperience({
         }
         setProgress(100);
         setResult(upload);
-        setHistory(saveUploadHistoryEntry(window.localStorage, upload));
+        if (historyConsentRef.current) {
+          setHistory(saveUploadHistoryEntry(window.localStorage, upload));
+        }
         setNow(Date.now());
         setPhase("success");
       } catch (uploadError) {
@@ -351,7 +409,7 @@ export function UploadExperience({
         }
       }
     },
-    [maxBytes, phase],
+    [maxBytes, phase, expiryHours, downloadLimit, keyProtect],
   );
 
   useEffect(() => {
@@ -359,6 +417,13 @@ export function UploadExperience({
       if (phase !== "idle" && phase !== "error") {
         return;
       }
+      if (
+        event.target instanceof HTMLTextAreaElement ||
+        (event.target instanceof HTMLInputElement &&
+          event.target.type !== "file") ||
+        optionsOpen
+      )
+        return;
       const files = Array.from(event.clipboardData?.files ?? []);
       if (files.length > 1) {
         setError("Paste one file at a time.");
@@ -382,7 +447,7 @@ export function UploadExperience({
 
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
-  }, [beginUpload, phase, textEncoding]);
+  }, [beginUpload, phase, textEncoding, optionsOpen]);
 
   function reset() {
     requestSequence.current += 1;
@@ -434,6 +499,13 @@ export function UploadExperience({
   }
 
   function pasteIntoPanel(event: ReactClipboardEvent<HTMLElement>) {
+    if (
+      event.target instanceof HTMLTextAreaElement ||
+      event.target instanceof HTMLInputElement ||
+      optionsOpen
+    )
+      return;
+    event.stopPropagation();
     if (phase !== "idle" && phase !== "error") {
       return;
     }
@@ -522,6 +594,97 @@ export function UploadExperience({
     setHistoryStatus(`${entry.originalName} was removed from this browser.`);
   }
 
+  function closeOptions() {
+    setOptionsOpen(false);
+    setTimeout(
+      () => optionsTriggerRef.current?.focus({ preventScroll: true }),
+      0,
+    );
+  }
+
+  function toggleHistory(enabled: boolean) {
+    historyConsentRef.current = enabled;
+    setSaveHistory(enabled);
+    setHistory(
+      restoreUploadHistory(
+        window.localStorage,
+        window.sessionStorage,
+        Date.now(),
+        enabled,
+      ),
+    );
+    try {
+      window.localStorage.setItem(
+        "up-remastered:history-consent",
+        String(enabled),
+      );
+    } catch {
+      /* Optional browser storage. */
+    }
+  }
+
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const query = window.matchMedia("(max-width: 760px)");
+    const synchronize = () => setMobile(query.matches);
+    synchronize();
+    query.addEventListener("change", synchronize);
+    return () => query.removeEventListener("change", synchronize);
+  }, []);
+
+  useEffect(() => {
+    if (!optionsOpen) return;
+    const panel = optionsRef.current;
+    panel
+      ?.querySelector<HTMLButtonElement>("button")
+      ?.focus({ preventScroll: true });
+    const background = [
+      ...document.querySelectorAll<HTMLElement>(
+        ".workspace-heading, .upload-card, .upload-back, .history-region, .site-footer",
+      ),
+    ];
+    const previousOverflow = document.body.style.overflow;
+    if (mobile) {
+      background.forEach((element) => {
+        element.inert = true;
+      });
+      document.body.style.overflow = "hidden";
+    }
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOptionsOpen(false);
+        setTimeout(
+          () => optionsTriggerRef.current?.focus({ preventScroll: true }),
+          0,
+        );
+      }
+      if (mobile && event.key === "Tab") {
+        const controls = [
+          ...(panel?.querySelectorAll<HTMLElement>("button, input, select") ??
+            []),
+        ].filter((element) => element.getClientRects().length);
+        const first = controls[0];
+        const last = controls.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", keyboard);
+    return () => {
+      background.forEach((element) => {
+        element.inert = false;
+      });
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", keyboard);
+    };
+  }, [optionsOpen, mobile]);
+
   return (
     <div
       className="upload-workspace"
@@ -571,16 +734,45 @@ export function UploadExperience({
           <p>Everything expires automatically.</p>
         </div>
         {(phase === "idle" || phase === "error") && (
-          <div className="mode-switch" role="group" aria-label="Upload type">
+          <div
+            className="mode-switch"
+            role="tablist"
+            aria-label="Upload type"
+            onKeyDown={(event) => {
+              if (
+                !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+              )
+                return;
+              event.preventDefault();
+              const next =
+                event.key === "Home"
+                  ? "file"
+                  : event.key === "End"
+                    ? "text"
+                    : mode === "file"
+                      ? "text"
+                      : "file";
+              setMode(next);
+              document.getElementById(`${next}-mode-tab`)?.focus();
+            }}
+          >
             <button
-              aria-pressed={mode === "file"}
+              role="tab"
+              id="file-mode-tab"
+              aria-controls="file-upload-panel"
+              tabIndex={mode === "file" ? 0 : -1}
+              aria-selected={mode === "file"}
               onClick={() => setMode("file")}
               type="button"
             >
               File
             </button>
             <button
-              aria-pressed={mode === "text"}
+              role="tab"
+              id="text-mode-tab"
+              aria-controls="text-upload-panel"
+              tabIndex={mode === "text" ? 0 : -1}
+              aria-selected={mode === "text"}
               onClick={() => setMode("text")}
               type="button"
             >
@@ -589,342 +781,549 @@ export function UploadExperience({
           </div>
         )}
       </div>
-      {(phase === "idle" || phase === "error") && (
-        <section
-          className={`upload-card drop-zone${dragActive ? " is-dragging" : ""}`}
-          aria-labelledby="upload-heading"
-        >
-          <div className="scene" aria-hidden="true" />
-          {dragActive && (
-            <div className="drop-overlay" role="status" aria-live="polite">
-              <span className="drop-overlay-icon" aria-hidden="true">
-                ↓
-              </span>
-              <strong>Drop file to upload</strong>
-            </div>
-          )}
-          <h2 className="visually-hidden" id="upload-heading">
-            Upload a file
-          </h2>
-          {phase === "error" && (
-            <div className="inline-error" role="alert">
-              <h2 ref={errorHeadingRef} tabIndex={-1}>
-                Something went wrong
-              </h2>
-              <p>{error}</p>
-              <button onClick={reset} type="button">
-                Try again
-              </button>
-            </div>
-          )}
-          <div className="upload-mode-panels">
-            <div
-              aria-hidden={mode !== "file"}
-              className={`file-panel${mode !== "file" ? " is-hidden" : ""}`}
-              inert={mode !== "file"}
+      <div className="upload-stage">
+        <div className="upload-back">
+          <div className="upload-rail">
+            <Link href="/request/new">Request a file ↗</Link>
+            <button
+              type="button"
+              ref={optionsTriggerRef}
+              aria-expanded={optionsOpen}
+              aria-controls="advanced-options"
+              onClick={() =>
+                optionsOpen ? closeOptions() : setOptionsOpen(true)
+              }
             >
-              <input
-                aria-label="Choose file"
-                className="visually-hidden"
-                id="file-picker"
-                onChange={chooseFile}
-                ref={inputRef}
-                type="file"
-              />
-              <label className="primary-action" htmlFor="file-picker">
-                Choose file <span aria-hidden="true">⇧</span>
-              </label>
-              <p className="drop-hint">or drop one file here</p>
-            </div>
-            <div
-              aria-hidden={mode !== "text"}
-              className={`text-upload${mode !== "text" ? " is-hidden" : ""}`}
-              inert={mode !== "text"}
-            >
-              <label htmlFor="text-upload">Or upload text</label>
-              <textarea
-                id="text-upload"
-                onChange={(event) => setText(event.target.value)}
-                placeholder="Paste or type text"
-                rows={6}
-                value={text}
-              />
-              <button
-                className="primary-action"
-                onClick={uploadText}
-                type="button"
-              >
-                Upload text
-              </button>
-            </div>
+              Advanced options{" "}
+              <span aria-hidden="true">{optionsOpen ? "−" : "＋"}</span>
+            </button>
           </div>
-          <div className="upload-meta">
-            <span>
-              {maxBytes === null
-                ? "Checking limit…"
-                : `${formatBytes(maxBytes)} max`}
-            </span>
-            <span>Expires in 24 hours</span>
-          </div>
-          {configurationWarning && (
-            <p className="warning-note">{configurationWarning}</p>
-          )}
-        </section>
-      )}
-      {phase === "uploading" && (
-        <section
-          className="upload-card state-card"
-          aria-live="polite"
-          aria-busy="true"
-        >
-          <div className="scene" aria-hidden="true" />
-          <p className="state-label">Uploading</p>
-          <h2>{progress}%</h2>
-          <div
-            className="progress-track"
-            role="progressbar"
-            aria-label="Upload progress"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={progress}
+        </div>
+        {(phase === "idle" || phase === "error") && (
+          <section
+            className={`upload-card drop-zone${dragActive ? " is-dragging" : ""}`}
+            aria-labelledby="upload-heading"
           >
-            <span style={{ width: `${progress}%` }} />
-          </div>
-          <button className="outline-button" onClick={reset} type="button">
-            Cancel
-          </button>
-        </section>
-      )}
-      {phase === "success" && result && (
-        <section className="upload-card result-card" aria-live="polite">
-          <div className="scene" aria-hidden="true" />
-          <p className="complete-label">
-            ✓ <span>Upload complete</span>
-          </p>
-          <div className="result-file">
-            <span className="file-type">{fileType(result.originalName)}</span>
-            <div>
-              <h2 ref={resultHeadingRef} tabIndex={-1}>
-                {result.originalName}
-              </h2>
-              <p>
-                {formatBytes(result.size)} · Expires{" "}
-                {formatRelativeExpiry(result.expiresAt, now)} ·{" "}
-                <time dateTime={result.expiresAt}>
-                  {formatLocalDateTime(result.expiresAt)}
-                </time>
-              </p>
-            </div>
-          </div>
-          <div className="share-row">
-            <input
-              aria-label="Share URL"
-              className="result-url"
-              onDoubleClick={() => void copyUrl()}
-              readOnly
-              title="Double-click to copy"
-              value={result.shareUrl}
-            />
-            <button
-              aria-live="polite"
-              className={`primary-action copy-action${copied ? " is-confirmed" : ""}`}
-              onClick={() => void copyUrl()}
-              type="button"
-            >
-              {copied ? (
-                <>
-                  Copied <span aria-hidden="true">✓</span>
-                </>
-              ) : (
-                "Copy URL"
-              )}
-            </button>
-          </div>
-          <p className="share-note">Anyone with the link can download.</p>
-          <div
-            aria-label="Uploaded file actions"
-            className="result-actions"
-            role="group"
-          >
-            <a href={result.shareUrl} rel="noreferrer" target="_blank">
-              Open file
-            </a>
-            <a href={forcedDownloadUrl(result.shareUrl)}>Download file</a>
-            <button
-              className="outline-button"
-              onClick={() => {
-                setQrError("");
-                setQrOpen(true);
-              }}
-              type="button"
-            >
-              Show QR code
-            </button>
-            <button
-              className="start-over-button"
-              onClick={startAnotherUpload}
-              type="button"
-            >
-              Upload another file
-            </button>
-          </div>
-          {qrOpen && (
-            <div className="qr-modal-backdrop" role="presentation">
-              <section
-                aria-labelledby="qr-title"
-                aria-modal="true"
-                className="qr-dialog"
-                role="dialog"
+            <div className="scene" aria-hidden="true" />
+            {dragActive && (
+              <div className="drop-overlay" role="status" aria-live="polite">
+                <span className="drop-overlay-icon" aria-hidden="true">
+                  ↓
+                </span>
+                <strong>Drop file to upload</strong>
+              </div>
+            )}
+            <h2 className="visually-hidden" id="upload-heading">
+              Upload a file
+            </h2>
+            {phase === "error" && (
+              <div className="inline-error" role="alert">
+                <h2 ref={errorHeadingRef} tabIndex={-1}>
+                  Something went wrong
+                </h2>
+                <p>{error}</p>
+                <button onClick={reset} type="button">
+                  Try again
+                </button>
+              </div>
+            )}
+            <div className="upload-mode-panels">
+              <div
+                role="tabpanel"
+                id="file-upload-panel"
+                aria-labelledby="file-mode-tab"
+                aria-hidden={mode !== "file"}
+                className={`file-panel${mode !== "file" ? " is-hidden" : ""}`}
+                inert={mode !== "file"}
               >
+                <input
+                  aria-label="Choose file"
+                  className="visually-hidden"
+                  id="file-picker"
+                  onChange={chooseFile}
+                  ref={inputRef}
+                  type="file"
+                />
+                <label className="primary-action" htmlFor="file-picker">
+                  Choose file <span aria-hidden="true">⇧</span>
+                </label>
+                <p className="drop-hint">or drop one file here</p>
+              </div>
+              <div
+                role="tabpanel"
+                id="text-upload-panel"
+                aria-labelledby="text-mode-tab"
+                aria-hidden={mode !== "text"}
+                className={`text-upload${mode !== "text" ? " is-hidden" : ""}`}
+                inert={mode !== "text"}
+              >
+                <label htmlFor="text-upload">Or upload text</label>
+                <textarea
+                  id="text-upload"
+                  onChange={(event) => setText(event.target.value)}
+                  placeholder="Paste or type text"
+                  rows={6}
+                  value={text}
+                />
                 <button
-                  aria-label="Close QR code"
-                  className="qr-close"
-                  onClick={() => setQrOpen(false)}
+                  className="primary-action"
+                  onClick={uploadText}
                   type="button"
                 >
-                  ×
+                  Upload text
                 </button>
-                <h2 id="qr-title">Scan to download</h2>
-                {qrSvg ? (
-                  <>
-                    <div
-                      aria-label="QR code for uploaded file"
-                      className="qr-code"
-                      data-testid="qr-code"
-                      dangerouslySetInnerHTML={{ __html: qrSvg }}
-                      role="img"
-                    />
-                    <a
-                      className="outline-button"
-                      download={`${result.id}-qr.svg`}
-                      href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
-                    >
-                      Download QR code
-                    </a>
-                  </>
-                ) : qrError ? (
-                  <div aria-live="polite" role="status">
-                    <p>{qrError}</p>
-                    <button
-                      className="outline-button"
-                      onClick={() => {
-                        setQrError("");
-                        setQrGenerationAttempt((attempt) => attempt + 1);
-                      }}
-                      type="button"
-                    >
-                      Retry QR code
-                    </button>
-                  </div>
-                ) : (
-                  <p aria-live="polite" role="status">
-                    Generating QR code…
-                  </p>
-                )}
-              </section>
-            </div>
-          )}
-        </section>
-      )}
-      {(phase === "idle" || phase === "error") && (
-        <div className="under-card-row">
-          <details className="advanced-options">
-            <summary>
-              Advanced options <span aria-hidden="true">＋</span>
-            </summary>
-            <div className="advanced-options-content">
-              <div className="text-encoding">
-                <label htmlFor="text-encoding">Text encoding</label>
-                <select
-                  id="text-encoding"
-                  onChange={(event) =>
-                    setTextEncoding(event.target.value as TextEncoding)
-                  }
-                  value={textEncoding}
-                >
-                  {TEXT_ENCODINGS.map((encoding) => (
-                    <option key={encoding.value} value={encoding.value}>
-                      {encoding.label}
-                    </option>
-                  ))}
-                </select>
               </div>
-              <p>Paste a file or text anywhere on this page.</p>
-              <nav aria-label="Upload integrations">
-                <a href="/sharex" download>
-                  ShareX config
-                </a>
-                <a href="/sh" download>
-                  Shell helper
-                </a>
-              </nav>
             </div>
-          </details>
-        </div>
-      )}
-      {history.length > 0 &&
-        (phase === "idle" || phase === "success" || phase === "error") && (
-          <section className="history-card" aria-labelledby="history-heading">
-            <div className="history-header">
-              <h2 id="history-heading" aria-label="Your uploads">
-                Recent uploads
-              </h2>
-              <span>Saved in this browser</span>
+            <div className="upload-meta">
+              <span>
+                {maxBytes === null
+                  ? "Checking limit…"
+                  : `${formatBytes(maxBytes)} max`}
+              </span>
+              <span>Expires in {expiryHours} hours</span>
             </div>
-            <div className="history-content">
-              <ul className="history-list">
-                {history.map((entry) => (
-                  <li key={entry.id}>
-                    <span className="file-type">
-                      {fileType(entry.originalName)}
-                    </span>
-                    <div className="history-file">
-                      {phase === "success" ? (
-                        <p className="history-name">{entry.originalName}</p>
-                      ) : (
-                        <h3>{entry.originalName}</h3>
-                      )}
-                      <p>
-                        {formatBytes(entry.size)} · Expires{" "}
-                        {formatRelativeExpiry(entry.expiresAt, now)} ·{" "}
-                        <time dateTime={entry.expiresAt}>
-                          {formatLocalDateTime(entry.expiresAt)}
-                        </time>
-                      </p>
-                    </div>
-                    <div className="history-actions">
-                      <a
-                        aria-label={entry.shareUrl}
-                        className="history-copy-link"
-                        href={entry.shareUrl}
-                      >
-                        Copy link
-                      </a>
-                      <a href={forcedDownloadUrl(entry.shareUrl)}>Download</a>
-                      <button
-                        aria-label={`Remove ${entry.originalName} from history`}
-                        onClick={() => removeHistoryEntry(entry)}
-                        type="button"
-                      >
-                        Remove
-                      </button>
-                      <button
-                        aria-label={`Delete ${entry.originalName}`}
-                        disabled={deletingHistoryId === entry.id}
-                        onClick={() => void deleteHistoryEntry(entry)}
-                        type="button"
-                      >
-                        {deletingHistoryId === entry.id
-                          ? "Deleting…"
-                          : "Delete file"}
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {configurationWarning && (
+              <p className="warning-note">{configurationWarning}</p>
+            )}
           </section>
         )}
+        {phase === "uploading" && (
+          <section
+            className="upload-card state-card"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="scene" aria-hidden="true" />
+            <p className="state-label">Uploading</p>
+            <h2>{progress}%</h2>
+            <div
+              className="progress-track"
+              role="progressbar"
+              aria-label="Upload progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress}
+            >
+              <span style={{ width: `${progress}%` }} />
+            </div>
+            <button className="outline-button" onClick={reset} type="button">
+              Cancel
+            </button>
+          </section>
+        )}
+        {phase === "success" && result && (
+          <section className="upload-card result-card" aria-live="polite">
+            <div className="scene" aria-hidden="true" />
+            <p className="complete-label">
+              ✓ <span>Upload complete</span>
+            </p>
+            <div className="result-file">
+              <span className="file-type">{fileType(result.originalName)}</span>
+              <div>
+                <h2 ref={resultHeadingRef} tabIndex={-1}>
+                  {result.originalName}
+                </h2>
+                <p>
+                  {formatBytes(result.size)} · Expires{" "}
+                  {formatRelativeExpiry(result.expiresAt, now)} ·{" "}
+                  <time
+                    dateTime={result.expiresAt}
+                    title={formatLocalDateTime(result.expiresAt)}
+                  >
+                    {formatLocalDateTime(result.expiresAt)}
+                  </time>
+                </p>
+              </div>
+            </div>
+            <div className="share-row">
+              <input
+                id="share-url"
+                aria-label="Share URL"
+                className="result-url"
+                onDoubleClick={() => void copyUrl()}
+                readOnly
+                title="Double-click to copy"
+                value={result.shareUrl}
+              />
+              <button
+                aria-live="polite"
+                className={`primary-action copy-action${copied ? " is-confirmed" : ""}`}
+                onClick={() => void copyUrl()}
+                type="button"
+              >
+                {copied ? (
+                  <>
+                    Copied <span aria-hidden="true">✓</span>
+                  </>
+                ) : (
+                  "Copy URL"
+                )}
+              </button>
+            </div>
+            <p className="share-note">
+              {result.shareUrl.includes("#key=")
+                ? "Only the full link unlocks the file. Keep it safe: keys are not saved in browser history and cannot be recovered."
+                : "Anyone with the link can download."}
+            </p>
+            <div
+              aria-label="Uploaded file actions"
+              className="result-actions"
+              role="group"
+            >
+              <a href={result.shareUrl} rel="noreferrer" target="_blank">
+                Open file
+              </a>
+              <a
+                href={
+                  result.shareUrl.includes("#key=")
+                    ? result.shareUrl
+                    : forcedDownloadUrl(result.shareUrl)
+                }
+              >
+                Download file
+              </a>
+              <button
+                className="outline-button"
+                onClick={() => {
+                  setQrError("");
+                  setQrOpen(true);
+                }}
+                type="button"
+              >
+                Show QR code
+              </button>
+              <button
+                className="start-over-button"
+                onClick={startAnotherUpload}
+                type="button"
+              >
+                Upload another file
+              </button>
+            </div>
+            {qrOpen && (
+              <div className="qr-modal-backdrop" role="presentation">
+                <section
+                  aria-labelledby="qr-title"
+                  aria-modal="true"
+                  className="qr-dialog"
+                  role="dialog"
+                >
+                  <button
+                    aria-label="Close QR code"
+                    className="qr-close"
+                    onClick={() => setQrOpen(false)}
+                    type="button"
+                  >
+                    ×
+                  </button>
+                  <h2 id="qr-title">Scan to download</h2>
+                  {qrSvg ? (
+                    <>
+                      <div
+                        aria-label="QR code for uploaded file"
+                        className="qr-code"
+                        data-testid="qr-code"
+                        dangerouslySetInnerHTML={{ __html: qrSvg }}
+                        role="img"
+                      />
+                      <a
+                        className="outline-button"
+                        download={`${result.id}-qr.svg`}
+                        href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
+                      >
+                        Download QR code
+                      </a>
+                    </>
+                  ) : qrError ? (
+                    <div aria-live="polite" role="status">
+                      <p>{qrError}</p>
+                      <button
+                        className="outline-button"
+                        onClick={() => {
+                          setQrError("");
+                          setQrGenerationAttempt((attempt) => attempt + 1);
+                        }}
+                        type="button"
+                      >
+                        Retry QR code
+                      </button>
+                    </div>
+                  ) : (
+                    <p aria-live="polite" role="status">
+                      Generating QR code…
+                    </p>
+                  )}
+                </section>
+              </div>
+            )}
+          </section>
+        )}
+        {optionsOpen && mobile && (
+          <button
+            className="options-scrim"
+            aria-label="Dismiss advanced options"
+            tabIndex={-1}
+            onClick={closeOptions}
+            type="button"
+          />
+        )}
+        <section
+          id="advanced-options"
+          ref={optionsRef}
+          hidden={!optionsOpen}
+          className="advanced-options-content options-panel"
+          role={mobile ? "dialog" : "region"}
+          aria-modal={mobile && optionsOpen ? true : undefined}
+          aria-labelledby="options-title"
+        >
+          <div className="sheet-handle" aria-hidden="true" />
+          <div className="options-heading">
+            <h2 id="options-title">Advanced options</h2>
+            <button
+              type="button"
+              aria-label="Close advanced options"
+              onClick={closeOptions}
+            >
+              ×
+            </button>
+          </div>
+          <div className="option-setting switch-setting">
+            <div>
+              <label htmlFor="save-history">Save history</label>
+              <small>In this browser only</small>
+            </div>
+            <input
+              id="save-history"
+              type="checkbox"
+              role="switch"
+              checked={saveHistory}
+              onChange={(event) => toggleHistory(event.target.checked)}
+            />
+          </div>
+          <p className="option-help">
+            Disabling hides existing records and stops saving new uploads. Clear
+            history removes browser records only, not server files.
+          </p>
+          <div className="option-setting">
+            <label htmlFor="expiry-hours">
+              Expires after <small>24 h max</small>
+            </label>
+            <select
+              id="expiry-hours"
+              value={expiryHours}
+              onChange={(event) => setExpiryHours(Number(event.target.value))}
+            >
+              {[1, 3, 6, 12, 24].map((hours) => (
+                <option value={hours} key={hours}>
+                  {hours} {hours === 1 ? "hour" : "hours"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="option-setting">
+            <label htmlFor="download-limit">
+              Download limit{" "}
+              <output>
+                {downloadLimit === 11
+                  ? "Unlimited"
+                  : `${downloadLimit} download${downloadLimit === 1 ? "" : "s"}`}
+              </output>
+            </label>
+            <input
+              type="range"
+              id="download-limit"
+              min={1}
+              max={11}
+              step={1}
+              value={downloadLimit}
+              aria-valuetext={
+                downloadLimit === 11
+                  ? "Unlimited"
+                  : `${downloadLimit} downloads`
+              }
+              onChange={(event) => setDownloadLimit(Number(event.target.value))}
+            />
+            <div className="limit-ticks" aria-hidden="true">
+              <span>1</span>
+              <span>5</span>
+              <span>10</span>
+              <span>∞</span>
+            </div>
+            <small>
+              Each accepted GET counts, including retries, ranges and
+              interrupted transfers. HEAD and cached checks do not count.
+            </small>
+          </div>
+          <div className="option-setting switch-setting">
+            <div>
+              <label htmlFor="key-protect">Key protect</label>
+              <small>Encrypt before uploading</small>
+            </div>
+            <input
+              id="key-protect"
+              type="checkbox"
+              role="switch"
+              checked={keyProtect}
+              onChange={(event) => setKeyProtect(event.target.checked)}
+            />
+          </div>
+          {keyProtect && (
+            <p className="option-help">
+              Only the full link unlocks the file. Keep it safe. Lost keys
+              cannot be recovered. Encryption uses memory locally; files up to
+              32 MiB are supported. Never uploads plaintext on failure.
+            </p>
+          )}
+          {mode === "text" && (
+            <div className="option-setting">
+              <label htmlFor="text-encoding">Text encoding</label>
+              <select
+                id="text-encoding"
+                onChange={(event) =>
+                  setTextEncoding(event.target.value as TextEncoding)
+                }
+                value={textEncoding}
+              >
+                {TEXT_ENCODINGS.map((encoding) => (
+                  <option key={encoding.value} value={encoding.value}>
+                    {encoding.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <button
+            className="primary-action options-done"
+            onClick={closeOptions}
+            type="button"
+          >
+            Done
+          </button>
+        </section>
+      </div>
+      <div className="history-region">
+        {saveHistory &&
+          history.length > 0 &&
+          (phase === "idle" || phase === "success" || phase === "error") && (
+            <section className="history-card" aria-labelledby="history-heading">
+              <div className="history-header">
+                <h2 id="history-heading" aria-label="Your uploads">
+                  Recent uploads
+                </h2>
+                <button
+                  type="button"
+                  className="clear-history"
+                  title="Remove browser records only, not server files"
+                  onClick={() => {
+                    try {
+                      window.localStorage.setItem(
+                        UPLOAD_HISTORY_STORAGE_KEY,
+                        "[]",
+                      );
+                    } catch {
+                      /* Clear visible records even without writable storage. */
+                    }
+                    setHistory([]);
+                    setHistoryStatus(
+                      "History cleared in this browser. Server files are unchanged.",
+                    );
+                  }}
+                >
+                  Clear history
+                </button>
+              </div>
+              <div className="history-content">
+                <ul className="history-list">
+                  {history.map((entry) => (
+                    <li key={entry.id}>
+                      <span className="file-type">
+                        {fileType(entry.originalName)}
+                      </span>
+                      <div className="history-file">
+                        {phase === "success" ? (
+                          <p className="history-name">{entry.originalName}</p>
+                        ) : (
+                          <h3>{entry.originalName}</h3>
+                        )}
+                        <p>
+                          {formatBytes(entry.size)} · Expires{" "}
+                          <time
+                            dateTime={entry.expiresAt}
+                            title={formatLocalDateTime(entry.expiresAt)}
+                          >
+                            {formatRelativeExpiry(entry.expiresAt, now)}
+                          </time>
+                        </p>
+                      </div>
+                      <div className="history-actions">
+                        {entry.shareUrl.includes("/decrypt/") ? (
+                          <span className="protected-history">
+                            Key not saved
+                          </span>
+                        ) : (
+                          <button
+                            className="history-copy-link"
+                            type="button"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(
+                                entry.shareUrl,
+                              );
+                              setHistoryStatus("Link copied.");
+                            }}
+                          >
+                            Copy link
+                          </button>
+                        )}
+                        <div className="history-more">
+                          <button
+                            type="button"
+                            popoverTarget={`history-menu-${entry.id}`}
+                            aria-label={`More actions for ${entry.originalName}`}
+                          >
+                            ···
+                          </button>
+                          <div
+                            id={`history-menu-${entry.id}`}
+                            className="history-menu"
+                            popover="auto"
+                          >
+                            {entry.shareUrl.includes("/decrypt/") ? (
+                              <p>
+                                Retain the full link: this browser record cannot
+                                unlock the file after reload.
+                              </p>
+                            ) : (
+                              <a href={forcedDownloadUrl(entry.shareUrl)}>
+                                Download
+                              </a>
+                            )}
+                            <button
+                              aria-label={`Remove ${entry.originalName} from history`}
+                              onClick={() => removeHistoryEntry(entry)}
+                              type="button"
+                            >
+                              Remove
+                            </button>
+                            <button
+                              aria-label={`Delete ${entry.originalName}`}
+                              disabled={deletingHistoryId === entry.id}
+                              onClick={() => void deleteHistoryEntry(entry)}
+                              type="button"
+                            >
+                              {deletingHistoryId === entry.id
+                                ? "Deleting…"
+                                : "Delete file"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+          )}
+      </div>
       <p className="visually-hidden" aria-live="polite">
         {historyStatus}
       </p>

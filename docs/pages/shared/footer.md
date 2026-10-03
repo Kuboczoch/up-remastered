@@ -4,7 +4,7 @@ The home page and both upload-request routes render the shared semantic `SiteFoo
 
 ## Content
 
-The footer presents the temporary-storage disclaimer, a link for creating an upload request, the project repository, the deployed application version, and the required artwork credit. The repository link opens GitHub in a new tab and announces that behavior in its accessible name.
+The footer presents the temporary-storage disclaimer, download links for ShareX configuration and the shell helper, the project repository, the deployed application version, and the required artwork credit. The repository link opens GitHub in a new tab and announces that behavior in its accessible name.
 
 The displayed `v<version>` value comes directly from the root `package.json` during the Next.js build. The standalone application and Docker image therefore carry the same package version without a separate UI constant.
 

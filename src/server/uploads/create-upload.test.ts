@@ -98,6 +98,48 @@ function readUploadRow(id: string) {
 }
 
 describe("createUpload", () => {
+  it("persists limited encrypted uploads with a key-free decrypt landing URL", async () => {
+    const upload = await createUpload(
+      createMultipartRequest("cipher", {
+        encrypted: "true",
+        maxDownloads: "2",
+      }),
+    );
+    expect(upload).toMatchObject({
+      encrypted: true,
+      maxDownloads: 2,
+      originalName: "encrypted.bin",
+      mimeType: "application/octet-stream",
+      shareUrl: `http://localhost:3000/decrypt/${upload.id}`,
+    });
+    expect(readUploadRow(upload.id)).toMatchObject({
+      encrypted: true,
+      maxDownloads: 2,
+      downloadCount: 0,
+    });
+  });
+
+  it.each(["0", "11", "-1", "1.5", "NaN", "", "1e0"])(
+    "rejects invalid maxDownloads %s",
+    async (maxDownloads) => {
+      await expect(
+        createUpload(createMultipartRequest("hello", { maxDownloads })),
+      ).rejects.toMatchObject({ status: 400, code: "invalid_max_downloads" });
+    },
+  );
+
+  it("rejects an invalid encrypted marker", async () => {
+    await expect(
+      createUpload(createMultipartRequest("hello", { encrypted: "yes" })),
+    ).rejects.toMatchObject({ status: 400, code: "invalid_encrypted" });
+  });
+
+  it("caps expiration at 24 hours even with a larger configured maximum", async () => {
+    process.env.MAX_EXPIRATION_HOURS = "72";
+    await expect(
+      createUpload(createMultipartRequest("hello", { expiresInHours: "25" })),
+    ).rejects.toMatchObject({ code: "expiration_too_large" });
+  });
   it("streams multipart files to disk and writes hashed token metadata", async () => {
     const accessToken = "a".repeat(128);
     const upload = await createUpload(

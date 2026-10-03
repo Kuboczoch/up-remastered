@@ -19,7 +19,7 @@ The Playwright web server defaults upload-related env vars to small local values
 
 - `DATABASE_URL=file://<repo>/.playwright-data/app.db`
 - `UPLOAD_DIR=<repo>/.playwright-data/uploads`
-- `MAX_UPLOAD_SIZE=64`
+- `MAX_UPLOAD_SIZE=512` (allows authenticated encryption envelope overhead)
 - `MAX_STORED_BYTES=1048576`
 - `DEFAULT_EXPIRATION_HOURS=1`
 - `MAX_EXPIRATION_HOURS=24`

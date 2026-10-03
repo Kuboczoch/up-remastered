@@ -79,11 +79,52 @@ export function insertReservedUploadMetadataWithinQuota(
   });
 }
 
-export function restoreUploadMetadata(
+// Shares the download admission predicate; SQLite serializes both writes.
+export function claimUploadOwnerDeletion(
   db: DbClient,
-  metadata: NewUploadMetadata,
+  id: string,
+  accessTokenHash: string,
+  claimId: string,
+  now: Date,
+): boolean {
+  return (
+    db
+      .update(uploadMetadata)
+      .set({ cleanupClaimId: claimId, cleanupClaimedAt: now })
+      .where(
+        sql`${uploadMetadata.id} = ${id}
+      AND ${uploadMetadata.accessTokenHash} = ${accessTokenHash}
+      AND ${uploadMetadata.expiresAt} > ${now.getTime()}
+      AND ${uploadMetadata.cleanupClaimId} IS NULL
+      AND (${uploadMetadata.maxDownloads} IS NULL OR ${uploadMetadata.downloadCount} < ${uploadMetadata.maxDownloads})`,
+      )
+      .run().changes === 1
+  );
+}
+
+export function releaseUploadOwnerDeletion(
+  db: DbClient,
+  id: string,
+  claimId: string,
 ): void {
-  db.insert(uploadMetadata).values(metadata).run();
+  db.update(uploadMetadata)
+    .set({ cleanupClaimId: null, cleanupClaimedAt: null })
+    .where(
+      sql`${uploadMetadata.id} = ${id} AND ${uploadMetadata.cleanupClaimId} = ${claimId}`,
+    )
+    .run();
+}
+
+export function completeUploadOwnerDeletion(
+  db: DbClient,
+  id: string,
+  claimId: string,
+): void {
+  db.delete(uploadMetadata)
+    .where(
+      sql`${uploadMetadata.id} = ${id} AND ${uploadMetadata.cleanupClaimId} = ${claimId}`,
+    )
+    .run();
 }
 
 export function deleteUploadMetadata(db: DbClient, id: string): void {
@@ -98,6 +139,25 @@ export function hasUploadId(db: DbClient, id: string): boolean {
     .get();
 
   return row !== undefined;
+}
+
+/* The predicate and increment are one SQLite write across connections/processes. */
+export function claimUploadDownload(
+  db: DbClient,
+  id: string,
+  now: Date,
+): boolean {
+  const result = db
+    .update(uploadMetadata)
+    .set({ downloadCount: sql`${uploadMetadata.downloadCount} + 1` })
+    .where(
+      sql`${uploadMetadata.id} = ${id}
+      AND ${uploadMetadata.expiresAt} > ${now.getTime()}
+      AND ${uploadMetadata.cleanupClaimId} IS NULL
+      AND (${uploadMetadata.maxDownloads} IS NULL OR ${uploadMetadata.downloadCount} < ${uploadMetadata.maxDownloads})`,
+    )
+    .run();
+  return result.changes === 1;
 }
 
 export function getUploadMetadata(

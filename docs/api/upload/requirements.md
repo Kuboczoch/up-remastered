@@ -57,7 +57,11 @@ Rules:
 - Multipart metadata fields are intentionally small; use raw uploads for large text payloads.
 - Default expiration is `DEFAULT_EXPIRATION_HOURS`, currently 24h in production config.
 - Requested expiration can use strict UTC ISO `expiresAt`, `expiresInHours`, `expiresInMinutes`, or `expiresInSeconds`.
-- Reject requested expiration beyond `MAX_EXPIRATION_HOURS`, currently 24h in production config.
+- Reject requested expiration beyond the smaller of `MAX_EXPIRATION_HOURS` and the hard 24-hour maximum, regardless of duration units or absolute `expiresAt`. Default expiration is also capped at this maximum.
+- Multipart `maxDownloads` is omitted or `unlimited` for no limit; otherwise accept only decimal integer strings `1` through `10`. Invalid values return 400 `invalid_max_downloads`.
+- Multipart `encrypted` is omitted/`false` for normal uploads, or exactly `true` for client-encrypted bytes. Invalid values return 400 `invalid_encrypted`. This marker is not a cryptographic guarantee; encryption occurs entirely in the browser.
+- Encrypted uploads store only ciphertext, generic filename `encrypted.bin`, and `application/octet-stream`; the server does not receive or store decryption keys or original archive names.
+- `upload` also returns `maxDownloads` (integer or null) and `encrypted` (boolean). Encrypted `shareUrl` is `/decrypt/{id}` with no key; the browser appends its fragment locally. The existing `/{id}` and `/u/{id}` routes serve raw ciphertext, never decrypted bytes.
 - Enforce `MAX_UPLOAD_SIZE`, currently 1 GiB in production config.
 - Enforce `MAX_STORED_BYTES`, currently 10 GiB in production config.
 - Stream file and raw uploads; do not buffer entire file/raw request bodies into memory.

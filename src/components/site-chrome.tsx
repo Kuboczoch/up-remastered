@@ -32,7 +32,12 @@ export function SiteFooter() {
       <div className="site-footer-inner">
         <p>Temporary by design.</p>
         <nav aria-label="Footer">
-          <Link href="/request/new">Request a file</Link>
+          <a href="/sharex" download>
+            ShareX config
+          </a>
+          <a href="/sh" download>
+            Shell helper
+          </a>
           <a
             aria-label="GitHub repository (opens in a new tab)"
             href="https://github.com/Kuboczoch/up-remastered"

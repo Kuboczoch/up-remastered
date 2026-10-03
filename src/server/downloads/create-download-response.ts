@@ -6,7 +6,7 @@ import { Readable } from "node:stream";
 
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { ensureDatabaseMigrated } from "@/server/db/migrate";
-import { getUploadMetadata } from "@/server/db/uploads";
+import { claimUploadDownload, getUploadMetadata } from "@/server/db/uploads";
 import { classifyUploadContent } from "@/server/downloads/classify-upload-content";
 import {
   resolveStoredUploadPath,
@@ -122,6 +122,7 @@ async function createFileResponse(
   includeBody: boolean,
   forceDownload: boolean,
 ): Promise<Response> {
+  const requestStartedAt = Date.now();
   if (!isPublicUploadId(id)) {
     return unavailableResponse();
   }
@@ -138,7 +139,13 @@ async function createFileResponse(
     connection.close();
   }
 
-  if (!upload || upload.expiresAt.getTime() <= now.getTime()) {
+  if (
+    !upload ||
+    upload.expiresAt.getTime() <= now.getTime() ||
+    upload.cleanupClaimId !== null ||
+    (upload.maxDownloads !== null &&
+      upload.downloadCount >= upload.maxDownloads)
+  ) {
     return unavailableResponse();
   }
 
@@ -173,7 +180,12 @@ async function createFileResponse(
       return unavailableResponse();
     }
 
-    const classification = await classifyUploadContent(fileHandle, stats.size);
+    const classification = upload.encrypted
+      ? {
+          disposition: "attachment" as const,
+          contentType: "application/octet-stream",
+        }
+      : await classifyUploadContent(fileHandle, stats.size);
     const disposition = forceDownload
       ? "attachment"
       : classification.disposition;
@@ -209,6 +221,24 @@ async function createFileResponse(
     if (!includeBody) {
       await fileHandle.close();
       return new Response(null, { headers, status: range ? 206 : 200 });
+    }
+
+    // Admit only after file/range validation. Never refund interrupted bodies:
+    // doing so would let aborted/ranged requests recover a reusable slot.
+    const claimConnection = createSqliteConnection();
+    let admitted;
+    try {
+      admitted = claimUploadDownload(
+        createDbClient(claimConnection),
+        id,
+        new Date(now.getTime() + Math.max(0, Date.now() - requestStartedAt)),
+      );
+    } finally {
+      claimConnection.close();
+    }
+    if (!admitted) {
+      await fileHandle.close();
+      return unavailableResponse();
     }
 
     const readStream = range
