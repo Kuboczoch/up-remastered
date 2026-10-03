@@ -3,7 +3,12 @@ FROM node:24.14-alpine AS deps
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
+# better-sqlite3 falls back to a native build on Alpine/musl.
+# Keep the compiler toolchain out of the production runner image.
+RUN apk add --no-cache --virtual .native-build-deps python3 make g++ \
+    && corepack enable \
+    && pnpm install --frozen-lockfile \
+    && apk del .native-build-deps
 
 FROM node:24.14-alpine AS builder
 
