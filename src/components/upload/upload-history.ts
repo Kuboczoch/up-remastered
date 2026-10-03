@@ -78,7 +78,15 @@ function normalizeEntries(
     .map((entry) => {
       const url = new URL(entry.shareUrl);
       url.hash = "";
-      return { ...entry, shareUrl: url.toString() };
+      return {
+        accessToken: entry.accessToken,
+        id: entry.id,
+        originalName: entry.originalName,
+        size: entry.size,
+        expiresAt: entry.expiresAt,
+        savedAt: entry.savedAt,
+        shareUrl: url.toString(),
+      };
     })
     .filter((entry) => Date.parse(entry.expiresAt) > now)
     .sort((left, right) => Date.parse(right.savedAt) - Date.parse(left.savedAt))
@@ -129,12 +137,7 @@ export function restoreUploadHistory(
   now = Date.now(),
   consent = false,
 ): UploadHistoryEntry[] {
-  // Scrub fragment secrets even when persistence has not been authorized.
-  if (!consent) {
-    readUploadHistory(persistentStorage, now);
-    readUploadHistory(legacyStorage, now);
-    return [];
-  }
+  if (!consent) return [];
   const persisted = readUploadHistory(persistentStorage, now);
   const legacy = readUploadHistory(legacyStorage, now);
   if (legacy.length === 0) return persisted;
@@ -156,4 +159,37 @@ export function removeUploadHistoryEntry(
   );
   safeSet(storage, entries);
   return entries;
+}
+
+export const HISTORY_CONSENT_KEY = "up-remastered:history-consent";
+export function hasHistoryConsent(storage: Pick<Storage, "getItem">): boolean {
+  try {
+    return storage.getItem(HISTORY_CONSENT_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+export function setHistoryConsent(
+  storage: Pick<Storage, "setItem" | "getItem">,
+  consent: boolean,
+): boolean {
+  try {
+    storage.setItem(HISTORY_CONSENT_KEY, String(consent));
+    return storage.getItem(HISTORY_CONSENT_KEY) === String(consent);
+  } catch {
+    return false;
+  }
+}
+export function clearUploadHistory(
+  ...stores: Pick<Storage, "removeItem">[]
+): boolean {
+  let cleared = true;
+  for (const storage of stores) {
+    try {
+      storage.removeItem(UPLOAD_HISTORY_STORAGE_KEY);
+    } catch {
+      cleared = false;
+    }
+  }
+  return cleared;
 }

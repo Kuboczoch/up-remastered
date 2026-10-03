@@ -24,6 +24,13 @@ import {
 } from "@/components/upload/text-encoding";
 import {
   removeUploadHistoryEntry,
+  saveUploadHistoryEntry,
+  restoreUploadHistory,
+  readUploadHistory,
+  hasHistoryConsent,
+  setHistoryConsent,
+  clearUploadHistory,
+  HISTORY_CONSENT_KEY,
   UPLOAD_HISTORY_STORAGE_KEY,
   type UploadHistoryEntry,
 } from "@/components/upload/upload-history";
@@ -94,8 +101,8 @@ export function UploadExperience({
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [mobile, setMobile] = useState(false);
-  // Advanced settings are placeholders; never read consent or mutate history.
-  const saveHistory = false;
+  const [saveHistory, setSaveHistory] = useState(false);
+  const historyConsentRef = useRef(false);
   const optionsRef = useRef<HTMLElement>(null);
   const optionsTriggerRef = useRef<HTMLButtonElement>(null);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -310,6 +317,20 @@ export function UploadExperience({
         setResult(upload);
         setNow(Date.now());
         setPhase("success");
+        // Recheck persisted consent at completion: another tab can revoke it
+        // before its storage event reaches this page.
+        try {
+          if (
+            historyConsentRef.current &&
+            hasHistoryConsent(window.localStorage)
+          ) {
+            setHistory(saveUploadHistoryEntry(window.localStorage, upload));
+          }
+        } catch {
+          setHistoryStatus(
+            "Upload succeeded, but browser history could not be saved.",
+          );
+        }
       } catch (uploadError) {
         if (requestSequence.current !== sequence) {
           return;
@@ -484,6 +505,93 @@ export function UploadExperience({
     }
   }
 
+  useEffect(() => {
+    function synchronize(event?: StorageEvent) {
+      if (
+        event &&
+        event.key !== null &&
+        event.key !== HISTORY_CONSENT_KEY &&
+        event.key !== UPLOAD_HISTORY_STORAGE_KEY
+      )
+        return;
+      try {
+        if (event?.storageArea && event.storageArea !== window.localStorage)
+          return;
+        const consent = hasHistoryConsent(window.localStorage);
+        historyConsentRef.current = consent;
+        setSaveHistory(consent);
+        setHistory(
+          consent
+            ? event
+              ? readUploadHistory(window.localStorage)
+              : restoreUploadHistory(
+                  window.localStorage,
+                  window.sessionStorage,
+                  Date.now(),
+                  true,
+                )
+            : [],
+        );
+      } catch {
+        historyConsentRef.current = false;
+        setSaveHistory(false);
+        setHistory([]);
+      }
+    }
+    synchronize();
+    window.addEventListener("storage", synchronize);
+    return () => window.removeEventListener("storage", synchronize);
+  }, []);
+
+  function clearBrowserHistory(): boolean {
+    setHistory([]);
+    try {
+      return clearUploadHistory(window.localStorage, window.sessionStorage);
+    } catch {
+      return false;
+    }
+  }
+
+  function changeHistoryConsent(consent: boolean) {
+    // Revoke immediately even when storage is blocked or an upload is in flight.
+    historyConsentRef.current = false;
+    setSaveHistory(false);
+    try {
+      const persisted = setHistoryConsent(window.localStorage, consent);
+      if (!consent) {
+        const cleared = clearBrowserHistory();
+        setHistoryStatus(
+          persisted && cleared
+            ? "History disabled and cleared in this browser. Server files are unchanged."
+            : "History disabled for this page, but browser storage could not be fully cleared. Clear site data before leaving a shared device.",
+        );
+      } else if (persisted) {
+        historyConsentRef.current = true;
+        setSaveHistory(true);
+        setHistory(
+          restoreUploadHistory(
+            window.localStorage,
+            window.sessionStorage,
+            Date.now(),
+            true,
+          ),
+        );
+        setHistoryStatus(
+          "History enabled in this browser. Keys are never saved.",
+        );
+      } else {
+        setHistoryStatus(
+          "History could not be enabled because browser storage is unavailable.",
+        );
+      }
+    } catch {
+      setHistory([]);
+      setHistoryStatus(
+        "Browser storage is unavailable. Clear site data before leaving a shared device.",
+      );
+    }
+  }
+
   async function deleteHistoryEntry(entry: UploadHistoryEntry) {
     setDeletingHistoryId(entry.id);
     setHistoryStatus("");
@@ -497,7 +605,9 @@ export function UploadExperience({
         throw new Error("Delete failed.");
       }
 
-      setHistory(removeUploadHistoryEntry(window.localStorage, entry.id));
+      if (historyConsentRef.current && hasHistoryConsent(window.localStorage)) {
+        setHistory(removeUploadHistoryEntry(window.localStorage, entry.id));
+      }
       setHistoryStatus(
         response.status === 404
           ? `${entry.originalName} was already unavailable and has been forgotten.`
@@ -513,6 +623,8 @@ export function UploadExperience({
   }
 
   function removeHistoryEntry(entry: UploadHistoryEntry) {
+    if (!historyConsentRef.current || !hasHistoryConsent(window.localStorage))
+      return;
     setHistory(removeUploadHistoryEntry(window.localStorage, entry.id));
     setHistoryStatus(`${entry.originalName} was removed from this browser.`);
   }
@@ -988,17 +1100,23 @@ export function UploadExperience({
               ×
             </button>
           </div>
-          <div className="option-setting switch-setting" aria-disabled="true">
+          <div className="option-setting switch-setting">
             <div>
               <label htmlFor="save-history">Save history</label>
               <small>In this browser only</small>
+              <small id="history-help">
+                Turning off clears records, not server files. Keys are never
+                saved; retain the full protected link, which history cannot
+                recover.
+              </small>
             </div>
             <input
               id="save-history"
+              aria-describedby="history-help"
               type="checkbox"
               role="switch"
               checked={saveHistory}
-              disabled
+              onChange={(event) => changeHistoryConsent(event.target.checked)}
             />
           </div>
           <div className="option-setting" aria-disabled="true">
@@ -1077,17 +1195,11 @@ export function UploadExperience({
                   className="clear-history"
                   title="Remove browser records only, not server files"
                   onClick={() => {
-                    try {
-                      window.localStorage.setItem(
-                        UPLOAD_HISTORY_STORAGE_KEY,
-                        "[]",
-                      );
-                    } catch {
-                      /* Clear visible records even without writable storage. */
-                    }
-                    setHistory([]);
+                    const cleared = clearBrowserHistory();
                     setHistoryStatus(
-                      "History cleared in this browser. Server files are unchanged.",
+                      cleared
+                        ? "History cleared in this browser. Server files are unchanged."
+                        : "Visible history cleared, but browser storage could not be cleared. Clear site data before leaving a shared device.",
                     );
                   }}
                 >
@@ -1171,7 +1283,7 @@ export function UploadExperience({
             </section>
           )}
       </div>
-      <p className="visually-hidden" aria-live="polite">
+      <p role="status" aria-live="polite">
         {historyStatus}
       </p>
     </div>
