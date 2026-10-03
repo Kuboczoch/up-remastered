@@ -102,6 +102,7 @@ export function UploadExperience({
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [mobile, setMobile] = useState(false);
+  const [expirationHours, setExpirationHours] = useState(24);
   const [saveHistory, setSaveHistory] = useState(false);
   const historyConsentRef = useRef(false);
   const optionsRef = useRef<HTMLElement>(null);
@@ -308,7 +309,7 @@ export function UploadExperience({
       setPhase("uploading");
 
       setOptionsOpen(false);
-      const operation = uploadFile(file, setProgress);
+      const operation = uploadFile(file, setProgress, { expirationHours });
       abortRef.current = operation.abort;
       try {
         const upload = await operation.promise;
@@ -355,7 +356,7 @@ export function UploadExperience({
         }
       }
     },
-    [maxBytes, phase],
+    [maxBytes, phase, expirationHours],
   );
 
   useEffect(() => {
@@ -1149,9 +1150,15 @@ export function UploadExperience({
           <p className="history-status" role="status" aria-live="polite">
             {consentStatus}
           </p>
-          <div className="option-setting" aria-disabled="true">
+          <div className="option-setting" style={{ opacity: 1 }}>
             <label htmlFor="expiry-hours">Expires after</label>
-            <select id="expiry-hours" value={24} disabled>
+            <select
+              id="expiry-hours"
+              value={expirationHours}
+              onChange={(event) =>
+                setExpirationHours(Number(event.target.value))
+              }
+            >
               {[1, 3, 6, 12, 24].map((hours) => (
                 <option value={hours} key={hours}>
                   {hours} {hours === 1 ? "hour" : "hours"}

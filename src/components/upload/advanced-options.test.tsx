@@ -24,7 +24,9 @@ it("enables only implemented Advanced settings without accessing history before 
   >("#advanced-options input, #advanced-options select");
   expect(controls).toHaveLength(5);
   controls.forEach((control) =>
-    expect(control.disabled).toBe(control.id !== "save-history"),
+    expect(control.disabled).toBe(
+      !["save-history", "expiry-hours"].includes(control.id),
+    ),
   );
   const history = getByRole("switch", {
     name: "Save history",
