@@ -9,12 +9,12 @@ import {
 
 const VECTOR_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 const VECTOR = Buffer.from(
-  "VVBFTkMBAAAAAAAAAAAAAAAAzqdAFDZCBQ9qK+fpmIX4ewYPceRD3l5W/YCB9wVjF7T/PtRQOWWRFyCBNwY6XH30Q1XL4YG7fzBhXR1lDRwMGtDEj3YhqC0zYJWshij9AsjZwyXfkIWnL/K8CGZUXh2tq/pWzegjyhJasL3F4Cz8Kb4K4asoN+DzY4e3DpMXYBJDYqTSCr2k+jL66DQsnNKGoBRwluJyT6jlDfU34LGlfgPWips46ifVsgAA8g==",
+  "VVBFTkMBAAAAAAAAAAAAAAAAzqdADzZCBQ9qK+fpmIX4ewYPceRD3l5W/YCB9wVjF7T/PtRQOWWRFyCBNwZrLkWePSTp27TGF1UNEHIPYKjIDUQe1/dqENjMq3OW",
   "base64",
 );
 
 // Independently reauthenticate malformed plaintext so rejection exercises the
-// metadata/ZIP parser, not merely the GCM authentication failure path.
+// metadata/size parser, not merely the GCM authentication failure path.
 function authenticatedFixture(mutate: (plain: Buffer) => Buffer): ArrayBuffer {
   const decipher = createDecipheriv(
     "aes-256-gcm",
@@ -53,9 +53,8 @@ function replaceMetadata(plain: Buffer, metadata: Buffer): Buffer {
 }
 
 describe("protected file envelope", () => {
-  it("decrypts a fixed independent Python ZIP / OpenSSL envelope vector", async () => {
-    // Zero key/IV are TEST-ONLY; production uses fresh random bytes. ZIP was
-    // generated with Python zipfile (DOS date 1980-01-01, cleared attributes).
+  it("decrypts a fixed independent OpenSSL direct-file envelope vector", async () => {
+    // Zero key/IV are TEST-ONLY; production uses fresh random bytes.
     const fixture = VECTOR;
     const result = await decryptFile(
       Uint8Array.from(fixture).buffer,
@@ -84,15 +83,10 @@ describe("protected file envelope", () => {
     const metadataLength = plaintext.readUInt32BE(0);
     expect(
       JSON.parse(plaintext.subarray(4, 4 + metadataLength).toString()),
-    ).toEqual({ name: "vector.txt", type: "text/plain" });
-    const archive = plaintext.subarray(4 + metadataLength);
-    expect(archive.readUInt32LE(0)).toBe(0x04034b50);
-    expect(archive.readUInt16LE(8)).toBe(0); // stored ZIP entry
-    expect(archive.readUInt32LE(18)).toBe(5);
-    expect(archive.subarray(30, 34).toString()).toBe("file");
-    expect(archive.subarray(34, 39).toString()).toBe("hello");
-    expect(archive.readUInt32LE(39)).toBe(0x02014b50);
-    expect(archive.readUInt32LE(89)).toBe(0x06054b50);
+    ).toEqual({ name: "vector.txt", type: "text/plain", size: 5 });
+    expect(plaintext.subarray(4 + metadataLength)).toEqual(
+      Buffer.from("hello"),
+    );
   });
   it("round trips binary bytes and private Unicode metadata", async () => {
     const file = new File([new Uint8Array([0, 255, 1, 2])], "秘密.txt", {
@@ -148,24 +142,22 @@ describe("protected file envelope", () => {
       "missing content type",
       (plain) => replaceMetadata(plain, Buffer.from('{"name":"vector.txt"}')),
     ],
+    ["payload length mismatch", (plain) => plain.subarray(0, plain.length - 1)],
     [
-      "invalid ZIP signature",
-      (plain) => {
-        plain[4 + plain.readUInt32BE(0)] ^= 0xff;
-        return plain;
-      },
+      "invalid original size",
+      (plain) =>
+        replaceMetadata(
+          plain,
+          Buffer.from('{"name":"vector.txt","type":"text/plain","size":-1}'),
+        ),
     ],
     [
-      "truncated ZIP directory",
-      (plain) => plain.subarray(0, plain.length - 10),
-    ],
-    [
-      "unexpected ZIP entry name",
-      (plain) => {
-        const zipOffset = 4 + plain.readUInt32BE(0);
-        plain[zipOffset + 30] ^= 0xff;
-        return plain;
-      },
+      "missing original size",
+      (plain) =>
+        replaceMetadata(
+          plain,
+          Buffer.from('{"name":"vector.txt","type":"text/plain"}'),
+        ),
     ],
   ])("rejects authenticated malformed %s", async (_name, mutate) => {
     await expect(

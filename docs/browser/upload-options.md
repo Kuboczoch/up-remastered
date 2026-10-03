@@ -12,7 +12,9 @@ entry point. Download limit offers 1–10 downloads or Unlimited (default). A fi
 limit counts each admitted GET, including ranges, retries and interrupted streams;
 HEAD, invalid ranges and failures before admission do not count. See
 `docs/api/download/requirements.md` for atomic admission and cleanup semantics.
-Key protection remains disabled until its implementation is integrated.
+Key protection is opt-in and encrypts original bytes with AES-256-GCM in the
+browser. A complete fragment-key link opens the dedicated receiver; keys are
+never saved in upload history. See `docs/pages/download/encryption.md`.
 
 ## Opt-in upload history
 
@@ -36,7 +38,7 @@ records from a blocked browser or shared device.
 
 History stores an allowlisted set of metadata and deletion access tokens. URL
 fragments are stripped on save/read/migration and extra properties are discarded:
-no fragment encryption keys are retained. If protected uploads are integrated,
+no fragment encryption keys are retained. For protected uploads,
 history cannot reconstruct their full unlocking links or recover their keys.
 Keep the original full link separately. Fragment scrubbing starts only after
 consent; opting out does not inspect or rewrite pre-existing legacy records.

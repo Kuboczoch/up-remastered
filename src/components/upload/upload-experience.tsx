@@ -105,8 +105,6 @@ export function UploadExperience({
   const [expirationHours, setExpirationHours] = useState(24);
   const [saveHistory, setSaveHistory] = useState(false);
   const [protection, setProtection] = useState(false);
-  const [expirationHours, setExpirationHours] = useState(24);
-  const [downloadLimit, setDownloadLimit] = useState(11);
   const historyConsentRef = useRef(false);
   const optionsRef = useRef<HTMLElement>(null);
   const optionsTriggerRef = useRef<HTMLButtonElement>(null);

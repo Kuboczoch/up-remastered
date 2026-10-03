@@ -2,7 +2,7 @@
 export const MAX_ENCRYPTED_FILE_BYTES = 32 * 1024 * 1024;
 const MAX_METADATA_BYTES = 64 * 1024;
 export const MAX_ENCRYPTED_ENVELOPE_BYTES =
-  MAX_ENCRYPTED_FILE_BYTES + MAX_METADATA_BYTES + 144;
+  MAX_ENCRYPTED_FILE_BYTES + MAX_METADATA_BYTES + 38;
 const MAGIC = new Uint8Array([85, 80, 69, 78, 67, 1]);
 const HEADER_BYTES = MAGIC.length + 12;
 
@@ -17,47 +17,6 @@ function requireCrypto() {
     );
   }
   return globalThis.crypto;
-}
-function crc32(bytes: Uint8Array) {
-  let crc = 0xffffffff;
-  for (const byte of bytes) {
-    crc ^= byte;
-    for (let bit = 0; bit < 8; bit++)
-      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-// One uncompressed ZIP entry named "file". No compression bombs or ZIP64.
-function zip(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
-  const result = new Uint8Array(bytes.length + 106);
-  const view = new DataView(result.buffer);
-  const crc = crc32(bytes);
-  view.setUint32(0, 0x04034b50, true);
-  view.setUint16(4, 20, true);
-  view.setUint16(12, 33, true); // 1980-01-01
-  view.setUint32(14, crc, true);
-  view.setUint32(18, bytes.length, true);
-  view.setUint32(22, bytes.length, true);
-  view.setUint16(26, 4, true);
-  result.set([102, 105, 108, 101], 30);
-  result.set(bytes, 34);
-  const central = 34 + bytes.length;
-  view.setUint32(central, 0x02014b50, true);
-  view.setUint16(central + 4, 20, true);
-  view.setUint16(central + 6, 20, true);
-  view.setUint16(central + 14, 33, true);
-  view.setUint32(central + 16, crc, true);
-  view.setUint32(central + 20, bytes.length, true);
-  view.setUint32(central + 24, bytes.length, true);
-  view.setUint16(central + 28, 4, true);
-  result.set([102, 105, 108, 101], central + 46);
-  const end = central + 50;
-  view.setUint32(end, 0x06054b50, true);
-  view.setUint16(end + 8, 1, true);
-  view.setUint16(end + 10, 1, true);
-  view.setUint32(end + 12, 50, true);
-  view.setUint32(end + 16, central, true);
-  return result;
 }
 function keyString(bytes: Uint8Array) {
   return btoa(String.fromCharCode(...bytes))
@@ -89,17 +48,16 @@ export async function encryptFile(
     );
   const crypto = requireCrypto();
   const metadata = new TextEncoder().encode(
-    JSON.stringify({ name: file.name, type: file.type }),
+    JSON.stringify({ name: file.name, type: file.type, size: file.size }),
   );
   if (metadata.length > MAX_METADATA_BYTES)
     throw new Error("The file name is too long for key protection.");
   const data = new Uint8Array(await file.arrayBuffer());
   checkAbort(signal);
-  const archive = zip(data);
-  const plaintext = new Uint8Array(4 + metadata.length + archive.length);
+  const plaintext = new Uint8Array(4 + metadata.length + data.length);
   new DataView(plaintext.buffer).setUint32(0, metadata.length, false);
   plaintext.set(metadata, 4);
-  plaintext.set(archive, 4 + metadata.length);
+  plaintext.set(data, 4 + metadata.length);
   const rawKey = crypto.getRandomValues(new Uint8Array(32));
   const header = new Uint8Array(HEADER_BYTES);
   header.set(MAGIC);
@@ -170,7 +128,7 @@ export async function decryptFile(
     const metadataLength = new DataView(decrypted).getUint32(0, false);
     if (
       metadataLength > MAX_METADATA_BYTES ||
-      4 + metadataLength + 106 > plain.length
+      4 + metadataLength > plain.length
     )
       throw new Error("Invalid metadata");
     const metadata: unknown = JSON.parse(
@@ -184,19 +142,16 @@ export async function decryptFile(
       !("name" in metadata) ||
       typeof metadata.name !== "string" ||
       !("type" in metadata) ||
-      typeof metadata.type !== "string"
+      typeof metadata.type !== "string" ||
+      !("size" in metadata) ||
+      typeof metadata.size !== "number" ||
+      !Number.isSafeInteger(metadata.size) ||
+      metadata.size < 0 ||
+      metadata.size > MAX_ENCRYPTED_FILE_BYTES
     )
       throw new Error("Invalid metadata");
-    const archive = plain.slice(4 + metadataLength);
-    const payload = archive.slice(34, -72);
-    if (payload.length > MAX_ENCRYPTED_FILE_BYTES)
-      throw new Error("Invalid size");
-    const canonical = zip(payload);
-    if (
-      canonical.length !== archive.length ||
-      canonical.some((byte, i) => byte !== archive[i])
-    )
-      throw new Error("Invalid ZIP");
+    const payload = plain.slice(4 + metadataLength);
+    if (payload.length !== metadata.size) throw new Error("Invalid size");
     // Strip path/control characters: metadata is untrusted even after authentication.
     const name =
       metadata.name

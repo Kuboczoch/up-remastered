@@ -7,7 +7,7 @@ There is never a plaintext fallback.
 
 ## Sender and receiver
 
-The sender creates a single-entry ZIP in memory, encrypts it with AES-256-GCM,
+The sender encrypts the original bytes directly with AES-256-GCM,
 and uploads an opaque `encrypted.up` file as `application/octet-stream`, with
 `encrypted=true`. The server requires that flag to be exactly `true`, the generic filename/MIME above, the supported version header, and a plausible bounded envelope size. It checks the actual streamed bytes on disk; it cannot authenticate ciphertext without the key. The original filename and MIME type are inside the encrypted
 payload, not multipart fields. File size, traffic timing, expiration, and download
@@ -35,7 +35,7 @@ on unmount; filenames are stripped of path separators and control characters.
 
 Expired, removed, or download-exhausted files instruct the receiver to request a
 new upload. Missing keys request the complete link. Wrong keys, damaged ciphertext,
-unsupported versions, and malformed archives fail closed, without exposing partial
+unsupported versions, and malformed metadata fail closed, without exposing partial
 plaintext. Corrupt files require a new upload rather than bypassing authentication.
 
 ## Version 1 envelope
@@ -55,25 +55,19 @@ The key is fresh for every upload and is never part of the envelope. GCM uses a
 Decrypted plaintext is:
 
 1. Four-byte **big-endian** UTF-8 metadata length.
-2. JSON `{"name":"original filename","type":"original MIME"}` in UTF-8, at most
-   64 KiB. Decode strictly and validate both fields as strings.
-3. A canonical ZIP archive with one uncompressed entry named `file`, containing
-   the original bytes. ZIP fields are little-endian, version 2.0, no flags,
-   extras, comments, data descriptors, or ZIP64; DOS timestamp is 1980-01-01.
-   CRC32 is the standard ZIP polynomial `0xedb88320`. Local header is 30 bytes
-   plus the four-byte name; central directory is 46 bytes plus that name; the
-   end-of-central-directory record is 22 bytes. Sizes, CRC, central directory,
-   entry count, and offsets are checked by reconstructing this canonical archive.
+2. JSON `{"name":"original filename","type":"original MIME","size":123}` in
+   UTF-8, at most 64 KiB. Decode strictly and validate strings and a bounded
+   nonnegative integer size.
+3. Original file bytes, whose length must equal the authenticated size. No ZIP,
+   archive, compression or second file conversion is performed.
 
-This is **not password-protected ZIP**. Ordinary ZIP tools cannot open the outer
-encrypted envelope. Compatible receivers first authenticate/decrypt AES-GCM using
-the fragment key and header, then parse metadata and extract the stored ZIP entry.
-Only this canonical archive format is supported; arbitrary ZIPs are not accepted.
+The original metadata is authenticated inside AES-GCM together with the bytes.
+A compatible receiver authenticates the full envelope before parsing or saving.
 
 ## Resource and cancellation boundaries
 
 Protection supports original files up to **32 MiB**, with an envelope ceiling of
-32 MiB + 64 KiB + 144 bytes. Downloads check declared Content-Length and enforce
+32 MiB + 64 KiB + 38 bytes. Downloads check declared Content-Length and enforce
 the same ceiling while streaming, including servers that omit the length header.
 The deployment's upload ceiling may be smaller; ciphertext overhead counts toward
 that server limit. This is a whole-buffer implementation, not streaming encryption:
@@ -88,18 +82,17 @@ Encryption is preparation, not network upload progress. The sender labels prepar
 report XHR byte progress only after encryption succeeds. Cancellation rejects
 immediately and prevents sending after asynchronous file reads or crypto operations;
 Web Crypto itself cannot be interrupted mid-operation. Receiver requests are aborted
-on unmount. Pure-JavaScript ZIP/CRC work is bounded by the size limit and may briefly
-occupy the browser thread.
+on unmount. File reads and cryptographic buffer copies are bounded by the size limit.
 
 ## Security review and tests
 
 The design uses the browser's standard AES-GCM implementation, fresh 256-bit keys
 and 96-bit IVs, a fixed authenticated version header, authenticated metadata, strict
-base64url decoding, and bounded archive parsing. Unit tests cover binary/Unicode
+base64url decoding, and bounded metadata parsing. Unit tests cover binary/Unicode
 round trips, unique key/IV output, wrong and missing keys, header/ciphertext changes,
 explicit size rejection, cancellation before send, multipart policy fields,
 fragment-only key placement, independent Node/OpenSSL authentication of Web Crypto
-output, ZIP layout, no landing fetch, and actionable unavailable-file errors.
+output, direct-byte envelope layout, no landing fetch, and actionable unavailable-file errors.
 This is implementation-level review and automated verification, **not an independent
 cryptographic audit**.
 
@@ -108,4 +101,4 @@ extensions, operating system, and sender/receiver devices. A malicious server ca
 serve modified JavaScript and steal keys despite encrypted stored bytes. This feature
 does not protect against compromised endpoints, recipients sharing the complete link,
 or analytics added later that capture full URLs. Do not add URL/key telemetry to
-these routes. ZIP CRC is format validation; GCM authentication provides security.
+these routes. GCM authentication provides security.

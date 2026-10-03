@@ -536,8 +536,8 @@ export async function createUpload(
         !protectedUpload ||
         content.originalName !== "encrypted.up" ||
         content.mimeType !== "application/octet-stream" ||
-        content.size < 140 ||
-        content.size > 32 * 1024 * 1024 + 65536 + 144
+        content.size < 38 ||
+        content.size > 32 * 1024 * 1024 + 65536 + 38
       ) {
         throw new UploadRequestError(
           "Invalid protected envelope contract.",
