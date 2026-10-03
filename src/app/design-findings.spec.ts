@@ -140,7 +140,7 @@ for (const width of [320, 1440]) {
       };
     });
     expect(submitted).toEqual({
-      fields: ["file", "expirationHours"],
+      fields: ["file", "expiresInHours"],
       name: "ui-plain.txt",
       bytes: "Plaintext UI fixture",
     });

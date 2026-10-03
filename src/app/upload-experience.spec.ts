@@ -225,7 +225,7 @@ test("uploads a picked file and exposes result actions", async ({
   await expect(
     page
       .locator(".result-card p")
-      .filter({ hasText: /Expires in (?:60 minutes|1 hour)/ }),
+      .filter({ hasText: /Expires in (?:24 hours|1 day)/ }),
   ).toBeVisible();
   await expect(page.locator(".result-card time")).toHaveAttribute(
     "datetime",
