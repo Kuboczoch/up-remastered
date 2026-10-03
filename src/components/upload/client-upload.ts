@@ -69,6 +69,7 @@ export function parseUploadResponse(body: unknown): UploadResult {
 export function uploadFile(
   file: File,
   onProgress: UploadProgress,
+  options: { expirationHours?: number } = {},
 ): { abort: () => void; promise: Promise<UploadResult> } {
   const request = new XMLHttpRequest();
   const promise = new Promise<UploadResult>((resolve, reject) => {
@@ -109,6 +110,9 @@ export function uploadFile(
 
     const form = new FormData();
     form.set("file", file);
+    if (options.expirationHours !== undefined) {
+      form.set("expirationHours", String(options.expirationHours));
+    }
     request.send(form);
   });
 
