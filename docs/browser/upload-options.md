@@ -8,9 +8,11 @@ Clipboard files retain their original bytes. Closing options or switching
 File/Text preserves the text draft; file mode hides the encoding control.
 
 Expiry offers 1, 3, 6, 12 and 24 hours (default 24) and applies to every upload
-entry point. Server configuration and all legacy expiration fields are bounded
-by the 24-hour maximum. Download limits and key protection remain disabled until
-their respective implementation is integrated.
+entry point. Download limit offers 1–10 downloads or Unlimited (default). A finite
+limit counts each admitted GET, including ranges, retries and interrupted streams;
+HEAD, invalid ranges and failures before admission do not count. See
+`docs/api/download/requirements.md` for atomic admission and cleanup semantics.
+Key protection remains disabled until its implementation is integrated.
 
 ## Opt-in upload history
 

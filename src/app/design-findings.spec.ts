@@ -85,7 +85,7 @@ for (const width of [320, 1440]) {
     await page.goto("/");
     await page.getByRole("button", { name: /Advanced options/ }).click();
     await expect(page.getByLabel(/Expires after/)).toBeEnabled();
-    await expect(page.getByRole("slider")).toBeDisabled();
+    await expect(page.getByRole("slider")).toBeEnabled();
     await expect(
       page.getByRole("switch", { name: "Key protect" }),
     ).toBeDisabled();

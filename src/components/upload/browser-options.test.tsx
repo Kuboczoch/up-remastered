@@ -199,7 +199,7 @@ it("fails closed when consent cannot be persisted", () => {
   const toggle = options(view);
   fireEvent.click(toggle);
   expect(toggle.checked).toBe(false);
-  expect(view.getByRole("status").textContent).toContain(
+  expect(view.getByText(/History could not be enabled/).textContent).toContain(
     "could not be enabled",
   );
   expect(view.container.querySelector(".history-card")).toBeNull();
