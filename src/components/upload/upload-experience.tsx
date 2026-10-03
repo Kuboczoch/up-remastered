@@ -1100,7 +1100,7 @@ export function UploadExperience({
               ×
             </button>
           </div>
-          <div className="option-setting switch-setting">
+          <div className="option-setting switch-setting" style={{ opacity: 1 }}>
             <div>
               <label htmlFor="save-history">Save history</label>
               <small>In this browser only</small>
