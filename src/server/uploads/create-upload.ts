@@ -12,7 +12,8 @@ import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import {
   deleteUploadMetadata,
   getTotalStoredUploadBytes,
-  insertUploadMetadataWithinQuota,
+  insertNewUploadMetadataWithinQuota,
+  insertReservedUploadMetadataWithinQuota,
 } from "@/server/db/uploads";
 import { ensureDatabaseMigrated } from "@/server/db/migrate";
 import {
@@ -33,7 +34,10 @@ import {
   UploadRequestError,
 } from "@/server/uploads/errors";
 import { resolveUploadExpiration } from "@/server/uploads/expiration";
-import { createPublicUploadId } from "@/server/uploads/public-id";
+import {
+  createPublicUploadId,
+  isPublicUploadId,
+} from "@/server/uploads/public-id";
 
 type UploadFieldMap = Map<string, string>;
 
@@ -57,6 +61,7 @@ export type CreatedUpload = {
 
 export type CreateUploadOptions = {
   maxUploadBytes?: number;
+  reservedUploadId?: string;
 };
 
 const TEXT_FIELD_NAME = "text";
@@ -473,6 +478,11 @@ export async function createUpload(
   options: CreateUploadOptions = {},
 ): Promise<CreatedUpload> {
   const limits = getUploadLimits();
+
+  if (options.reservedUploadId && !isPublicUploadId(options.reservedUploadId)) {
+    throw new Error("Reserved upload ID is invalid.");
+  }
+
   ensureDatabaseMigrated();
 
   const connection = createSqliteConnection();
@@ -512,12 +522,17 @@ export async function createUpload(
     const accessTokenHash = hashUploadAccessToken(accessToken);
     let uploadId: string | undefined;
 
-    for (let attempt = 0; attempt < MAX_UPLOAD_ID_ATTEMPTS; attempt += 1) {
-      const candidateId = createId();
+    const maxAttempts = options.reservedUploadId ? 1 : MAX_UPLOAD_ID_ATTEMPTS;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const candidateId = options.reservedUploadId ?? createId();
       const assignedFile = assignPendingUploadId(pendingFile, candidateId);
 
       try {
-        const inserted = insertUploadMetadataWithinQuota(
+        const insertMetadata = options.reservedUploadId
+          ? insertReservedUploadMetadataWithinQuota
+          : insertNewUploadMetadataWithinQuota;
+        const inserted = insertMetadata(
           db,
           {
             accessTokenHash,
@@ -544,7 +559,7 @@ export async function createUpload(
         uploadId = candidateId;
         break;
       } catch (error) {
-        if (isUploadIdCollisionError(error)) {
+        if (!options.reservedUploadId && isUploadIdCollisionError(error)) {
           continue;
         }
 

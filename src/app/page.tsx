@@ -1,6 +1,6 @@
 import { getPublicUrl } from "@/server/config/public-url";
 import { getUploadLimits } from "@/server/config/uploads";
-import { SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { SiteFooter } from "@/components/site-chrome";
 import { UploadExperience } from "@/components/upload/upload-experience";
 
 import {
@@ -17,7 +17,6 @@ export default function Home() {
   return (
     <>
       <div className="page-frame">
-        <SiteHeader />
         <main className="upload-shell">
           <UploadExperience initialMaxBytes={maxUploadBytes} />
         </main>

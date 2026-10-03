@@ -1,13 +1,202 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+type LayoutProbe = Window & {
+  __layoutGeometry?: Array<{
+    headingY: number;
+    uploadY: number;
+  }>;
+  __layoutShifts?: Array<{ sources: string[]; value: number }>;
+};
+
+const layoutCases = [
+  {
+    name: "desktop delayed configuration",
+    width: 1280,
+    height: 900,
+    configuration: "delayed",
+    offline: false,
+  },
+  {
+    name: "desktop failed configuration",
+    width: 1280,
+    height: 900,
+    configuration: "failed",
+    offline: false,
+  },
+  {
+    name: "desktop offline initialization",
+    width: 1280,
+    height: 900,
+    configuration: "normal",
+    offline: true,
+  },
+  {
+    name: "mobile delayed configuration",
+    width: 390,
+    height: 844,
+    configuration: "delayed",
+    offline: false,
+  },
+  {
+    name: "mobile failed configuration",
+    width: 390,
+    height: 844,
+    configuration: "failed",
+    offline: false,
+  },
+  {
+    name: "mobile offline initialization",
+    width: 390,
+    height: 844,
+    configuration: "normal",
+    offline: true,
+  },
+] as const;
+
+for (const layoutCase of layoutCases) {
+  test(`keeps initial layout stable with ${layoutCase.name}`, async ({
+    baseURL,
+    page,
+  }) => {
+    await page.setViewportSize({
+      width: layoutCase.width,
+      height: layoutCase.height,
+    });
+    await page.addInitScript(
+      ({ offline, origin }) => {
+        const probe = window as LayoutProbe;
+        probe.__layoutShifts = [];
+        probe.__layoutGeometry = [];
+        Object.defineProperty(navigator, "onLine", {
+          configurable: true,
+          get: () => !offline,
+        });
+        const history = JSON.stringify([
+          {
+            accessToken: "layout-test-token",
+            expiresAt: "2099-01-01T00:00:00.000Z",
+            id: "A1B2C",
+            originalName: "stable-layout.txt",
+            savedAt: "2098-01-01T00:00:00.000Z",
+            shareUrl: `${origin}/A1B2C`,
+            size: 12,
+          },
+        ]);
+        localStorage.setItem("up-remastered:upload-history:v1", history);
+        sessionStorage.setItem("up-remastered:upload-history:v1", history);
+        new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            const shift = entry as PerformanceEntry & {
+              hadRecentInput: boolean;
+              sources?: Array<{ node?: Node }>;
+              value: number;
+            };
+            if (!shift.hadRecentInput) {
+              probe.__layoutShifts?.push({
+                sources:
+                  shift.sources?.map((source) =>
+                    source.node instanceof Element
+                      ? `${source.node.tagName}.${source.node.className}`
+                      : "unknown",
+                  ) ?? [],
+                value: shift.value,
+              });
+            }
+          }
+        }).observe({ buffered: true, type: "layout-shift" });
+        addEventListener("DOMContentLoaded", () => {
+          const sample = () => {
+            const heading = document.querySelector(".workspace-heading");
+            const upload = document.querySelector(".upload-card");
+            if (heading && upload) {
+              probe.__layoutGeometry?.push({
+                headingY: heading.getBoundingClientRect().y,
+                uploadY: upload.getBoundingClientRect().y,
+              });
+            }
+            if (performance.now() < 1_500) requestAnimationFrame(sample);
+          };
+          requestAnimationFrame(sample);
+        });
+      },
+      {
+        offline: layoutCase.offline,
+        origin: new URL(baseURL ?? "http://127.0.0.1:3000").origin,
+      },
+    );
+
+    if (layoutCase.configuration !== "normal") {
+      await page.route("**/api/configuration", async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        if (layoutCase.configuration === "failed") {
+          await route.abort("failed");
+          return;
+        }
+        await route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ maxTemporaryFileSize: 64 }),
+        });
+      });
+    }
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (attempt === 0) await page.goto("/");
+      else await page.reload();
+
+      await expect(
+        page.getByRole("heading", { name: "stable-layout.txt" }),
+      ).toBeVisible();
+      if (layoutCase.offline) {
+        await expect(page.getByRole("status")).toHaveText(/offline/i);
+      }
+      if (layoutCase.configuration === "failed") {
+        await expect(page.locator(".warning-note")).toBeVisible();
+      }
+      await page.waitForTimeout(500);
+
+      const result = await page.evaluate(() => {
+        const probe = window as LayoutProbe;
+        const geometry = probe.__layoutGeometry ?? [];
+        const spread = (values: number[]) =>
+          Math.max(...values) - Math.min(...values);
+        return {
+          cls: (probe.__layoutShifts ?? []).reduce(
+            (sum, shift) => sum + shift.value,
+            0,
+          ),
+          shifts: probe.__layoutShifts ?? [],
+          headingSpread: spread(geometry.map(({ headingY }) => headingY)),
+          samples: geometry.length,
+          uploadSpread: spread(geometry.map(({ uploadY }) => uploadY)),
+        };
+      });
+      expect(result.samples).toBeGreaterThan(1);
+      expect(result.headingSpread).toBeLessThanOrEqual(0.5);
+      expect(result.uploadSpread).toBeLessThanOrEqual(0.5);
+      expect(result.cls, JSON.stringify(result.shifts)).toBe(0);
+    }
+  });
+}
+
 test("uploads a picked file and exposes result actions", async ({
   baseURL,
   context,
   page,
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const deferredScripts: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.resourceType() === "script" &&
+      request.url().includes("/_next/static/chunks/")
+    ) {
+      deferredScripts.push(request.url());
+    }
+  });
   await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  deferredScripts.length = 0;
 
   await page.locator("#file-picker").setInputFiles({
     buffer: Buffer.from("picked"),
@@ -23,8 +212,10 @@ test("uploads a picked file and exposes result actions", async ({
       `^${expectedOrigin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/[0-9A-Z]{5}$`,
     ),
   );
+  expect(deferredScripts).toEqual([]);
   await page.getByRole("button", { name: "Show QR code" }).click();
   await expect(page.getByTestId("qr-code").locator("svg")).toBeVisible();
+  expect(deferredScripts.length).toBeGreaterThan(0);
   await expect(
     page.getByRole("link", { name: "Download QR code" }),
   ).toHaveAttribute("download", /-qr\.svg$/);
@@ -42,6 +233,10 @@ test("uploads a picked file and exposes result actions", async ({
     "href",
     shareUrl,
   );
+  const downloadFile = page
+    .locator(".result-card")
+    .getByRole("link", { name: "Download file" });
+  await expect(downloadFile).toHaveAttribute("href", `${shareUrl}?download=1`);
 
   await page.getByRole("button", { name: "Copy URL" }).click();
   await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
@@ -59,6 +254,12 @@ test("uploads a picked file and exposes result actions", async ({
   await copyButton.focus();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Open file" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(downloadFile).toBeFocused();
+  const downloadPromise = page.waitForEvent("download");
+  await downloadFile.press("Enter");
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("picked.txt");
   await page.keyboard.press("Tab");
   await expect(
     page.getByRole("button", { name: "Show QR code" }),
@@ -390,7 +591,8 @@ test("shows upload percentage in the title and supports mobile text upload", asy
   await expect(page).toHaveTitle("Request a file | Up - Remastered");
 });
 
-test("persists upload history and separates local removal from server deletion", async ({
+test("persists history across page restarts and keeps local removal separate", async ({
+  context,
   page,
 }) => {
   await page.goto("/");
@@ -405,7 +607,10 @@ test("persists upload history and separates local removal from server deletion",
   );
   expect(stored).toContain('"accessToken"');
 
-  await page.reload();
+  const reopenedPage = await context.newPage();
+  await page.close();
+  page = reopenedPage;
+  await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "Your uploads" }),
   ).toBeVisible();
@@ -413,6 +618,9 @@ test("persists upload history and separates local removal from server deletion",
     page.getByRole("heading", { name: "history.txt" }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: shareUrl })).toBeVisible();
+  await expect(
+    page.locator(".history-card").getByRole("link", { name: "Download" }),
+  ).toHaveAttribute("href", `${shareUrl}?download=1`);
   expect(await page.locator("body").innerText()).not.toContain("accessToken");
 
   await page
@@ -471,6 +679,52 @@ test("persists upload history and separates local removal from server deletion",
   expect(missing.status()).toBe(404);
   await expect(
     page.getByRole("heading", { name: "Your uploads" }),
+  ).toBeHidden();
+});
+
+test("synchronizes upload history across open tabs", async ({
+  context,
+  page,
+}) => {
+  await page.goto("/");
+  const otherPage = await context.newPage();
+  await otherPage.goto("/");
+  const textMode = otherPage.getByRole("button", {
+    name: "Text",
+    exact: true,
+  });
+  await textMode.click();
+  await expect(textMode).toHaveAttribute("aria-pressed", "true");
+
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "up-remastered:upload-history:v1",
+      JSON.stringify([
+        {
+          accessToken: "not-rendered",
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          id: "AAAAA",
+          originalName: "synced.txt",
+          savedAt: new Date().toISOString(),
+          shareUrl: `${location.origin}/AAAAA`,
+          size: 6,
+        },
+      ]),
+    );
+  });
+
+  await expect(
+    otherPage.getByRole("heading", { name: "synced.txt" }),
+  ).toBeVisible();
+  expect(await otherPage.locator("body").innerText()).not.toContain(
+    "not-rendered",
+  );
+
+  await page.evaluate(() =>
+    localStorage.removeItem("up-remastered:upload-history:v1"),
+  );
+  await expect(
+    otherPage.getByRole("heading", { name: "synced.txt" }),
   ).toBeHidden();
 });
 

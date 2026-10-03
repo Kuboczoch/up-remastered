@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { getDatabasePath } from "@/server/config/database";
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { migrateDatabase } from "@/server/db/migrate";
-import { uploadMetadata } from "@/server/db/schema";
+import { uploadIdReservations, uploadMetadata } from "@/server/db/schema";
 import { hasUploadId } from "@/server/db/uploads";
 
 let tempDir: string | undefined;
@@ -98,7 +98,7 @@ describe("SQLite metadata persistence", () => {
     }
   });
 
-  it("treats upload IDs as reusable after metadata deletion", async () => {
+  it("keeps upload IDs reserved after metadata deletion", async () => {
     const databasePath = await createTempDatabasePath();
 
     migrateDatabase(databasePath);
@@ -107,26 +107,26 @@ describe("SQLite metadata persistence", () => {
     const db = createDbClient(connection);
 
     try {
-      db.insert(uploadMetadata)
-        .values([
-          {
-            id: "A7K2Q",
-            originalName: "photo.txt",
-            storedName: "A7K2Q.bin",
-            mimeType: "text/plain",
-            size: 10,
-            storagePath: "/data/uploads/A7K2Q.bin",
-            createdAt: new Date("2026-01-01T00:00:00.000Z"),
-            expiresAt: new Date("2026-01-02T00:00:00.000Z"),
-          },
-        ])
+      const metadata = {
+        id: "A7K2Q",
+        originalName: "photo.txt",
+        storedName: "A7K2Q.bin",
+        mimeType: "text/plain",
+        size: 10,
+        storagePath: "/data/uploads/A7K2Q.bin",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        expiresAt: new Date("2026-01-02T00:00:00.000Z"),
+      };
+      db.insert(uploadIdReservations)
+        .values({ id: metadata.id, createdAt: metadata.createdAt })
         .run();
+      db.insert(uploadMetadata).values(metadata).run();
 
       expect(hasUploadId(db, "A7K2Q")).toBe(true);
 
       db.delete(uploadMetadata).where(eq(uploadMetadata.id, "A7K2Q")).run();
 
-      expect(hasUploadId(db, "A7K2Q")).toBe(false);
+      expect(hasUploadId(db, "A7K2Q")).toBe(true);
     } finally {
       connection.close();
     }

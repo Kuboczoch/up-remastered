@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   reactCompiler: true,
   serverExternalPackages: ["better-sqlite3"],
+  turbopack: {
+    root: process.cwd(),
+  },
   async headers() {
     return [
       {

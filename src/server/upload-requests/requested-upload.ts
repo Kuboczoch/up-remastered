@@ -8,7 +8,7 @@ import {
   consumeUploadRequest,
   getUploadRequestByManagementHash,
   getUploadRequestByPublicHash,
-  insertUploadRequest,
+  insertUploadRequestWithReservation,
   releaseUploadRequestClaim,
   revokeUploadRequest as revokeStoredUploadRequest,
 } from "@/server/db/upload-requests";
@@ -20,6 +20,10 @@ import {
 } from "@/server/uploads/create-upload";
 import { UploadRequestError } from "@/server/uploads/errors";
 import { deleteUploadWithAccessToken } from "@/server/uploads/manage-upload";
+import {
+  createPublicUploadId,
+  isPublicUploadId,
+} from "@/server/uploads/public-id";
 
 import {
   createCapabilityToken,
@@ -36,13 +40,16 @@ export type RequestedUploadStatus =
   | "consumed"
   | "expired"
   | "in_progress"
+  | "retry"
   | "revoked";
 
 export type UploadRequestDetails = {
   createdAt: string;
   expiresAt: string;
   maxBytes: number;
+  shareUrl?: string;
   status: RequestedUploadStatus;
+  statusChangedAt: string;
   uploadId?: string;
 };
 
@@ -57,7 +64,18 @@ function statusOf(request: UploadRequest, now: Date): RequestedUploadStatus {
   if (request.consumedAt) return "consumed";
   if (request.expiresAt.getTime() <= now.getTime()) return "expired";
   if (request.claimId) return "in_progress";
+  if (request.retryAt) return "retry";
   return "active";
+}
+
+function statusChangedAt(request: UploadRequest, now: Date): Date {
+  const status = statusOf(request, now);
+  if (status === "revoked") return request.revokedAt!;
+  if (status === "consumed") return request.consumedAt!;
+  if (status === "expired") return request.expiresAt;
+  if (status === "in_progress") return request.claimedAt!;
+  if (status === "retry") return request.retryAt!;
+  return request.createdAt;
 }
 
 function toDetails(request: UploadRequest, now: Date): UploadRequestDetails {
@@ -65,7 +83,11 @@ function toDetails(request: UploadRequest, now: Date): UploadRequestDetails {
     createdAt: request.createdAt.toISOString(),
     expiresAt: request.expiresAt.toISOString(),
     maxBytes: request.maxBytes,
+    ...(request.uploadId
+      ? { shareUrl: getPublicUrl(`/${request.uploadId}`) }
+      : {}),
     status: statusOf(request, now),
+    statusChangedAt: statusChangedAt(request, now).toISOString(),
     ...(request.uploadId ? { uploadId: request.uploadId } : {}),
   };
 }
@@ -138,6 +160,7 @@ export function createRequestedUpload(
   input: unknown,
   now = new Date(),
   createToken: () => string = createCapabilityToken,
+  createId: () => string = createPublicUploadId,
 ): CreatedUploadRequest {
   const validated = validateUploadRequestInput(input, now);
   ensureDatabaseMigrated();
@@ -152,6 +175,7 @@ export function createRequestedUpload(
     ) {
       const publicToken = createToken();
       const managementToken = createToken();
+      const uploadId = createId();
 
       if (
         !isCapabilityToken(publicToken) ||
@@ -160,6 +184,10 @@ export function createRequestedUpload(
         throw new Error(
           "Capability token generator returned an invalid token.",
         );
+      }
+
+      if (!isPublicUploadId(uploadId)) {
+        throw new Error("Upload ID generator returned an invalid ID.");
       }
 
       try {
@@ -172,10 +200,11 @@ export function createRequestedUpload(
           managementTokenHash: hashCapabilityToken(managementToken),
           maxBytes: validated.maxBytes,
           publicTokenHash: hashCapabilityToken(publicToken),
+          retryAt: null,
           revokedAt: null,
-          uploadId: null,
+          uploadId,
         };
-        insertUploadRequest(db, request);
+        insertUploadRequestWithReservation(db, request, now);
 
         return {
           ...toDetails(request, now),
@@ -208,7 +237,9 @@ export function getActiveRequestedUpload(
       createDbClient(connection),
       hashCapabilityToken(publicToken),
     );
-    return request && statusOf(request, now) === "active"
+    if (!request) return undefined;
+    const status = statusOf(request, now);
+    return status === "active" || status === "retry"
       ? toDetails(request, now)
       : undefined;
   } finally {
@@ -277,6 +308,7 @@ export async function fulfillRequestedUpload(
   try {
     const upload = await createUpload(request, undefined, undefined, {
       maxUploadBytes: claimed.maxBytes,
+      ...(claimed.uploadId ? { reservedUploadId: claimed.uploadId } : {}),
     });
     const consumeConnection = createSqliteConnection();
     let consumed: boolean;
@@ -306,6 +338,7 @@ export async function fulfillRequestedUpload(
         createDbClient(releaseConnection),
         publicTokenHash,
         claimId,
+        now,
       );
     } finally {
       releaseConnection.close();

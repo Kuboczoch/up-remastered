@@ -1,5 +1,59 @@
 import { expect, test } from "@playwright/test";
 
+test("keeps the request form visible while returning to uploads", async ({
+  page,
+}) => {
+  await page.goto("/request/new");
+  const backLink = page.getByRole("link", { name: "Back to uploads" });
+  await expect(backLink).toHaveAttribute("href", "/");
+  const devtools = await page.context().newCDPSession(page);
+  const requestPageScreenshot = await devtools.send("Page.captureScreenshot", {
+    format: "png",
+  });
+
+  let releaseHomeRequest!: () => void;
+  const homeRequestReleased = new Promise<void>((resolve) => {
+    releaseHomeRequest = resolve;
+  });
+  let markHomeRequestHeld!: () => void;
+  const homeRequestHeld = new Promise<void>((resolve) => {
+    markHomeRequestHeld = resolve;
+  });
+  let homeRequestHeaders: Record<string, string> = {};
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (
+      request.isNavigationRequest() &&
+      request.resourceType() === "document" &&
+      url.pathname === "/"
+    ) {
+      homeRequestHeaders = request.headers();
+      markHomeRequestHeld();
+      await homeRequestReleased;
+    }
+    await route.continue();
+  });
+
+  const click = backLink.click();
+  await homeRequestHeld;
+  try {
+    const pendingNavigationScreenshot = await devtools.send(
+      "Page.captureScreenshot",
+      { format: "png" },
+    );
+    expect(pendingNavigationScreenshot.data).toBe(requestPageScreenshot.data);
+    expect(homeRequestHeaders).not.toHaveProperty("rsc");
+  } finally {
+    releaseHomeRequest();
+  }
+  await click;
+  await expect(page).toHaveURL("/");
+  await expect(
+    page.getByRole("heading", { name: "Share temporary files and text." }),
+  ).toBeVisible();
+});
+
 test("creates a bounded request, accepts one upload, and exposes owner status", async ({
   context,
   page,

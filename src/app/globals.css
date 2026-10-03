@@ -25,6 +25,7 @@
 html {
   color-scheme: dark;
   background: var(--canvas);
+  overflow-y: scroll;
 }
 body {
   margin: 0;
@@ -111,6 +112,11 @@ textarea::placeholder {
   color: var(--accent);
 }
 
+.page-frame {
+  display: flex;
+  min-height: 100svh;
+  flex-direction: column;
+}
 .upload-shell {
   width: min(100% - 40px, 800px);
   margin: 0 auto;
@@ -228,6 +234,16 @@ textarea::placeholder {
   line-height: 1;
   animation: drop-icon-feedback-in 180ms ease-out;
 }
+.upload-mode-panels {
+  display: grid;
+}
+.upload-mode-panels > * {
+  grid-area: 1 / 1;
+}
+.upload-mode-panels > .is-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
 .file-panel {
   position: relative;
   z-index: 1;
@@ -289,6 +305,16 @@ textarea::placeholder {
   background: var(--danger-surface);
   color: var(--danger);
 }
+.connection-warning {
+  position: fixed;
+  top: 76px;
+  left: 50%;
+  z-index: 10;
+  width: min(calc(100% - 40px), 774px);
+  margin: 0;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 30%);
+  transform: translateX(-50%);
+}
 .inline-error {
   position: relative;
   z-index: 3;
@@ -320,6 +346,7 @@ textarea::placeholder {
 .text-upload textarea {
   grid-column: 1 / -1;
   width: 100%;
+  max-height: 180px;
   resize: vertical;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -346,7 +373,7 @@ textarea::placeholder {
   display: flex;
   flex-wrap: wrap;
   align-items: start;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 20px;
   padding: 15px 2px;
   color: var(--muted);
@@ -430,6 +457,10 @@ textarea::placeholder {
   margin: 22px 0;
   color: var(--muted);
   font-size: 12px;
+}
+.history-content {
+  display: flow-root;
+  min-height: 77px;
 }
 .history-list {
   margin: 15px 0 0;
@@ -708,10 +739,16 @@ textarea::placeholder {
 
 .site-footer {
   width: 100%;
-  margin-top: 66px;
+  margin-top: auto;
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 11px;
+  opacity: 0.75;
+  transition: opacity 160ms ease;
+}
+.site-footer:hover,
+.site-footer:focus-within {
+  opacity: 1;
 }
 .site-footer-inner {
   display: flex;
@@ -890,7 +927,7 @@ textarea::placeholder {
     flex-direction: column;
     gap: 5px;
   }
-  .history-actions a {
+  .history-actions .history-copy-link {
     display: none;
   }
   .result-card {
@@ -920,7 +957,7 @@ textarea::placeholder {
     padding: 28px;
   }
   .site-footer {
-    margin-top: 45px;
+    margin-top: auto;
   }
   .site-footer-inner {
     width: calc(100% - 34px);

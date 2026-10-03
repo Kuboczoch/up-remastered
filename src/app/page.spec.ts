@@ -12,10 +12,20 @@ test("renders the homepage value proposition and structured data", async ({
     page.getByRole("heading", { name: "Share temporary files and text." }),
   ).toBeVisible();
   await expect(
-    page.getByText("Everything expires automatically. No account required."),
+    page.getByText("Everything expires automatically."),
   ).toBeVisible();
+  await expect(page.getByText("Recent uploads")).toHaveCount(0);
   await expect(page.locator("h1")).toHaveCount(1);
   await expect(page).toHaveTitle("Up - Remastered");
+
+  const uploadCard = page.locator(".upload-card");
+  const fileModeHeight = (await uploadCard.boundingBox())?.height;
+  await page.getByRole("button", { name: "Text" }).click();
+  await expect(page.getByLabel("Or upload text")).toHaveCSS(
+    "max-height",
+    "180px",
+  );
+  expect((await uploadCard.boundingBox())?.height).toBe(fileModeHeight);
 
   const jsonLd = await page
     .locator('script[type="application/ld+json"]')
@@ -96,14 +106,12 @@ test("keeps the shared footer usable across responsive layouts", async ({
 
   const footer = page.getByRole("contentinfo");
   const footerInner = footer.locator(".site-footer-inner");
-  const header = page.locator(".site-header");
 
   await expect(footer).toBeVisible();
   await expect(footer).toHaveCSS("width", "1280px");
   await expect(footerInner).toHaveCSS("width", "800px");
-  expect((await footerInner.boundingBox())?.x).toBe(
-    (await header.boundingBox())?.x,
-  );
+  expect((await footer.boundingBox())?.y).toBeGreaterThanOrEqual(810);
+  await expect(footer).toHaveCSS("opacity", "0.75");
   await expect(
     footer.getByRole("link", { name: "Request a file" }),
   ).toHaveAttribute("href", "/request/new");
@@ -149,13 +157,7 @@ test("keeps the shared footer usable across responsive layouts", async ({
 test("serves browser icons and the web manifest", async ({ page }) => {
   await page.goto("/");
 
-  const brandMark = page
-    .getByRole("link", { name: "Up - Remastered home" })
-    .locator("img");
-  await expect(brandMark).toBeVisible();
-  await expect(brandMark).toHaveAttribute("src", "/brand-mark.svg");
-  await expect(brandMark).toHaveCSS("width", "34px");
-  await expect(brandMark).toHaveCSS("height", "34px");
+  await expect(page.locator(".site-header")).toHaveCount(0);
 
   const browserIcons = page.locator(
     'link[rel="icon"], link[rel="apple-touch-icon"]',

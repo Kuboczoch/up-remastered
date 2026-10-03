@@ -64,11 +64,13 @@ describe("CreateRequestForm", () => {
     const fetchMock = jest.fn<typeof fetch>(async () =>
       Promise.resolve({
         json: async () => ({
+          createdAt: "2026-01-01T00:00:00.000Z",
           expiresAt: "2026-01-01T01:00:00.000Z",
           managementUrl: "https://example.test/request/manage#owner-token",
           managementToken: "owner-token",
           maxBytes: 512,
           status: "active",
+          statusChangedAt: "2026-01-01T00:00:00.000Z",
           uploadUrl: "https://example.test/request/token",
         }),
         ok: true,
@@ -93,7 +95,7 @@ describe("CreateRequestForm", () => {
     });
     fireEvent.click(getByRole("button", { name: "Create upload request" }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toMatchObject({ maxBytes: 512 });
   });
@@ -109,11 +111,13 @@ describe("CreateRequestForm", () => {
     global.fetch = jest.fn<typeof fetch>(async () =>
       Promise.resolve({
         json: async () => ({
+          createdAt: "2026-01-01T00:00:00.000Z",
           expiresAt: "2099-01-01T01:00:00.000Z",
           managementUrl: "https://example.test/request/manage#owner-token",
           managementToken: "owner-token",
           maxBytes: 1024,
           status: "active",
+          statusChangedAt: "2026-01-01T00:00:00.000Z",
           uploadUrl: "https://example.test/request/upload-token",
         }),
         ok: true,

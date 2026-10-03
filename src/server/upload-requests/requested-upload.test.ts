@@ -33,6 +33,7 @@ const ENV_KEYS = [
 const NOW = new Date("2026-09-26T18:00:00.000Z");
 const PUBLIC_TOKEN = "a".repeat(64);
 const MANAGEMENT_TOKEN = "b".repeat(64);
+const RESERVED_UPLOAD_ID = "R3QST";
 
 beforeEach(async () => {
   originalEnv = Object.fromEntries(
@@ -71,7 +72,12 @@ function raw(body: string) {
 
 function createRequest() {
   const tokens = [PUBLIC_TOKEN, MANAGEMENT_TOKEN];
-  return createRequestedUpload(input(), NOW, () => tokens.shift()!);
+  return createRequestedUpload(
+    input(),
+    NOW,
+    () => tokens.shift()!,
+    () => RESERVED_UPLOAD_ID,
+  );
 }
 
 describe("requested uploads", () => {
@@ -107,12 +113,16 @@ describe("requested uploads", () => {
       managementToken: MANAGEMENT_TOKEN,
       managementUrl: `https://up.example/request/manage#${MANAGEMENT_TOKEN}`,
       maxBytes: 16,
+      shareUrl: `https://up.example/${RESERVED_UPLOAD_ID}`,
       status: "active",
+      statusChangedAt: NOW.toISOString(),
+      uploadId: RESERVED_UPLOAD_ID,
       uploadUrl: `https://up.example/request/${PUBLIC_TOKEN}`,
     });
     expect(row).toMatchObject({
       managementTokenHash: hashCapabilityToken(MANAGEMENT_TOKEN),
       publicTokenHash: hashCapabilityToken(PUBLIC_TOKEN),
+      uploadId: RESERVED_UPLOAD_ID,
     });
     expect(JSON.stringify(row)).not.toContain(PUBLIC_TOKEN);
     expect(JSON.stringify(row)).not.toContain(MANAGEMENT_TOKEN);
@@ -131,8 +141,9 @@ describe("requested uploads", () => {
     ]);
     expect(getActiveRequestedUpload(PUBLIC_TOKEN, NOW)).toBeUndefined();
     expect(inspectRequestedUpload(MANAGEMENT_TOKEN, NOW)).toMatchObject({
+      shareUrl: `https://up.example/${RESERVED_UPLOAD_ID}`,
       status: "consumed",
-      uploadId: expect.stringMatching(/^[0-9A-Z]{5}$/),
+      uploadId: RESERVED_UPLOAD_ID,
     });
     await expect(
       fulfillRequestedUpload(PUBLIC_TOKEN, raw("third"), NOW),
@@ -147,7 +158,7 @@ describe("requested uploads", () => {
     await expect(
       fulfillRequestedUpload(PUBLIC_TOKEN, raw("x".repeat(17)), NOW),
     ).rejects.toMatchObject({ code: "upload_too_large", status: 413 });
-    expect(getActiveRequestedUpload(PUBLIC_TOKEN, NOW)?.status).toBe("active");
+    expect(getActiveRequestedUpload(PUBLIC_TOKEN, NOW)?.status).toBe("retry");
     await expect(
       fulfillRequestedUpload(PUBLIC_TOKEN, raw("ok"), NOW),
     ).resolves.toMatchObject({

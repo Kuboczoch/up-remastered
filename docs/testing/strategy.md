@@ -6,7 +6,7 @@ Current coverage:
 
 - Jest for component-level homepage checks, including `jest-axe` accessibility scans.
 - Jest for server utility, SQLite metadata, and upload persistence/quota tests under `src/server/**` in a Node environment.
-- Playwright for browser-level homepage and upload endpoint smoke checks, plus future share and download flows, including `@axe-core/playwright` accessibility scans.
+- Playwright for browser-level homepage and upload endpoint smoke checks, plus future share and download flows, including `@axe-core/playwright` accessibility scans. Homepage coverage records browser `layout-shift` entries and heading/upload-control geometry across mobile and desktop refreshes with restored history, delayed or failed configuration, and offline initialization.
 
 Useful commands:
 
