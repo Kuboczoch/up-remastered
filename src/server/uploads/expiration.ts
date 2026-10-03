@@ -31,7 +31,11 @@ function parseDurationField(fields: UploadFields): number | undefined {
 
   const parsedDuration = Number(rawDuration);
 
-  if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) {
+  if (
+    !/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(rawDuration) ||
+    !Number.isFinite(parsedDuration) ||
+    parsedDuration <= 0
+  ) {
     throw new UploadRequestError(
       "Expiration duration must be a positive number.",
       400,
@@ -51,7 +55,7 @@ function parseDurationField(fields: UploadFields): number | undefined {
 }
 
 function normalizeOptionalField(value: string | undefined): string | undefined {
-  if (value === undefined || value.trim() === "") {
+  if (value === undefined) {
     return undefined;
   }
 
@@ -63,9 +67,23 @@ export function resolveUploadExpiration(
   limits: UploadLimits,
   now = new Date(),
 ): Date {
+  const maxExpirationMs = Math.min(limits.maxExpirationMs, 24 * 60 * 60 * 1000);
   const requestedExpiresAt = fields.get("expiresAt");
+  const suppliedFields = [
+    "expiresAt",
+    "expiresInSeconds",
+    "expiresInMinutes",
+    "expiresInHours",
+  ].filter((name) => fields.has(name));
+  if (suppliedFields.length > 1) {
+    throw new UploadRequestError(
+      "Provide only one expiration field.",
+      400,
+      "invalid_expiration",
+    );
+  }
 
-  if (requestedExpiresAt) {
+  if (requestedExpiresAt !== undefined) {
     if (!ISO_DATE_PATTERN.test(requestedExpiresAt)) {
       throw new UploadRequestError(
         INVALID_EXPIRES_AT_MESSAGE,
@@ -76,7 +94,15 @@ export function resolveUploadExpiration(
 
     const expiresAt = new Date(requestedExpiresAt);
 
-    if (Number.isNaN(expiresAt.getTime()) || expiresAt <= now) {
+    const canonical = requestedExpiresAt.replace(
+      /(?:\.(\d{3}))?Z$/,
+      (_, ms: string | undefined) => `.${ms ?? "000"}Z`,
+    );
+    if (
+      Number.isNaN(expiresAt.getTime()) ||
+      expiresAt <= now ||
+      expiresAt.toISOString() !== canonical
+    ) {
       throw new UploadRequestError(
         INVALID_EXPIRES_AT_MESSAGE,
         400,
@@ -84,7 +110,7 @@ export function resolveUploadExpiration(
       );
     }
 
-    if (expiresAt.getTime() - now.getTime() > limits.maxExpirationMs) {
+    if (expiresAt.getTime() - now.getTime() > maxExpirationMs) {
       throw new UploadRequestError(
         "Requested expiration exceeds the maximum allowed expiration.",
         400,
@@ -96,9 +122,10 @@ export function resolveUploadExpiration(
   }
 
   const requestedDurationMs =
-    parseDurationField(fields) ?? limits.defaultExpirationMs;
+    parseDurationField(fields) ??
+    Math.min(limits.defaultExpirationMs, maxExpirationMs);
 
-  if (requestedDurationMs > limits.maxExpirationMs) {
+  if (requestedDurationMs > maxExpirationMs) {
     throw new UploadRequestError(
       "Requested expiration exceeds the maximum allowed expiration.",
       400,
