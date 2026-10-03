@@ -697,7 +697,9 @@ export function UploadExperience({
               }
             >
               Advanced options{" "}
-              <span aria-hidden="true">{optionsOpen ? "−" : "＋"}</span>
+              <span className="advanced-symbol" aria-hidden="true">
+                {optionsOpen ? "−" : "+"}
+              </span>
             </button>
           </div>
         </div>

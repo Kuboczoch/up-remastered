@@ -1032,8 +1032,11 @@ html {
   font-size: 13px;
   font-weight: 600;
 }
-.upload-rail button span {
-  padding-left: 12px;
+.upload-rail .advanced-symbol {
+  display: inline-block;
+  width: 1em;
+  margin-left: 12px;
+  text-align: center;
   color: var(--accent);
 }
 .upload-card {
