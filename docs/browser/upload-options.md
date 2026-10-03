@@ -7,8 +7,10 @@ remains disabled at UTF-8; selectable encodings are not part of this stack.
 Clipboard files retain their original bytes. Closing options or switching
 File/Text preserves the text draft; file mode hides the encoding control.
 
-Expiry, download limits and key protection remain disabled until their
-respective implementation is integrated.
+Expiry offers 1, 3, 6, 12 and 24 hours (default 24) and applies to every upload
+entry point. Server configuration and all legacy expiration fields are bounded
+by the 24-hour maximum. Download limits and key protection remain disabled until
+their respective implementation is integrated.
 
 ## Opt-in upload history
 

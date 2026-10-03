@@ -111,7 +111,7 @@ export function uploadFile(
     const form = new FormData();
     form.set("file", file);
     if (options.expirationHours !== undefined) {
-      form.set("expirationHours", String(options.expirationHours));
+      form.set("expiresInHours", String(options.expirationHours));
     }
     request.send(form);
   });

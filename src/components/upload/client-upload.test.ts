@@ -85,7 +85,7 @@ describe("upload client", () => {
       size: 5,
     });
     expect(progress).toEqual([50]);
-    expect(FakeXMLHttpRequest.sentForm.get("expirationHours")).toBe("6");
+    expect(FakeXMLHttpRequest.sentForm.get("expiresInHours")).toBe("6");
   });
 
   it("uses sanitized API error messages", async () => {
