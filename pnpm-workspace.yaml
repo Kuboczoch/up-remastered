@@ -4,6 +4,7 @@ minimumReleaseAgeExclude:
 overrides:
   resolve: 2.0.0-next.6
 allowBuilds:
+  '@parcel/watcher': true
   better-sqlite3: true
   esbuild: true
   sharp: true
