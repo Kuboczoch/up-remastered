@@ -52,25 +52,6 @@ function insertUpload({ id, expiresAt, size = 5, storedName = `${id}.bin` }) {
     );
 }
 
-test("cleans exhausted uploads before expiration and preserves unexhausted rows", async () => {
-  insertUpload({ id: "AAAAA", expiresAt: new Date(NOW.getTime() + 10000) });
-  insertUpload({ id: "BBBBB", expiresAt: new Date(NOW.getTime() + 10000) });
-  database.exec(
-    "UPDATE upload_metadata SET max_downloads = 1, download_count = 1 WHERE id = 'AAAAA'",
-  );
-  database.exec(
-    "UPDATE upload_metadata SET max_downloads = 2, download_count = 1 WHERE id = 'BBBBB'",
-  );
-  await writeFile(join(uploads, "AAAAA.bin"), "bytes");
-  const summary = await cleanupExpiredUploads({
-    database,
-    uploadDirectory: uploads,
-    now: NOW,
-  });
-  assert.equal(summary.deleted, 1);
-  assert.deepEqual(ids(), ["BBBBB"]);
-});
-
 function ids() {
   return database
     .prepare("SELECT id FROM upload_metadata ORDER BY id")

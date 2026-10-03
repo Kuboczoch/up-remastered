@@ -1,11 +1,3 @@
-import { encryptFile } from "./encryption";
-
-export type UploadOptions = {
-  expiresInSeconds?: number;
-  maxDownloads?: number;
-  encrypt?: boolean;
-};
-
 export type UploadResult = {
   accessToken: string;
   expiresAt: string;
@@ -77,14 +69,9 @@ export function parseUploadResponse(body: unknown): UploadResult {
 export function uploadFile(
   file: File,
   onProgress: UploadProgress,
-  options: UploadOptions = {},
 ): { abort: () => void; promise: Promise<UploadResult> } {
   const request = new XMLHttpRequest();
-  const controller = new AbortController();
-  let rejectOperation: (error: unknown) => void = () => {};
-  let encryptionKey: string | undefined;
   const promise = new Promise<UploadResult>((resolve, reject) => {
-    rejectOperation = reject;
     request.open("POST", "/api/upload");
     request.responseType = "json";
     request.upload.addEventListener("progress", (event) => {
@@ -114,52 +101,16 @@ export function uploadFile(
       }
 
       try {
-        const result = parseUploadResponse(request.response);
-        if (encryptionKey) {
-          const url = new URL(
-            result.shareUrl,
-            globalThis.location?.origin ?? "http://localhost",
-          );
-          url.hash = `key=${encryptionKey}`;
-          result.shareUrl = url.toString();
-          result.originalName = file.name;
-          result.size = file.size;
-        }
-        resolve(result);
+        resolve(parseUploadResponse(request.response));
       } catch (error) {
         reject(error);
       }
     });
 
-    const send = (upload: File) => {
-      if (controller.signal.aborted) return;
-      const form = new FormData();
-      if (options.expiresInSeconds !== undefined)
-        form.set("expiresInSeconds", String(options.expiresInSeconds));
-      if (options.maxDownloads !== undefined)
-        form.set("maxDownloads", String(options.maxDownloads));
-      if (options.encrypt) form.set("encrypted", "true");
-      form.set("file", upload);
-      request.send(form);
-    };
-    if (options.encrypt) {
-      void encryptFile(file, controller.signal)
-        .then((encrypted) => {
-          encryptionKey = encrypted.key;
-          send(encrypted.file);
-        })
-        .catch(reject);
-    } else {
-      send(file);
-    }
+    const form = new FormData();
+    form.set("file", file);
+    request.send(form);
   });
 
-  return {
-    abort: () => {
-      controller.abort();
-      rejectOperation(new DOMException("Upload cancelled.", "AbortError"));
-      request.abort();
-    },
-    promise,
-  };
+  return { abort: () => request.abort(), promise };
 }

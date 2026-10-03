@@ -31,12 +31,4 @@ The App Router handlers export `runtime = "nodejs"` and only pass route input to
 
 Deletion renames content out of its public path before removing metadata. Filesystem failure restores both content and metadata, so a failed request does not leave a half-deleted public upload.
 
-Password checks and Nginx delegation remain out of scope. Downloads enforce expiration and exhaustion even when cleanup has not run. Exhausted or cleanup-claimed uploads return the same unavailable 404, including HEAD and public details.
-
-## Download limit accounting
-
-A download is one admitted body-bearing GET (200 or 206), atomically reserved in SQLite after opening/validating the file and validating the range, immediately before response streaming. Every alias, forced attachment, retry, valid range, and malformed-range fallback goes through the same predicate-and-increment. Concurrent requests cannot admit more than `maxDownloads`; unavailable and 416 responses consume nothing. HEAD and public details consume nothing. Interrupted/aborted/failed streams are not refunded: a request might already have received bytes, and refunds would permit a range/abort bypass. The final admitted stream remains readable via its open descriptor even if cleanup unlinks exhausted storage.
-
-Conditional headers do not cause 304 responses: there is no cache validator path and responses use `no-store`. Such GETs still return a counted body; conditional or range headers cannot create an uncounted ciphertext path. Uploads with null limits are unlimited but successful GETs still increment `downloadCount`.
-
-Encrypted uploads always serve attachment ciphertext with `application/octet-stream`, bypassing plaintext content classification. Public details include only the encrypted marker and configured limit, never key material.
+Password checks, download limits, cleanup, and Nginx delegation are out of scope. Cleanup is not enough: downloads enforce expiration and availability even when cleanup has not run.

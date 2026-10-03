@@ -18,8 +18,6 @@ Rules:
 - Stream large file reads and writes; do not buffer whole files in memory.
 - Expect about three concurrent large uploads, not cloud-scale concurrency.
 - Keep partially written upload files as temporary files and remove them when validation, streaming, quota, or database persistence fails.
-- Client-encrypted uploads store ciphertext exactly as received; the server never decrypts or stores key material. Their metadata filename/MIME are always generic.
-- Scheduled cleanup claims expired **or download-exhausted** metadata and removes the matching bytes/row. Live unlimited or unexhausted uploads are preserved. Cleanup shares the same claim coordination/retry behavior for both conditions, and open download descriptors allow an already admitted final transfer to finish after unlink.
 - Enforce `MAX_UPLOAD_SIZE` per upload before commit.
 - Enforce `MAX_STORED_BYTES` against stored upload metadata before accepting more bytes.
 

@@ -10,7 +10,7 @@ The server authorizes the request, opens the stored file, and adapts its Node.js
 
 `HEAD` performs the same availability and metadata checks, closes the file handle immediately, and returns the download headers without creating a response stream.
 
-For non-encrypted uploads, before constructing a successful response, the server reads bounded head and tail samples through the same opened file descriptor used for streaming. It selects inline rendering only for verified safe content; it never trusts uploaded MIME metadata for this decision.
+Before constructing a successful response, the server reads bounded head and tail samples through the same opened file descriptor used for streaming. It selects inline rendering only for verified safe content; it never trusts uploaded MIME metadata for this decision.
 
 Successful responses set:
 

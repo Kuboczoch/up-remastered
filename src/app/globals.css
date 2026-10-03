@@ -266,8 +266,12 @@ textarea::placeholder {
   text-decoration: none;
   box-shadow: 0 2px 5px #00000030;
 }
-.primary-action:hover {
+.primary-action:hover:not(:disabled) {
   background: var(--accent-hover);
+}
+#file-picker:focus-visible + label {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
 }
 .drop-hint {
   margin: 12px 0 0 12px;
@@ -701,19 +705,15 @@ textarea::placeholder {
   width: 100%;
   height: auto;
 }
-.qr-modal-backdrop {
-  position: fixed;
-  z-index: 20;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 20px;
+.qr-dialog::backdrop {
   background: rgb(0 0 0 / 75%);
 }
 .qr-dialog {
-  position: relative;
-  display: grid;
-  width: min(100%, 340px);
+  position: fixed;
+  width: min(calc(100% - 40px), 340px);
+  max-height: calc(100% - 40px);
+  margin: auto;
+  color: var(--ink);
   justify-items: center;
   gap: 18px;
   border-radius: 14px;
@@ -721,6 +721,9 @@ textarea::placeholder {
   background: var(--surface);
   border: 1px solid var(--line);
   box-shadow: 0 24px 70px rgb(0 0 0 / 60%);
+}
+.qr-dialog[open] {
+  display: grid;
 }
 .qr-dialog h2 {
   margin: 0;
@@ -1242,9 +1245,14 @@ html {
 .history-menu:popover-open {
   display: grid;
 }
-.protected-history {
-  font-size: 11px;
-  color: var(--muted);
+.deferred-protection-warning {
+  border-left: 2px solid var(--warning);
+  padding-left: 10px;
+  color: var(--warning);
+}
+.option-setting :disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 .history-more p {
   font-size: 11px;

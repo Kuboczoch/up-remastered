@@ -1,6 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { readFile } from "node:fs/promises";
 
 for (const width of [390, 1366, 1536]) {
   test(`layer geometry and options are stable at ${width}px`, async ({
@@ -51,83 +50,6 @@ for (const width of [390, 1366, 1536]) {
     ).toBe(true);
   });
 }
-
-test("real protected upload roundtrip, fragment privacy, consent and one-download limit", async ({
-  page,
-  context,
-  request,
-}) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  const http: string[] = [];
-  const bodies: string[] = [];
-  page.on("request", (req) => {
-    http.push(req.url());
-    if (req.postData()) bodies.push(req.postData()!);
-  });
-  await page.goto("/");
-  await page.getByRole("button", { name: /Advanced options/ }).click();
-  await page.getByRole("switch", { name: "Save history" }).check();
-  await page.getByRole("switch", { name: "Key protect" }).check();
-  await page.getByLabel("Expires after").selectOption("1");
-  await page.locator("#download-limit").fill("1");
-  await page.getByRole("button", { name: "Close advanced options" }).click();
-  await page.locator("#file-picker").setInputFiles({
-    buffer: Buffer.from("private original"),
-    name: "private-original.txt",
-    mimeType: "text/plain",
-  });
-  await expect(
-    page.getByRole("heading", { name: "private-original.txt" }).first(),
-  ).toBeVisible();
-  const link = await page.locator("#share-url").inputValue();
-  const url = new URL(link);
-  expect(url.pathname).toMatch(/^\/decrypt\/[A-Za-z0-9]+$/);
-  expect(url.hash).toMatch(/^#key=[A-Za-z0-9_-]{43}$/);
-  const key = url.hash.slice(5);
-  expect(http.join(" ")).not.toContain(key);
-  expect(bodies.join(" ")).not.toContain(key);
-  expect(bodies.join(" ")).not.toContain("private original");
-  expect(bodies.join(" ")).not.toContain("private-original.txt");
-  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain(
-    key,
-  );
-  await expect(page.getByText("Key not saved")).toBeVisible();
-  const rawPath = url.pathname.replace("/decrypt", "");
-  const head = await request.head(rawPath);
-  expect(head.status()).toBe(200);
-  await page.goto(link);
-  await page.getByLabel("Decryption key").fill("A".repeat(43));
-  await page.getByRole("button", { name: "Decrypt file" }).click();
-  await expect(page.locator(".decrypt-experience [role=alert]")).toContainText(
-    /key|damaged|authentication/i,
-  );
-  await expect(
-    page.getByRole("link", { name: "Save decrypted file" }),
-  ).toBeHidden();
-  await page.getByLabel("Decryption key").fill(key);
-  await expect(
-    page.getByRole("button", { name: "Decrypt file" }),
-  ).toBeEnabled();
-  await page.getByRole("button", { name: "Decrypt file" }).click();
-  await expect(
-    page.getByRole("link", { name: "Save decrypted file" }),
-  ).toBeVisible();
-  const waiting = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Save decrypted file" }).click();
-  const downloaded = await waiting;
-  expect(downloaded.suggestedFilename()).toBe("private-original.txt");
-  expect(await readFile((await downloaded.path())!, "utf8")).toBe(
-    "private original",
-  );
-  const exhausted = await request.get(rawPath);
-  expect(exhausted.status()).toBe(404);
-  expect(http.join(" ")).not.toContain(key);
-  await page.goto(url.origin + url.pathname);
-  await expect(page.getByText(/Missing or invalid key/)).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Decrypt file" }),
-  ).toBeDisabled();
-});
 
 test("default history opt-out and clearing never removes server data", async ({
   page,
@@ -347,11 +269,12 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     expect(after.y).toBe(before.y);
     expect(after.front).toEqual(before.front);
     expect(after.footer).toEqual(before.footer);
-    await page.getByLabel(/Expires after/).selectOption("6");
-    await page.getByRole("switch", { name: "Key protect" }).check();
-    await page.getByRole("slider").focus();
-    await page.keyboard.press("Home");
-    await page.keyboard.press("ArrowRight");
+    await expect(page.getByLabel(/Expires after/)).toBeDisabled();
+    await expect(
+      page.getByRole("switch", { name: "Key protect" }),
+    ).toBeDisabled();
+    await expect(page.getByRole("slider")).toBeDisabled();
+    await page.getByRole("switch", { name: "Save history" }).check();
     await page
       .getByRole("button", {
         name: width < 761 ? "Done" : "Close advanced options",
@@ -364,11 +287,11 @@ for (const width of [320, 390, 768, 1024, 1440]) {
       "preserved text draft",
     );
     await page.getByRole("button", { name: /Advanced options/ }).click();
-    await expect(page.getByLabel(/Expires after/)).toHaveValue("6");
+    await expect(page.getByLabel(/Expires after/)).toHaveValue("24");
     await expect(
       page.getByRole("switch", { name: "Key protect" }),
-    ).toBeChecked();
-    await expect(page.getByRole("slider")).toHaveValue("2");
+    ).not.toBeChecked();
+    await expect(page.getByRole("slider")).toHaveValue("11");
     const expanded = await geometry();
     expect(expanded.height).toBe(before.height);
     expect(expanded.width).toBeLessThanOrEqual(width);

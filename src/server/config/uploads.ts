@@ -25,12 +25,8 @@ export function getUploadLimits(): UploadLimits {
   const env = getServerEnv();
 
   return {
-    defaultExpirationMs:
-      Math.min(env.DEFAULT_EXPIRATION_HOURS, env.MAX_EXPIRATION_HOURS, 24) *
-      60 *
-      60 *
-      1000,
-    maxExpirationMs: Math.min(env.MAX_EXPIRATION_HOURS, 24) * 60 * 60 * 1000,
+    defaultExpirationMs: env.DEFAULT_EXPIRATION_HOURS * 60 * 60 * 1000,
+    maxExpirationMs: env.MAX_EXPIRATION_HOURS * 60 * 60 * 1000,
     maxStoredBytes: env.MAX_STORED_BYTES,
     maxUploadBytes: env.MAX_UPLOAD_SIZE,
   };

@@ -17,9 +17,6 @@ export const uploadMetadata = sqliteTable("upload_metadata", {
   storagePath: text("storage_path").notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
-  maxDownloads: integer("max_downloads"),
-  downloadCount: integer("download_count").notNull().default(0),
-  encrypted: integer("encrypted", { mode: "boolean" }).notNull().default(false),
   cleanupClaimId: text("cleanup_claim_id"),
   cleanupClaimedAt: integer("cleanup_claimed_at", {
     mode: "timestamp_ms",

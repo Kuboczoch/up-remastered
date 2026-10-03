@@ -142,7 +142,7 @@ for (const layoutCase of layoutCases) {
         }
         await route.fulfill({
           contentType: "application/json",
-          body: JSON.stringify({ maxTemporaryFileSize: 512 }),
+          body: JSON.stringify({ maxTemporaryFileSize: 64 }),
         });
       });
     }
@@ -230,7 +230,7 @@ test("uploads a picked file and exposes result actions", async ({
   await expect(
     page
       .locator(".result-card p")
-      .filter({ hasText: /Expires in (?:24 hours|1 day)/ }),
+      .filter({ hasText: /Expires in (?:60 minutes|1 hour)/ }),
   ).toBeVisible();
   await expect(page.locator(".result-card time")).toHaveAttribute(
     "datetime",
@@ -288,7 +288,7 @@ test("uploads pasted text and clipboard files", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Text" }).click();
   await expect(page.getByLabel("Or upload text")).toBeVisible();
-  await expect(page.getByText("512 B max")).toBeVisible();
+  await expect(page.getByText("64 B max")).toBeVisible();
   await page.getByRole("button", { name: /Advanced options/ }).click();
   await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
   await page.getByRole("button", { name: "Close advanced options" }).click();
@@ -422,11 +422,11 @@ test("rejects ambiguous drops and oversized files before upload", async ({
 
   await page.getByRole("button", { name: "Try again" }).click();
   await page.locator("#file-picker").setInputFiles({
-    buffer: Buffer.alloc(513, "x"),
+    buffer: Buffer.alloc(65, "x"),
     mimeType: "text/plain",
     name: "too-large.txt",
   });
-  await expect(page.getByText(/Maximum size is 512 B/)).toBeVisible();
+  await expect(page.getByText(/Maximum size is 64 B/)).toBeVisible();
 });
 
 test("shows a stable drag target and resets it on leave, exit, and drop", async ({

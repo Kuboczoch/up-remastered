@@ -30,6 +30,7 @@ import {
   UPLOAD_HISTORY_STORAGE_KEY,
   type UploadHistoryEntry,
 } from "@/components/upload/upload-history";
+import { QrDialog } from "@/components/upload/qr-dialog";
 import { siteName } from "@/config/site";
 import {
   formatBytes,
@@ -107,9 +108,6 @@ export function UploadExperience({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [saveHistory, setSaveHistory] = useState(false);
-  const [expiryHours, setExpiryHours] = useState(24);
-  const [downloadLimit, setDownloadLimit] = useState(11);
-  const [keyProtect, setKeyProtect] = useState(false);
   const optionsRef = useRef<HTMLElement>(null);
   const optionsTriggerRef = useRef<HTMLButtonElement>(null);
   const historyConsentRef = useRef(false);
@@ -142,6 +140,7 @@ export function UploadExperience({
   const errorHeadingRef = useRef<HTMLHeadingElement>(null);
   const resultHeadingRef = useRef<HTMLHeadingElement>(null);
   const restorePickerFocusRef = useRef(false);
+  const qrTriggerRef = useRef<HTMLButtonElement>(null);
   const abortRef = useRef<(() => void) | null>(null);
   const copyConfirmationTimerRef = useRef<number | null>(null);
   const requestSequence = useRef(0);
@@ -369,11 +368,7 @@ export function UploadExperience({
       setPhase("uploading");
 
       setOptionsOpen(false);
-      const operation = uploadFile(file, setProgress, {
-        expiresInSeconds: expiryHours * 3600,
-        maxDownloads: downloadLimit === 11 ? undefined : downloadLimit,
-        encrypt: keyProtect,
-      });
+      const operation = uploadFile(file, setProgress);
       abortRef.current = operation.abort;
       try {
         const upload = await operation.promise;
@@ -409,7 +404,7 @@ export function UploadExperience({
         }
       }
     },
-    [maxBytes, phase, expiryHours, downloadLimit, keyProtect],
+    [maxBytes, phase],
   );
 
   useEffect(() => {
@@ -880,7 +875,7 @@ export function UploadExperience({
                   ? "Checking limit…"
                   : `${formatBytes(maxBytes)} max`}
               </span>
-              <span>Expires in {expiryHours} hours</span>
+              <span>Temporary storage</span>
             </div>
             {configurationWarning && (
               <p className="warning-note">{configurationWarning}</p>
@@ -984,6 +979,7 @@ export function UploadExperience({
               </a>
               <button
                 className="outline-button"
+                ref={qrTriggerRef}
                 onClick={() => {
                   setQrError("");
                   setQrOpen(true);
@@ -1001,60 +997,56 @@ export function UploadExperience({
               </button>
             </div>
             {qrOpen && (
-              <div className="qr-modal-backdrop" role="presentation">
-                <section
-                  aria-labelledby="qr-title"
-                  aria-modal="true"
-                  className="qr-dialog"
-                  role="dialog"
+              <QrDialog
+                triggerRef={qrTriggerRef}
+                onClose={() => setQrOpen(false)}
+              >
+                <button
+                  aria-label="Close QR code"
+                  className="qr-close"
+                  onClick={() => setQrOpen(false)}
+                  type="button"
                 >
-                  <button
-                    aria-label="Close QR code"
-                    className="qr-close"
-                    onClick={() => setQrOpen(false)}
-                    type="button"
-                  >
-                    ×
-                  </button>
-                  <h2 id="qr-title">Scan to download</h2>
-                  {qrSvg ? (
-                    <>
-                      <div
-                        aria-label="QR code for uploaded file"
-                        className="qr-code"
-                        data-testid="qr-code"
-                        dangerouslySetInnerHTML={{ __html: qrSvg }}
-                        role="img"
-                      />
-                      <a
-                        className="outline-button"
-                        download={`${result.id}-qr.svg`}
-                        href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
-                      >
-                        Download QR code
-                      </a>
-                    </>
-                  ) : qrError ? (
-                    <div aria-live="polite" role="status">
-                      <p>{qrError}</p>
-                      <button
-                        className="outline-button"
-                        onClick={() => {
-                          setQrError("");
-                          setQrGenerationAttempt((attempt) => attempt + 1);
-                        }}
-                        type="button"
-                      >
-                        Retry QR code
-                      </button>
-                    </div>
-                  ) : (
-                    <p aria-live="polite" role="status">
-                      Generating QR code…
-                    </p>
-                  )}
-                </section>
-              </div>
+                  ×
+                </button>
+                <h2 id="qr-title">Scan to download</h2>
+                {qrSvg ? (
+                  <>
+                    <div
+                      aria-label="QR code for uploaded file"
+                      className="qr-code"
+                      data-testid="qr-code"
+                      dangerouslySetInnerHTML={{ __html: qrSvg }}
+                      role="img"
+                    />
+                    <a
+                      className="outline-button"
+                      download={`${result.id}-qr.svg`}
+                      href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
+                    >
+                      Download QR code
+                    </a>
+                  </>
+                ) : qrError ? (
+                  <div aria-live="polite" role="status">
+                    <p>{qrError}</p>
+                    <button
+                      className="outline-button"
+                      onClick={() => {
+                        setQrError("");
+                        setQrGenerationAttempt((attempt) => attempt + 1);
+                      }}
+                      type="button"
+                    >
+                      Retry QR code
+                    </button>
+                  </div>
+                ) : (
+                  <p aria-live="polite" role="status">
+                    Generating QR code…
+                  </p>
+                )}
+              </QrDialog>
             )}
           </section>
         )}
@@ -1106,12 +1098,13 @@ export function UploadExperience({
           </p>
           <div className="option-setting">
             <label htmlFor="expiry-hours">
-              Expires after <small>24 h max</small>
+              Expires after <small>Coming later</small>
             </label>
             <select
               id="expiry-hours"
-              value={expiryHours}
-              onChange={(event) => setExpiryHours(Number(event.target.value))}
+              value={24}
+              disabled
+              aria-describedby="expiry-warning"
             >
               {[1, 3, 6, 12, 24].map((hours) => (
                 <option value={hours} key={hours}>
@@ -1120,14 +1113,13 @@ export function UploadExperience({
               ))}
             </select>
           </div>
+          <p id="expiry-warning" className="option-help">
+            Custom expiration is not available yet. The server’s default
+            expiration applies.
+          </p>
           <div className="option-setting">
             <label htmlFor="download-limit">
-              Download limit{" "}
-              <output>
-                {downloadLimit === 11
-                  ? "Unlimited"
-                  : `${downloadLimit} download${downloadLimit === 1 ? "" : "s"}`}
-              </output>
+              Download limit <output>Coming later</output>
             </label>
             <input
               type="range"
@@ -1135,13 +1127,10 @@ export function UploadExperience({
               min={1}
               max={11}
               step={1}
-              value={downloadLimit}
-              aria-valuetext={
-                downloadLimit === 11
-                  ? "Unlimited"
-                  : `${downloadLimit} downloads`
-              }
-              onChange={(event) => setDownloadLimit(Number(event.target.value))}
+              value={11}
+              disabled
+              aria-valuetext="Unavailable"
+              aria-describedby="download-limit-warning"
             />
             <div className="limit-ticks" aria-hidden="true">
               <span>1</span>
@@ -1149,31 +1138,32 @@ export function UploadExperience({
               <span>10</span>
               <span>∞</span>
             </div>
-            <small>
-              Each accepted GET counts, including retries, ranges and
-              interrupted transfers. HEAD and cached checks do not count.
+            <small id="download-limit-warning">
+              Download limits are not available yet. No limit is configured
+              here.
             </small>
           </div>
           <div className="option-setting switch-setting">
             <div>
               <label htmlFor="key-protect">Key protect</label>
-              <small>Encrypt before uploading</small>
+              <small>Coming later</small>
             </div>
             <input
               id="key-protect"
               type="checkbox"
               role="switch"
-              checked={keyProtect}
-              onChange={(event) => setKeyProtect(event.target.checked)}
+              checked={false}
+              disabled
+              aria-describedby="key-protect-warning"
             />
           </div>
-          {keyProtect && (
-            <p className="option-help">
-              Only the full link unlocks the file. Keep it safe. Lost keys
-              cannot be recovered. Encryption uses memory locally; files up to
-              32 MiB are supported. Never uploads plaintext on failure.
-            </p>
-          )}
+          <p
+            id="key-protect-warning"
+            className="option-help deferred-protection-warning"
+          >
+            Coming later — client-side encryption is not available yet. Uploads
+            are not encrypted.
+          </p>
           {mode === "text" && (
             <div className="option-setting">
               <label htmlFor="text-encoding">Text encoding</label>
@@ -1256,24 +1246,16 @@ export function UploadExperience({
                         </p>
                       </div>
                       <div className="history-actions">
-                        {entry.shareUrl.includes("/decrypt/") ? (
-                          <span className="protected-history">
-                            Key not saved
-                          </span>
-                        ) : (
-                          <button
-                            className="history-copy-link"
-                            type="button"
-                            onClick={() => {
-                              void navigator.clipboard.writeText(
-                                entry.shareUrl,
-                              );
-                              setHistoryStatus("Link copied.");
-                            }}
-                          >
-                            Copy link
-                          </button>
-                        )}
+                        <button
+                          className="history-copy-link"
+                          type="button"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(entry.shareUrl);
+                            setHistoryStatus("Link copied.");
+                          }}
+                        >
+                          Copy link
+                        </button>
                         <div className="history-more">
                           <button
                             type="button"
@@ -1287,16 +1269,9 @@ export function UploadExperience({
                             className="history-menu"
                             popover="auto"
                           >
-                            {entry.shareUrl.includes("/decrypt/") ? (
-                              <p>
-                                Retain the full link: this browser record cannot
-                                unlock the file after reload.
-                              </p>
-                            ) : (
-                              <a href={forcedDownloadUrl(entry.shareUrl)}>
-                                Download
-                              </a>
-                            )}
+                            <a href={forcedDownloadUrl(entry.shareUrl)}>
+                              Download
+                            </a>
                             <button
                               aria-label={`Remove ${entry.originalName} from history`}
                               onClick={() => removeHistoryEntry(entry)}

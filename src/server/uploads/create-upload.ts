@@ -52,8 +52,6 @@ type BetterSqliteError = Error & { code?: string };
 export type CreatedUpload = {
   accessToken: string;
   expiresAt: string;
-  maxDownloads: number | null;
-  encrypted: boolean;
   id: string;
   mimeType: string;
   originalName: string;
@@ -72,8 +70,6 @@ const MAX_MULTIPART_FIELD_BYTES = 8 * 1024;
 const ALLOWED_MULTIPART_FIELD_NAMES = new Set([
   "expiresAt",
   "expiresInHours",
-  "maxDownloads",
-  "encrypted",
   "expiresInMinutes",
   "expiresInSeconds",
   TEXT_FIELD_NAME,
@@ -475,28 +471,6 @@ function isUploadIdCollisionError(error: unknown): boolean {
   );
 }
 
-function parseMaxDownloads(value: string | undefined): number | null {
-  if (value === undefined || value === "unlimited") return null;
-  if (!/^(?:[1-9]|10)$/.test(value)) {
-    throw new UploadRequestError(
-      "Maximum downloads must be unlimited or an integer from 1 to 10.",
-      400,
-      "invalid_max_downloads",
-    );
-  }
-  return Number(value);
-}
-
-function parseEncrypted(value: string | undefined): boolean {
-  if (value === undefined || value === "false") return false;
-  if (value === "true") return true;
-  throw new UploadRequestError(
-    "Encrypted must be true or false.",
-    400,
-    "invalid_encrypted",
-  );
-}
-
 export async function createUpload(
   request: Request,
   createId: () => string = createPublicUploadId,
@@ -544,12 +518,6 @@ export async function createUpload(
     );
     const now = new Date();
     const expiresAt = resolveUploadExpiration(fields, limits, now);
-    const maxDownloads = parseMaxDownloads(fields.get("maxDownloads"));
-    const encrypted = parseEncrypted(fields.get("encrypted"));
-    if (encrypted) {
-      content.originalName = "encrypted.bin";
-      content.mimeType = "application/octet-stream";
-    }
     const accessToken = createAccessToken();
     const accessTokenHash = hashUploadAccessToken(accessToken);
     let uploadId: string | undefined;
@@ -568,8 +536,6 @@ export async function createUpload(
           db,
           {
             accessTokenHash,
-            maxDownloads,
-            encrypted,
             createdAt: now,
             expiresAt,
             id: candidateId,
@@ -618,11 +584,7 @@ export async function createUpload(
       id: uploadId,
       mimeType: content.mimeType,
       originalName: content.originalName,
-      shareUrl: getPublicUrl(
-        encrypted ? `/decrypt/${uploadId}` : `/${uploadId}`,
-      ),
-      maxDownloads,
-      encrypted,
+      shareUrl: getPublicUrl(`/${uploadId}`),
       size: content.size,
     };
   } catch (error) {

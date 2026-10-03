@@ -98,7 +98,7 @@ export async function cleanupExpiredUploads({
     .prepare(
       `SELECT id, stored_name AS storedName, size
        FROM upload_metadata
-       WHERE (expires_at <= ? OR (max_downloads IS NOT NULL AND download_count >= max_downloads))
+       WHERE expires_at <= ?
          AND (cleanup_claim_id IS NULL OR cleanup_claimed_at <= ?)
        ORDER BY id`,
     )
@@ -115,7 +115,7 @@ export async function cleanupExpiredUploads({
   const claim = database.prepare(
     `UPDATE upload_metadata
      SET cleanup_claim_id = ?, cleanup_claimed_at = ?
-     WHERE id = ? AND (expires_at <= ? OR (max_downloads IS NOT NULL AND download_count >= max_downloads))
+     WHERE id = ? AND expires_at <= ?
        AND (cleanup_claim_id IS NULL OR cleanup_claimed_at <= ?)`,
   );
   const release = database.prepare(

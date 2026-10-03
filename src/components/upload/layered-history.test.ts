@@ -5,7 +5,7 @@ import {
   restoreUploadHistory,
 } from "./upload-history";
 
-test("protected keys never persist and legacy fragments are scrubbed", () => {
+test("URL fragments never persist and legacy fragments are scrubbed", () => {
   const values = new Map<string, string>();
   const storage = {
     getItem: (key: string) => values.get(key) ?? null,
@@ -22,10 +22,10 @@ test("protected keys never persist and legacy fragments are scrubbed", () => {
     originalName: "private.txt",
     size: 2,
     expiresAt: "2099-01-01T00:00:00Z",
-    shareUrl: "https://up.example/decrypt/AAAAA#key=SECRET",
+    shareUrl: "https://up.example/AAAAA#fragment=SECRET",
   };
   const saved = saveUploadHistoryEntry(storage, entry);
-  expect(saved[0].shareUrl).toBe("https://up.example/decrypt/AAAAA");
+  expect(saved[0].shareUrl).toBe("https://up.example/AAAAA");
   expect([...values.values()].join()).not.toContain("SECRET");
   storage.setItem(
     "up-remastered:upload-history:v1",
@@ -35,7 +35,7 @@ test("protected keys never persist and legacy fragments are scrubbed", () => {
   expect([...values.values()].join()).not.toContain("SECRET");
 });
 
-test("default-off restoration preserves legacy without persisting and scrubs keys", () => {
+test("default-off restoration preserves legacy without persisting and scrubs fragments", () => {
   const makeStorage = () => {
     const values = new Map<string, string>();
     return {
@@ -61,7 +61,7 @@ test("default-off restoration preserves legacy without persisting and scrubs key
         size: 2,
         expiresAt: "2099-01-01T00:00:00Z",
         savedAt: "2026-01-01T00:00:00Z",
-        shareUrl: "https://up.example/decrypt/AAAAA#key=SECRET",
+        shareUrl: "https://up.example/AAAAA#fragment=SECRET",
       },
     ]),
   );
