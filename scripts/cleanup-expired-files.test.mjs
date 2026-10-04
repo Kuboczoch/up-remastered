@@ -3,7 +3,9 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
+import { tryAcquireUploadDeletionLock } from "../src/server/storage/upload-deletion-lock.mjs";
 import { afterEach, beforeEach, test } from "node:test";
 
 import {
@@ -58,6 +60,91 @@ function ids() {
     .all()
     .map(({ id }) => id);
 }
+
+test("live async cleanup excludes stale same-process takeover without blocking unrelated writes or cleanup", async () => {
+  insertUpload({ id: "AAAAA", expiresAt: new Date(NOW.getTime() - 1) });
+  await writeFile(join(uploads, "AAAAA.bin"), "bytes");
+  let concurrent;
+  const owner = await cleanupExpiredUploads({
+    database,
+    uploadDirectory: uploads,
+    now: NOW,
+    unlinkFile: async (path) => {
+      // Both use the same connection/event loop: no blocking SQLite waits.
+      insertUpload({ id: "BBBBB", expiresAt: new Date(NOW.getTime() - 1) });
+      await writeFile(join(uploads, "BBBBB.bin"), "bytes");
+      concurrent = await cleanupExpiredUploads({
+        database,
+        uploadDirectory: uploads,
+        now: new Date(NOW.getTime() + 20 * 60 * 1000),
+      });
+      const { unlink } = await import("node:fs/promises");
+      await unlink(path);
+    },
+  });
+  assert.equal(concurrent.examined, 2);
+  assert.equal(concurrent.claimed, 1);
+  assert.equal(concurrent.deleted, 1);
+  assert.equal(owner.deleted, 1);
+  assert.deepEqual(ids(), []);
+});
+
+test("process death releases the filesystem coordination lock for durable recovery", async () => {
+  insertUpload({ id: "AAAAA", expiresAt: new Date(NOW.getTime() - 1) });
+  const tombstone = join(uploads, "AAAAA.bin.deleting-dead");
+  await writeFile(tombstone, "bytes");
+  database
+    .prepare(
+      "UPDATE upload_metadata SET cleanup_claim_id = 'dead', cleanup_claimed_at = ?",
+    )
+    .run(NOW.getTime() - 20 * 60 * 1000);
+  const child = spawn(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+    import { tryAcquireUploadDeletionLock } from './src/server/storage/upload-deletion-lock.mjs';
+    const release = tryAcquireUploadDeletionLock({ name: process.argv[1] }, 'AAAAA');
+    if (!release) process.exit(2);
+    process.send('locked');
+    setInterval(() => { if (!release) process.exit(2); }, 1000);
+  `,
+      database.name,
+    ],
+    { stdio: ["ignore", "ignore", "inherit", "ipc"] },
+  );
+  try {
+    const [message] = await once(child, "message");
+    assert.equal(message, "locked");
+    assert.equal(tryAcquireUploadDeletionLock(database, "AAAAA"), undefined);
+    const blocked = await cleanupExpiredUploads({
+      database,
+      uploadDirectory: uploads,
+      now: NOW,
+    });
+    assert.equal(blocked.claimed, 0);
+    const exited = once(child, "exit");
+    child.kill("SIGKILL");
+    await exited;
+    const recovered = await cleanupExpiredUploads({
+      database,
+      uploadDirectory: uploads,
+      now: NOW,
+    });
+    assert.equal(recovered.deleted, 1);
+    assert.equal(recovered.freedBytes, 5);
+    assert.deepEqual(ids(), []);
+    const { access } = await import("node:fs/promises");
+    await assert.rejects(access(tombstone), { code: "ENOENT" });
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) {
+      const exited = once(child, "exit");
+      child.kill("SIGKILL");
+      await exited;
+    }
+  }
+});
 
 test("deletes expired and missing files, preserves live rows, and is idempotent", async () => {
   insertUpload({

@@ -7,13 +7,17 @@
 Each expired row is atomically claimed in SQLite before filesystem work. Claims are leases:
 
 - concurrent cleaners cannot process the same row;
-- claims older than ten minutes may be recovered after a crashed process;
+- claims older than ten minutes may be recovered after a crashed process, but never while its deletion lock is held;
 - live rows are never claimable;
 - the stored file is unlinked before metadata is deleted;
 - quota and the five-character public ID remain reserved until metadata deletion succeeds;
 - a missing file is treated as already removed and its expired row is deleted;
 - other filesystem failures release the claim, preserve metadata/quota, and make the command exit nonzero;
 - rerunning the command is safe and idempotent.
+
+Deletion workers hold a cross-process SQLite transaction lock across claim acquisition, filesystem operations (including rollback), and final metadata mutations. These locks use up to 64 fixed shard files in `<database path>.deletion-locks`, separate from the metadata database so asynchronous filesystem work cannot block ordinary metadata writes in the same event loop. Shards allow unrelated deletions to run concurrently; collisions wait asynchronously in management requests and are skipped until the next cleanup pass. Process death releases the lock automatically. A live but stalled worker is deliberately not taken over: stop that process before recovery. Never remove or replace lock files while any application or cleanup process is running. Keep the database and its lock directory on the same shared local filesystem for every worker.
+
+A deletion claim also identifies its durable tombstone. Recovery retains that identity and removes both the original and tombstone paths before deleting metadata or crediting bytes. If restoration fails, the claim remains fenced for a later recovery pass.
 
 Unsafe stored paths are failures. Cleanup never follows a path from request input and never logs IDs, filenames, tokens, or paths.
 
