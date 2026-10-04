@@ -215,9 +215,9 @@ async function parseRawUpload(
   const mimeType = getRawUploadMimeType(request);
 
   const size = await writeStreamToPendingFile(
-    Readable.fromWeb(
-      request.body as NodeReadableStream<Uint8Array>,
-    ) as NodeJS.ReadableStream,
+    Readable.fromWeb(request.body as NodeReadableStream<Uint8Array>, {
+      signal: request.signal,
+    }) as NodeJS.ReadableStream,
     pendingFile,
     byteLimit,
     limitKind,
@@ -399,6 +399,7 @@ async function parseMultipartUpload(
 
   const source = Readable.fromWeb(
     request.body as NodeReadableStream<Uint8Array>,
+    { signal: request.signal },
   );
 
   try {
