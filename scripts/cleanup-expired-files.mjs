@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { unlink } from "node:fs/promises";
 import { basename, dirname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { tryAcquireUploadDeletionLock } from "../src/server/storage/upload-deletion-lock.mjs";
 
 const DEFAULT_LEASE_MS = 10 * 60 * 1000;
 
@@ -130,66 +131,75 @@ export async function cleanupExpiredUploads({
   );
 
   for (const candidate of candidates) {
-    // A stale claim is also the durable suffix identifying a delete tombstone.
-    // Renew its lease without replacing that identity.
-    const recovering = candidate.claimId !== null;
-    const claimId = candidate.claimId ?? createClaimId();
-    const claimed = claim.run(
-      claimId,
-      nowMs,
-      candidate.id,
-      nowMs,
-      staleBeforeMs,
-      candidate.claimId,
-      candidate.claimedAt,
-    );
-    if (claimed.changes !== 1) continue;
-    summary.claimed += 1;
-
-    const releaseClaim = () => {
-      // A recovery failure must remain fenced with the same tombstone suffix.
-      if (!recovering) release.run(candidate.id, claimId, nowMs);
-    };
-    let missing = true;
+    const releaseLock = tryAcquireUploadDeletionLock(database, candidate.id);
+    // A stale lease is not permission to race an owner still moving bytes.
+    if (!releaseLock) continue;
     try {
-      const paths = [resolveUploadPath(uploadDirectory, candidate.storedName)];
-      if (recovering) {
-        paths.unshift(
-          resolveUploadPath(
-            uploadDirectory,
-            `${candidate.storedName}.deleting-${claimId}`,
-          ),
-        );
-      }
-      // Both possible locations must be reclaimed before releasing quota.
-      for (const path of paths) {
-        try {
-          await unlinkFile(path);
-          missing = false;
-        } catch (error) {
-          if (!isMissingFileError(error)) throw error;
+      // A stale claim is also the durable suffix identifying a delete tombstone.
+      // Renew its lease without replacing that identity.
+      const recovering = candidate.claimId !== null;
+      const claimId = candidate.claimId ?? createClaimId();
+      const claimed = claim.run(
+        claimId,
+        nowMs,
+        candidate.id,
+        nowMs,
+        staleBeforeMs,
+        candidate.claimId,
+        candidate.claimedAt,
+      );
+      if (claimed.changes !== 1) continue;
+      summary.claimed += 1;
+
+      const releaseClaim = () => {
+        // A recovery failure must remain fenced with the same tombstone suffix.
+        if (!recovering) release.run(candidate.id, claimId, nowMs);
+      };
+      let missing = true;
+      try {
+        const paths = [
+          resolveUploadPath(uploadDirectory, candidate.storedName),
+        ];
+        if (recovering) {
+          paths.unshift(
+            resolveUploadPath(
+              uploadDirectory,
+              `${candidate.storedName}.deleting-${claimId}`,
+            ),
+          );
         }
-      }
-    } catch {
-      releaseClaim();
-      summary.failed += 1;
-      continue;
-    }
-
-    try {
-      const removed = remove.run(candidate.id, claimId, nowMs);
-      if (removed.changes !== 1) {
-        // Bytes are already gone: retain the fence for a later DB-only retry.
+        // Both possible locations must be reclaimed before releasing quota.
+        for (const path of paths) {
+          try {
+            await unlinkFile(path);
+            missing = false;
+          } catch (error) {
+            if (!isMissingFileError(error)) throw error;
+          }
+        }
+      } catch {
+        releaseClaim();
         summary.failed += 1;
         continue;
       }
-      summary.deleted += 1;
-      summary.freedBytes += Number(candidate.size);
-      if (missing) summary.missing += 1;
-    } catch {
-      // Never release a claim after reclaiming its bytes but failing metadata
-      // deletion; the next stale-lease pass can safely finish the DB mutation.
-      summary.failed += 1;
+
+      try {
+        const removed = remove.run(candidate.id, claimId, nowMs);
+        if (removed.changes !== 1) {
+          // Bytes are already gone: retain the fence for a later DB-only retry.
+          summary.failed += 1;
+          continue;
+        }
+        summary.deleted += 1;
+        summary.freedBytes += Number(candidate.size);
+        if (missing) summary.missing += 1;
+      } catch {
+        // Never release a claim after reclaiming its bytes but failing metadata
+        // deletion; the next stale-lease pass can safely finish the DB mutation.
+        summary.failed += 1;
+      }
+    } finally {
+      releaseLock();
     }
   }
 

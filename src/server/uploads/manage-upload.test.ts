@@ -8,7 +8,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -16,7 +16,11 @@ import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { migrateDatabase } from "@/server/db/migrate";
 import { uploadMetadata } from "@/server/db/schema";
 import { createDownloadResponse } from "@/server/downloads/create-download-response";
-import { getUploadMetadata } from "@/server/db/uploads";
+import {
+  getUploadMetadata,
+  finishUploadDeletion,
+  releaseUploadDeletion,
+} from "@/server/db/uploads";
 import { hashUploadAccessToken } from "@/server/uploads/access-token";
 import {
   deleteUploadWithAccessToken,
@@ -68,7 +72,111 @@ function readRow() {
   }
 }
 
+async function runExpiredCleanup() {
+  const child = spawn(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `import { cleanupExpiredUploads, openCleanupDatabase } from './scripts/cleanup-expired-files.mjs';
+     const database = openCleanupDatabase({ databaseUrl: process.env.DATABASE_URL, migrationsFolder: './drizzle' });
+     try { console.log(JSON.stringify(await cleanupExpiredUploads({ database, uploadDirectory: process.env.UPLOAD_DIR, now: new Date('2026-01-03T00:00:00Z') }))); }
+     finally { database.close(); }`,
+    ],
+    { env: process.env },
+  );
+  let output = "";
+  let errors = "";
+  child.stdout.on("data", (chunk) => {
+    output += chunk;
+  });
+  child.stderr.on("data", (chunk) => {
+    errors += chunk;
+  });
+  await new Promise<void>((resolve, reject) => {
+    child.on("error", reject);
+    child.on("exit", (code) =>
+      code === 0 ? resolve() : reject(new Error(errors)),
+    );
+  });
+  return JSON.parse(output);
+}
+
 describe("upload management", () => {
+  it("fences old management release and finish after same-identity lease renewal", () => {
+    insertUpload();
+    const connection = createSqliteConnection();
+    const db = createDbClient(connection);
+    const renewedAt = new Date(NOW.getTime() + 60_000);
+    try {
+      connection
+        .prepare(
+          "UPDATE upload_metadata SET cleanup_claim_id = ?, cleanup_claimed_at = ? WHERE id = ?",
+        )
+        .run("durable-identity", renewedAt.getTime(), "A7K2Q");
+      releaseUploadDeletion(db, "A7K2Q", "durable-identity", NOW);
+      expect(getUploadMetadata(db, "A7K2Q")?.cleanupClaimedAt).toEqual(
+        renewedAt,
+      );
+      expect(() =>
+        finishUploadDeletion(db, "A7K2Q", "durable-identity", NOW),
+      ).toThrow("claim was lost");
+      expect(getUploadMetadata(db, "A7K2Q")?.size).toBe(5);
+      finishUploadDeletion(db, "A7K2Q", "durable-identity", renewedAt);
+      expect(getUploadMetadata(db, "A7K2Q")).toBeUndefined();
+    } finally {
+      connection.close();
+    }
+  });
+  it.each(["initial rename", "rollback restore"])(
+    "excludes stale takeover during a late %s",
+    async (phase) => {
+      insertUpload();
+      const path = join(process.env.UPLOAD_DIR!, "A7K2Q.bin");
+      await writeFile(path, "hello");
+      let takeover: Awaited<ReturnType<typeof runExpiredCleanup>>;
+      let renames = 0;
+      await expect(
+        deleteUploadWithAccessToken("A7K2Q", TOKEN, NOW, {
+          rename: async (from, to) => {
+            renames += 1;
+            if (
+              (phase === "initial rename" && renames === 1) ||
+              (phase === "rollback restore" && renames === 2)
+            ) {
+              takeover = await runExpiredCleanup();
+            }
+            if (phase === "initial rename" && renames > 1)
+              throw new Error("persistent restore failure");
+            await rename(from, to);
+          },
+          unlink: async () => {
+            throw new Error("failed unlink");
+          },
+        }),
+      ).rejects.toThrow();
+      expect(takeover!).toMatchObject({
+        claimed: 0,
+        deleted: 0,
+        freedBytes: 0,
+      });
+      expect(readRow()).toMatchObject({ size: 5, downloadCount: 0 });
+      const claim = readRow()?.cleanupClaimId;
+      const remainingPath =
+        phase === "initial rename" ? `${path}.deleting-${claim}` : path;
+      expect(await readFile(remainingPath, "utf8")).toBe("hello");
+      expect(await runExpiredCleanup()).toMatchObject({
+        deleted: 1,
+        freedBytes: 5,
+        failed: 0,
+      });
+      expect(readRow()).toBeUndefined();
+      await expect(access(path)).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(access(remainingPath)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    },
+  );
   it("hides exhausted uploads and their counter/token from public access", () => {
     insertUpload();
     const connection = createSqliteConnection();

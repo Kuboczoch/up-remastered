@@ -2,6 +2,8 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { rename, unlink } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
+import { tryAcquireUploadDeletionLock } from "@/server/storage/upload-deletion-lock.mjs";
 
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { ensureDatabaseMigrated } from "@/server/db/migrate";
@@ -122,15 +124,25 @@ export async function deleteUploadWithAccessToken(
   const db = createDbClient(connection);
   let renamed = false;
   let unlinked = false;
+  let releaseLock: (() => void) | undefined;
 
   try {
+    // The lock covers claim, every filesystem operation (including rollback),
+    // and final metadata mutation. A lease may age but cannot be taken over
+    // while this worker can still move bytes. The separate lock DB leaves
+    // ordinary metadata writes/download admission free to run during awaits.
+    while (!(releaseLock = tryAcquireUploadDeletionLock(connection, id))) {
+      const current = getUploadMetadata(db, id);
+      if (!current || !isUploadAvailable(current, now)) return "not-found";
+      await delay(10);
+    }
     if (!claimUploadDeletion(db, id, claimId, now)) return "not-found";
     try {
       await fileOperations.rename(storagePath, tombstonePath);
       renamed = true;
       await fileOperations.unlink(tombstonePath);
       unlinked = true;
-      finishUploadDeletion(db, id, claimId);
+      finishUploadDeletion(db, id, claimId, now);
     } catch (error) {
       if (renamed && !unlinked) {
         // Retry one transient restore failure, but never clear the durable
@@ -148,11 +160,12 @@ export async function deleteUploadWithAccessToken(
           }
         }
       }
-      if (!unlinked) releaseUploadDeletion(db, id, claimId);
+      if (!unlinked) releaseUploadDeletion(db, id, claimId, now);
       if (isMissingFileError(error) && !renamed) return "not-found";
       throw error;
     }
   } finally {
+    releaseLock?.();
     connection.close();
   }
 

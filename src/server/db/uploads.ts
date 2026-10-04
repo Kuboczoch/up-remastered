@@ -62,11 +62,13 @@ export function releaseUploadDeletion(
   db: DbClient,
   id: string,
   claimId: string,
+  claimedAt: Date,
 ): void {
   db.update(uploadMetadata)
     .set({ cleanupClaimId: null, cleanupClaimedAt: null })
     .where(
-      sql`${uploadMetadata.id} = ${id} AND ${uploadMetadata.cleanupClaimId} = ${claimId}`,
+      sql`${uploadMetadata.id} = ${id} AND ${uploadMetadata.cleanupClaimId} = ${claimId}
+          AND ${uploadMetadata.cleanupClaimedAt} = ${claimedAt.getTime()}`,
     )
     .run();
 }
@@ -75,11 +77,13 @@ export function finishUploadDeletion(
   db: DbClient,
   id: string,
   claimId: string,
+  claimedAt: Date,
 ): void {
   const result = db
     .delete(uploadMetadata)
     .where(
-      sql`${uploadMetadata.id} = ${id} AND ${uploadMetadata.cleanupClaimId} = ${claimId}`,
+      sql`${uploadMetadata.id} = ${id} AND ${uploadMetadata.cleanupClaimId} = ${claimId}
+          AND ${uploadMetadata.cleanupClaimedAt} = ${claimedAt.getTime()}`,
     )
     .run();
   if (result.changes !== 1) throw new Error("Upload deletion claim was lost.");
