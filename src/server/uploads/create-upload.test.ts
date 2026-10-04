@@ -98,6 +98,59 @@ function readUploadRow(id: string) {
 }
 
 describe("createUpload", () => {
+  it.each([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])(
+    "stores a finite %s-download limit with zero admissions",
+    async (limit) => {
+      const result = await createUpload(
+        createMultipartRequest("hello", { maxDownloads: String(limit) }),
+        () => "ABCDE",
+      );
+      expect(result).toMatchObject({ maxDownloads: limit });
+      expect(readUploadRow(result.id)).toMatchObject({
+        maxDownloads: limit,
+        downloadCount: 0,
+      });
+    },
+  );
+  it.each([undefined, "unlimited"])(
+    "defaults %s to unlimited",
+    async (limit) => {
+      const result = await createUpload(
+        createMultipartRequest(
+          "hello",
+          limit === undefined ? {} : { maxDownloads: limit },
+        ),
+        () => "ABCDE",
+      );
+      expect(result).toMatchObject({ maxDownloads: null });
+      expect(readUploadRow(result.id)).toMatchObject({
+        maxDownloads: null,
+        downloadCount: 0,
+      });
+    },
+  );
+  it.each(["", "0", "11", "1.5", "01", " 1", "1 ", "+1", "1e0", "Unlimited"])(
+    "rejects invalid download limit %j",
+    async (limit) => {
+      await expect(
+        createUpload(createMultipartRequest("hello", { maxDownloads: limit })),
+      ).rejects.toMatchObject({ code: "invalid_max_downloads", status: 400 });
+    },
+  );
+  it("rejects duplicate limit fields", async () => {
+    const form = new FormData();
+    form.append("text", "hello");
+    form.append("maxDownloads", "1");
+    form.append("maxDownloads", "unlimited");
+    await expect(
+      createUpload(
+        new Request("http://localhost:3000/api/upload", {
+          method: "POST",
+          body: form,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "invalid_max_downloads", status: 400 });
+  });
   it("streams multipart files to disk and writes hashed token metadata", async () => {
     const accessToken = "a".repeat(128);
     const upload = await createUpload(

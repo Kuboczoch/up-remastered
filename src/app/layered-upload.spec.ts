@@ -106,7 +106,7 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     const settings = panel.locator(".option-setting");
     const controls = panel.locator("input, select");
     await expect(controls).toHaveCount(5);
-    for (let index = 2; index < 5; index++) {
+    for (let index = 3; index < 5; index++) {
       await expect(controls.nth(index)).toBeDisabled();
       await expect(controls.nth(index)).toHaveCSS("opacity", "1");
       await expect(settings.nth(index)).toHaveCSS("opacity", "0.5");
@@ -260,7 +260,7 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     await expect(
       page.getByRole("switch", { name: "Key protect" }),
     ).toBeDisabled();
-    await expect(page.getByRole("slider")).toBeDisabled();
+    await expect(page.getByRole("slider")).toBeEnabled();
     await expect(
       page.getByRole("switch", { name: "Save history" }),
     ).toBeEnabled();

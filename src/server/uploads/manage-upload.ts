@@ -2,14 +2,18 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { rename, unlink } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
+import { tryAcquireUploadDeletionLock } from "@/server/storage/upload-deletion-lock.mjs";
 
 import { createDbClient, createSqliteConnection } from "@/server/db/client";
 import { ensureDatabaseMigrated } from "@/server/db/migrate";
 import type { UploadMetadata } from "@/server/db/schema";
 import {
-  deleteUploadMetadata,
+  claimUploadDeletion,
+  finishUploadDeletion,
   getUploadMetadata,
-  restoreUploadMetadata,
+  isUploadAvailable,
+  releaseUploadDeletion,
 } from "@/server/db/uploads";
 import { resolveStoredUploadPath } from "@/server/storage/uploads";
 import { matchesUploadAccessToken } from "@/server/uploads/access-token";
@@ -20,6 +24,7 @@ export type UploadAccessResult = "forbidden" | "not-found" | "valid";
 export type PublicUploadDetails = {
   expirationDate: string;
   key: string;
+  maxDownloads: number | null;
   name: string;
   permanent: false;
   size: number;
@@ -36,9 +41,7 @@ function getAvailableUpload(id: string, now: Date): UploadMetadata | undefined {
 
   try {
     const upload = getUploadMetadata(createDbClient(connection), id);
-    return upload && upload.expiresAt.getTime() > now.getTime()
-      ? upload
-      : undefined;
+    return upload && isUploadAvailable(upload, now) ? upload : undefined;
   } finally {
     connection.close();
   }
@@ -61,6 +64,7 @@ export function getPublicUploadDetails(
     ? {
         expirationDate: upload.expiresAt.toISOString(),
         key: upload.id,
+        maxDownloads: upload.maxDownloads,
         name: upload.originalName,
         permanent: false,
         size: upload.size,
@@ -114,40 +118,54 @@ export async function deleteUploadWithAccessToken(
     return "not-found";
   }
 
-  const tombstonePath = `${storagePath}.deleting-${randomUUID()}`;
-
-  try {
-    await fileOperations.rename(storagePath, tombstonePath);
-  } catch (error) {
-    if (isMissingFileError(error)) {
-      return "not-found";
-    }
-    throw error;
-  }
-
-  ensureDatabaseMigrated();
+  const claimId = randomUUID();
+  const tombstonePath = `${storagePath}.deleting-${claimId}`;
   const connection = createSqliteConnection();
   const db = createDbClient(connection);
+  let renamed = false;
+  let unlinked = false;
+  let releaseLock: (() => void) | undefined;
 
   try {
-    deleteUploadMetadata(db, id);
-
+    // The lock covers claim, every filesystem operation (including rollback),
+    // and final metadata mutation. A lease may age but cannot be taken over
+    // while this worker can still move bytes. The separate lock DB leaves
+    // ordinary metadata writes/download admission free to run during awaits.
+    while (!(releaseLock = tryAcquireUploadDeletionLock(connection, id))) {
+      const current = getUploadMetadata(db, id);
+      if (!current || !isUploadAvailable(current, now)) return "not-found";
+      await delay(10);
+    }
+    if (!claimUploadDeletion(db, id, claimId, now)) return "not-found";
     try {
+      await fileOperations.rename(storagePath, tombstonePath);
+      renamed = true;
       await fileOperations.unlink(tombstonePath);
+      unlinked = true;
+      finishUploadDeletion(db, id, claimId, now);
     } catch (error) {
-      restoreUploadMetadata(db, upload);
-      await fileOperations.rename(tombstonePath, storagePath);
+      if (renamed && !unlinked) {
+        // Retry one transient restore failure, but never clear the durable
+        // tombstone identity or expose the upload until its bytes are restored.
+        try {
+          await fileOperations.rename(tombstonePath, storagePath);
+        } catch (restoreError) {
+          try {
+            await fileOperations.rename(tombstonePath, storagePath);
+          } catch (retryError) {
+            throw new AggregateError(
+              [error, restoreError, retryError],
+              "Upload deletion failed and its tombstone could not be restored.",
+            );
+          }
+        }
+      }
+      if (!unlinked) releaseUploadDeletion(db, id, claimId, now);
+      if (isMissingFileError(error) && !renamed) return "not-found";
       throw error;
     }
-  } catch (error) {
-    if (getUploadMetadata(db, id) === undefined) {
-      restoreUploadMetadata(db, upload);
-    }
-    await fileOperations
-      .rename(tombstonePath, storagePath)
-      .catch(() => undefined);
-    throw error;
   } finally {
+    releaseLock?.();
     connection.close();
   }
 

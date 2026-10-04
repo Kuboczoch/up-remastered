@@ -75,7 +75,7 @@ describe("upload client", () => {
     const operation = uploadFile(
       new File(["hello"], "hello.txt", { type: "text/plain" }),
       (value) => progress.push(value),
-      { expirationHours: 6 },
+      { expirationHours: 6, maxDownloads: 1 },
     );
 
     await expect(operation.promise).resolves.toMatchObject({
@@ -86,6 +86,7 @@ describe("upload client", () => {
     });
     expect(progress).toEqual([50]);
     expect(FakeXMLHttpRequest.sentForm.get("expiresInHours")).toBe("6");
+    expect(FakeXMLHttpRequest.sentForm.get("maxDownloads")).toBe("1");
   });
 
   it("uses sanitized API error messages", async () => {

@@ -37,6 +37,7 @@ COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 COPY --from=builder --chown=node:node /app/drizzle ./drizzle
 COPY --from=builder --chown=node:node /app/scripts/cleanup-expired-files.mjs ./scripts/cleanup-expired-files.mjs
+COPY --from=builder --chown=node:node /app/src/server/storage/upload-deletion-lock.mjs ./src/server/storage/upload-deletion-lock.mjs
 
 USER node
 

@@ -3,7 +3,9 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
+import { tryAcquireUploadDeletionLock } from "../src/server/storage/upload-deletion-lock.mjs";
 import { afterEach, beforeEach, test } from "node:test";
 
 import {
@@ -59,6 +61,91 @@ function ids() {
     .map(({ id }) => id);
 }
 
+test("live async cleanup excludes stale same-process takeover without blocking unrelated writes or cleanup", async () => {
+  insertUpload({ id: "AAAAA", expiresAt: new Date(NOW.getTime() - 1) });
+  await writeFile(join(uploads, "AAAAA.bin"), "bytes");
+  let concurrent;
+  const owner = await cleanupExpiredUploads({
+    database,
+    uploadDirectory: uploads,
+    now: NOW,
+    unlinkFile: async (path) => {
+      // Both use the same connection/event loop: no blocking SQLite waits.
+      insertUpload({ id: "BBBBB", expiresAt: new Date(NOW.getTime() - 1) });
+      await writeFile(join(uploads, "BBBBB.bin"), "bytes");
+      concurrent = await cleanupExpiredUploads({
+        database,
+        uploadDirectory: uploads,
+        now: new Date(NOW.getTime() + 20 * 60 * 1000),
+      });
+      const { unlink } = await import("node:fs/promises");
+      await unlink(path);
+    },
+  });
+  assert.equal(concurrent.examined, 2);
+  assert.equal(concurrent.claimed, 1);
+  assert.equal(concurrent.deleted, 1);
+  assert.equal(owner.deleted, 1);
+  assert.deepEqual(ids(), []);
+});
+
+test("process death releases the filesystem coordination lock for durable recovery", async () => {
+  insertUpload({ id: "AAAAA", expiresAt: new Date(NOW.getTime() - 1) });
+  const tombstone = join(uploads, "AAAAA.bin.deleting-dead");
+  await writeFile(tombstone, "bytes");
+  database
+    .prepare(
+      "UPDATE upload_metadata SET cleanup_claim_id = 'dead', cleanup_claimed_at = ?",
+    )
+    .run(NOW.getTime() - 20 * 60 * 1000);
+  const child = spawn(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+    import { tryAcquireUploadDeletionLock } from './src/server/storage/upload-deletion-lock.mjs';
+    const release = tryAcquireUploadDeletionLock({ name: process.argv[1] }, 'AAAAA');
+    if (!release) process.exit(2);
+    process.send('locked');
+    setInterval(() => { if (!release) process.exit(2); }, 1000);
+  `,
+      database.name,
+    ],
+    { stdio: ["ignore", "ignore", "inherit", "ipc"] },
+  );
+  try {
+    const [message] = await once(child, "message");
+    assert.equal(message, "locked");
+    assert.equal(tryAcquireUploadDeletionLock(database, "AAAAA"), undefined);
+    const blocked = await cleanupExpiredUploads({
+      database,
+      uploadDirectory: uploads,
+      now: NOW,
+    });
+    assert.equal(blocked.claimed, 0);
+    const exited = once(child, "exit");
+    child.kill("SIGKILL");
+    await exited;
+    const recovered = await cleanupExpiredUploads({
+      database,
+      uploadDirectory: uploads,
+      now: NOW,
+    });
+    assert.equal(recovered.deleted, 1);
+    assert.equal(recovered.freedBytes, 5);
+    assert.deepEqual(ids(), []);
+    const { access } = await import("node:fs/promises");
+    await assert.rejects(access(tombstone), { code: "ENOENT" });
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) {
+      const exited = once(child, "exit");
+      child.kill("SIGKILL");
+      await exited;
+    }
+  }
+});
+
 test("deletes expired and missing files, preserves live rows, and is idempotent", async () => {
   insertUpload({
     id: "AAAAA",
@@ -105,6 +192,35 @@ test("deletes expired and missing files, preserves live rows, and is idempotent"
   });
   assert.equal(second.deleted, 0);
   assert.deepEqual(ids(), ["CCCCC"]);
+});
+
+test("reclaims exhausted rows, preserves finite live and unlimited rows", async () => {
+  for (const id of ["AAAAA", "BBBBB", "CCCCC"]) {
+    insertUpload({ id, expiresAt: new Date(NOW.getTime() + 3600000) });
+    await writeFile(join(uploads, `${id}.bin`), "hello");
+  }
+  database
+    .prepare(
+      "UPDATE upload_metadata SET max_downloads = 1, download_count = 1 WHERE id = 'AAAAA'",
+    )
+    .run();
+  database
+    .prepare(
+      "UPDATE upload_metadata SET max_downloads = 2, download_count = 1 WHERE id = 'BBBBB'",
+    )
+    .run();
+  database
+    .prepare(
+      "UPDATE upload_metadata SET download_count = 100 WHERE id = 'CCCCC'",
+    )
+    .run();
+  const result = await cleanupExpiredUploads({
+    database,
+    uploadDirectory: uploads,
+    now: NOW,
+  });
+  assert.equal(result.deleted, 1);
+  assert.deepEqual(ids(), ["BBBBB", "CCCCC"]);
 });
 
 test("releases failed claims for a later retry", async () => {
@@ -223,6 +339,152 @@ test("CLI returns nonzero for failures without logging identifiers", () => {
   );
   assert.equal(successful.status, 0);
   assert.equal(JSON.parse(successful.stdout).failed, 0);
+});
+
+test("preserves a failed rollback tombstone across failed and concurrent cleanup retries", async () => {
+  insertUpload({ id: "AAAAA", expiresAt: new Date(NOW.getTime() - 1) });
+  const claimId = "failed-delete";
+  const tombstone = join(uploads, `AAAAA.bin.deleting-${claimId}`);
+  await writeFile(tombstone, "bytes");
+  database
+    .prepare(
+      "UPDATE upload_metadata SET cleanup_claim_id = ?, cleanup_claimed_at = ?, download_count = 2",
+    )
+    .run(claimId, NOW.getTime() - 20 * 60 * 1000);
+  const failed = await cleanupExpiredUploads({
+    database,
+    uploadDirectory: uploads,
+    now: NOW,
+    unlinkFile: async (path) => {
+      if (path === tombstone)
+        throw Object.assign(new Error("denied"), { code: "EACCES" });
+      const { unlink } = await import("node:fs/promises");
+      await unlink(path);
+    },
+  });
+  assert.equal(failed.failed, 1);
+  assert.equal(failed.deleted, 0);
+  assert.equal(failed.freedBytes, 0);
+  assert.equal(failed.missing, 0);
+  const row = database
+    .prepare(
+      "SELECT cleanup_claim_id AS claim, download_count AS count, size FROM upload_metadata",
+    )
+    .get();
+  assert.deepEqual(row, { claim: claimId, count: 2, size: 5 });
+  const { readFile, access, unlink } = await import("node:fs/promises");
+  assert.equal(await readFile(tombstone, "utf8"), "bytes");
+  let started;
+  const ready = new Promise((resolvePromise) => {
+    started = resolvePromise;
+  });
+  let proceed;
+  const waiting = new Promise((resolvePromise) => {
+    proceed = resolvePromise;
+  });
+  const later = new Date(NOW.getTime() + 20 * 60 * 1000);
+  const first = cleanupExpiredUploads({
+    database,
+    uploadDirectory: uploads,
+    now: later,
+    unlinkFile: async (path) => {
+      if (path === tombstone) {
+        started();
+        await waiting;
+      }
+      await unlink(path);
+    },
+  });
+  await ready;
+  const concurrent = await cleanupExpiredUploads({
+    database,
+    uploadDirectory: uploads,
+    now: later,
+  });
+  assert.equal(concurrent.claimed, 0);
+  proceed();
+  const recovered = await first;
+  assert.equal(recovered.deleted, 1);
+  assert.equal(recovered.freedBytes, 5);
+  assert.equal(recovered.missing, 0);
+  assert.deepEqual(ids(), []);
+  await assert.rejects(access(tombstone), { code: "ENOENT" });
+});
+
+test("keeps the fence if metadata deletion fails after bytes are reclaimed", async () => {
+  insertUpload({ id: "AAAAA", expiresAt: new Date(NOW.getTime() - 1) });
+  await writeFile(join(uploads, "AAAAA.bin"), "bytes");
+  database.exec(`CREATE TRIGGER deny_cleanup BEFORE DELETE ON upload_metadata
+    BEGIN SELECT RAISE(FAIL, 'blocked metadata deletion'); END`);
+  const failed = await cleanupExpiredUploads({
+    database,
+    uploadDirectory: uploads,
+    now: NOW,
+    createClaimId: () => "db-failure",
+  });
+  assert.equal(failed.failed, 1);
+  assert.equal(failed.deleted, 0);
+  assert.equal(failed.freedBytes, 0);
+  assert.equal(
+    database
+      .prepare("SELECT cleanup_claim_id AS claim FROM upload_metadata")
+      .get().claim,
+    "db-failure",
+  );
+  database.exec("DROP TRIGGER deny_cleanup");
+  const retried = await cleanupExpiredUploads({
+    database,
+    uploadDirectory: uploads,
+    now: new Date(NOW.getTime() + 20 * 60 * 1000),
+  });
+  assert.equal(retried.deleted, 1);
+  assert.equal(retried.freedBytes, 5);
+  assert.equal(retried.missing, 1);
+  assert.deepEqual(ids(), []);
+});
+
+test("reclaims both original and tombstone before deleting metadata", async () => {
+  insertUpload({ id: "AAAAA", expiresAt: new Date(NOW.getTime() - 1) });
+  await writeFile(join(uploads, "AAAAA.bin"), "bytes");
+  const tombstone = join(uploads, "AAAAA.bin.deleting-old-delete");
+  await writeFile(tombstone, "bytes");
+  database
+    .prepare(
+      "UPDATE upload_metadata SET cleanup_claim_id = ?, cleanup_claimed_at = ?",
+    )
+    .run("old-delete", NOW.getTime() - 20 * 60 * 1000);
+  const { access, unlink } = await import("node:fs/promises");
+  const failed = await cleanupExpiredUploads({
+    database,
+    uploadDirectory: uploads,
+    now: NOW,
+    unlinkFile: async (path) => {
+      if (path === join(uploads, "AAAAA.bin"))
+        throw new Error("original locked");
+      await unlink(path);
+    },
+  });
+  assert.equal(failed.failed, 1);
+  assert.equal(failed.freedBytes, 0);
+  assert.deepEqual(ids(), ["AAAAA"]);
+  assert.equal(
+    database
+      .prepare("SELECT cleanup_claim_id AS claim FROM upload_metadata")
+      .get().claim,
+    "old-delete",
+  );
+  await assert.rejects(access(tombstone), { code: "ENOENT" });
+  await access(join(uploads, "AAAAA.bin"));
+  const recovered = await cleanupExpiredUploads({
+    database,
+    uploadDirectory: uploads,
+    now: new Date(NOW.getTime() + 20 * 60 * 1000),
+  });
+  assert.equal(recovered.deleted, 1);
+  assert.equal(recovered.freedBytes, 5);
+  assert.equal(recovered.missing, 0);
+  await assert.rejects(access(join(uploads, "AAAAA.bin")), { code: "ENOENT" });
+  assert.deepEqual(ids(), []);
 });
 
 test("recovers a stale lease after a crashed cleaner", async () => {

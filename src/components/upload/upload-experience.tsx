@@ -100,6 +100,7 @@ export function UploadExperience({
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [mobile, setMobile] = useState(false);
+  const [downloadLimit, setDownloadLimit] = useState(11);
   const [expirationHours, setExpirationHours] = useState(24);
   const [saveHistory, setSaveHistory] = useState(false);
   const saveHistoryRef = useRef(false);
@@ -330,7 +331,10 @@ export function UploadExperience({
       setPhase("uploading");
 
       setOptionsOpen(false);
-      const operation = uploadFile(file, setProgress, { expirationHours });
+      const operation = uploadFile(file, setProgress, {
+        expirationHours,
+        maxDownloads: downloadLimit === 11 ? undefined : downloadLimit,
+      });
       abortRef.current = operation.abort;
       try {
         const upload = await operation.promise;
@@ -370,7 +374,7 @@ export function UploadExperience({
         }
       }
     },
-    [maxBytes, phase, expirationHours],
+    [maxBytes, phase, expirationHours, downloadLimit],
   );
 
   useEffect(() => {
@@ -1114,7 +1118,7 @@ export function UploadExperience({
               ))}
             </select>
           </div>
-          <div className="option-setting" aria-disabled="true">
+          <div className="option-setting" style={{ opacity: 1 }}>
             <label htmlFor="download-limit">Download limit</label>
             <input
               type="range"
@@ -1122,10 +1126,19 @@ export function UploadExperience({
               min={1}
               max={11}
               step={1}
-              value={11}
-              disabled
-              aria-valuetext="Unlimited"
+              value={downloadLimit}
+              onChange={(event) => setDownloadLimit(Number(event.target.value))}
+              aria-valuetext={
+                downloadLimit === 11
+                  ? "Unlimited"
+                  : `${downloadLimit} ${downloadLimit === 1 ? "download" : "downloads"}`
+              }
             />
+            <output htmlFor="download-limit">
+              {downloadLimit === 11
+                ? "Unlimited"
+                : `${downloadLimit} ${downloadLimit === 1 ? "download" : "downloads"}`}
+            </output>
             <div className="limit-ticks" aria-hidden="true">
               <span>1</span>
               <span>5</span>
