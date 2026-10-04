@@ -224,6 +224,38 @@ export function createRequestedUpload(
   throw new Error("Could not generate unique upload request capabilities.");
 }
 
+export type RecipientRequestedUpload =
+  | { status: "active" | "retry"; maxBytes: number; expiresAt: string }
+  | { status: "invalid" | "in_progress" | "consumed" | "revoked" | "expired" };
+
+/** Public capability lookup: never serialize owner/private request metadata. */
+export function getRecipientRequestedUpload(
+  publicToken: string,
+  now = new Date(),
+): RecipientRequestedUpload {
+  if (!isCapabilityToken(publicToken)) return { status: "invalid" };
+  ensureDatabaseMigrated();
+  const connection = createSqliteConnection();
+  try {
+    const row = getUploadRequestByPublicHash(
+      createDbClient(connection),
+      hashCapabilityToken(publicToken),
+    );
+    if (!row) return { status: "invalid" };
+    const status = statusOf(row, now);
+    // Use the same classification as owner management, but never toDetails:
+    // recipient snapshots must not expose reserved IDs or revision metadata.
+    if (status !== "active" && status !== "retry") return { status };
+    return {
+      status,
+      maxBytes: row.maxBytes,
+      expiresAt: row.expiresAt.toISOString(),
+    };
+  } finally {
+    connection.close();
+  }
+}
+
 export function getActiveRequestedUpload(
   publicToken: string,
   now = new Date(),

@@ -13,6 +13,7 @@ import {
   createRequestedUpload,
   fulfillRequestedUpload,
   getActiveRequestedUpload,
+  getRecipientRequestedUpload,
   inspectRequestedUpload,
   revokeRequestedUpload,
   validateUploadRequestInput,
@@ -81,6 +82,55 @@ function createRequest() {
 }
 
 describe("requested uploads", () => {
+  it("rejects malformed, unknown and owner capabilities in recipient lookup", () => {
+    expect(getRecipientRequestedUpload("invalid", NOW)).toEqual({
+      status: "invalid",
+    });
+    createRequest();
+    for (const token of [
+      "c".repeat(64),
+      MANAGEMENT_TOKEN,
+      PUBLIC_TOKEN.toUpperCase(),
+    ]) {
+      expect(getRecipientRequestedUpload(token, NOW)).toEqual({
+        status: "invalid",
+      });
+    }
+  });
+
+  it.each([
+    "active",
+    "retry",
+    "in_progress",
+    "consumed",
+    "revoked",
+    "expired",
+  ] as const)("returns only safe recipient fields for %s", (status) => {
+    createRequest();
+    const connection = createSqliteConnection();
+    createDbClient(connection)
+      .update(uploadRequests)
+      .set({
+        retryAt: status === "retry" ? NOW : null,
+        claimId:
+          status === "in_progress" || status === "consumed"
+            ? "private-claim"
+            : null,
+        claimedAt:
+          status === "in_progress" || status === "consumed" ? NOW : null,
+        consumedAt: status === "consumed" ? NOW : null,
+        revokedAt: status === "revoked" ? NOW : null,
+      })
+      .run();
+    connection.close();
+    const now = status === "expired" ? new Date(input().expiresAt) : NOW;
+    expect(getRecipientRequestedUpload(PUBLIC_TOKEN, now)).toEqual(
+      status === "active" || status === "retry"
+        ? { status, maxBytes: 16, expiresAt: input().expiresAt }
+        : { status },
+    );
+  });
+
   it("validates bounded strict-UTC input", () => {
     expect(validateUploadRequestInput(input(), NOW)).toMatchObject({
       maxBytes: 16,
