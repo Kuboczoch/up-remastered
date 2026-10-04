@@ -21,14 +21,17 @@ describe("translated representations", () => {
       "A <B> — strona główna",
     );
     expect(translateMessage("pl", "UPLOAD_REQUEST_EXPIRED")).toBe(
-      "UPLOAD_REQUEST_EXPIRED",
+      "Coś poszło nie tak",
     );
-    expect(translateMessage("pl", "my-file-name.txt")).toBe("my-file-name.txt");
+    expect(
+      translate("pl", "{siteName} home", { siteName: "my-file-name.txt" }),
+    ).toBe("my-file-name.txt — strona główna");
   });
   it("all registered translations are actual nonempty Polish messages", () => {
     for (const [key, value] of Object.entries(polish)) {
       expect(value.trim()).not.toBe("");
-      expect(value).not.toBe(key);
+      // Cognates (e.g. Limit:) legitimately match; technical labels remain literal.
+      if (key !== "Limit:") expect(value).not.toBe(key);
       const parameters = (text: string) =>
         Array.from(text.matchAll(/\{(\w+)\}/g), (m) => m[1]).sort();
       expect(parameters(value)).toEqual(parameters(key));

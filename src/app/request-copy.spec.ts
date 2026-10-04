@@ -33,9 +33,15 @@ test("an actual insecure HTTP origin offers complete manual owner-fragment copy"
     ).toBeVisible();
     await expect(page).not.toHaveURL(/#/);
     await page.getByRole("button", { name: "Copy owner link" }).click();
-    await expect(page.getByLabel("Link to copy manually")).toHaveValue(
-      ownerUrl.href,
-    );
+    await expect(
+      page.getByLabel("Complete link for manual copying"),
+    ).toBeVisible();
+    // Compare as a boolean so assertion failures cannot print a capability URL.
+    expect(
+      (await page
+        .getByLabel("Complete link for manual copying")
+        .inputValue()) === ownerUrl.href,
+    ).toBe(true);
     await expect(page.getByText("Link copied.")).toHaveCount(0);
     expect(urls.some((url) => url.includes(owner.managementToken))).toBe(false);
     await page.reload();
@@ -43,9 +49,15 @@ test("an actual insecure HTTP origin offers complete manual owner-fragment copy"
       page.getByRole("button", { name: "Copy owner link" }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Copy owner link" }).click();
-    await expect(page.getByLabel("Link to copy manually")).toHaveValue(
-      ownerUrl.href,
-    );
+    await expect(
+      page.getByLabel("Complete link for manual copying"),
+    ).toBeVisible();
+    // Compare as a boolean so assertion failures cannot print a capability URL.
+    expect(
+      (await page
+        .getByLabel("Complete link for manual copying")
+        .inputValue()) === ownerUrl.href,
+    ).toBe(true);
   } finally {
     await browser.close();
   }

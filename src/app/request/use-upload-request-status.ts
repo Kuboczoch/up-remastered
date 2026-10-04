@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { MessageKey } from "@/i18n/messages";
 
 export type RequestStatus =
   | "active"
@@ -33,13 +34,18 @@ const TERMINAL_STATUSES = new Set<RequestStatus>([
   "revoked",
 ]);
 
-function isRequestDetails(value: unknown): value is RequestDetails {
+export function isRequestDetails(value: unknown): value is RequestDetails {
   if (!value || typeof value !== "object") return false;
   const request = value as Partial<RequestDetails>;
   return (
     typeof request.createdAt === "string" &&
     typeof request.expiresAt === "string" &&
     typeof request.maxBytes === "number" &&
+    Number.isSafeInteger(request.maxBytes) &&
+    request.maxBytes > 0 &&
+    [request.createdAt, request.expiresAt, request.statusChangedAt].every(
+      (date) => typeof date === "string" && Number.isFinite(Date.parse(date)),
+    ) &&
     typeof request.statusChangedAt === "string" &&
     typeof request.status === "string" &&
     [
@@ -71,7 +77,9 @@ export function parseStatusEvent(block: string): RequestDetails | undefined {
   }
 }
 
-export function statusConnectionMessage(connection: StatusConnection): string {
+export function statusConnectionMessage(
+  connection: StatusConnection,
+): MessageKey {
   switch (connection) {
     case "connecting":
       return "Connecting for live updates…";

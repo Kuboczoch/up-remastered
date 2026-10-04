@@ -1,4 +1,5 @@
 "use client";
+import { useTranslation } from "@/i18n/provider";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -11,6 +12,7 @@ import {
   statusConnectionMessage,
   useUploadRequestStatus,
   type RequestDetails,
+  isRequestDetails,
 } from "../use-upload-request-status";
 
 type ManageResponse = {
@@ -60,6 +62,7 @@ function readToken(): string | undefined {
 }
 
 export function ManageRequest() {
+  const { t } = useTranslation();
   const tokenRef = useRef<string | undefined>(undefined);
   const [managementToken, setManagementToken] = useState<string>();
   const [loadedRequest, setLoadedRequest] = useState<RequestDetails>();
@@ -71,31 +74,28 @@ export function ManageRequest() {
     loadedRequest,
   );
 
-  const load = useCallback(async (managementToken: string) => {
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/upload-requests/manage", {
-        headers: { authorization: `Bearer ${managementToken}` },
-      });
-      const body = (await response.json()) as ManageResponse;
-      if (!response.ok || !body.request) {
-        throw new Error(
-          body.error?.message ?? "This upload request is unavailable.",
-        );
+  const load = useCallback(
+    async (managementToken: string) => {
+      setBusy(true);
+      setError("");
+      try {
+        const response = await fetch("/api/upload-requests/manage", {
+          headers: { authorization: `Bearer ${managementToken}` },
+        });
+        const body = (await response.json()) as ManageResponse;
+        if (!response.ok || !isRequestDetails(body?.request)) {
+          throw new Error(t("This upload request is unavailable."));
+        }
+        setLoadedRequest(body.request);
+      } catch {
+        setLoadedRequest(undefined);
+        setError(t("This upload request is unavailable."));
+      } finally {
+        setBusy(false);
       }
-      setLoadedRequest(body.request);
-    } catch (caught) {
-      setLoadedRequest(undefined);
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "This upload request is unavailable.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }, []);
+    },
+    [t],
+  );
 
   useEffect(() => {
     const importedToken = readToken();
@@ -108,17 +108,17 @@ export function ManageRequest() {
     else {
       void Promise.resolve().then(() => {
         setError(
-          "Open the private owner link created with your upload request.",
+          t("Open the private owner link created with your upload request."),
         );
         setBusy(false);
       });
     }
-  }, [load]);
+  }, [load, t]);
 
   if (busy && !request) {
     return (
       <section className={styles.card} aria-busy="true">
-        <h2>Loading request status…</h2>
+        <h2>{t("Loading request status…")}</h2>
       </section>
     );
   }
@@ -126,12 +126,12 @@ export function ManageRequest() {
   if (!request) {
     return (
       <section className={styles.card}>
-        <h2>Owner link unavailable</h2>
+        <h2>{t("Owner link unavailable")}</h2>
         <p className={styles.error} role="alert">
           {error}
         </p>
         <Link className={styles.linkButton} href="/request/new">
-          Create a new request
+          {t("Create a new request")}{" "}
         </Link>
       </section>
     );
@@ -139,10 +139,11 @@ export function ManageRequest() {
 
   return (
     <section className={styles.card} aria-labelledby="management-status">
-      <h2 id="management-status">Request status</h2>
+      <h2 id="management-status">{t("Request status")}</h2>
       <p className={styles.muted}>
-        This private owner link is a bearer capability. Anyone with it can view
-        this status or revoke an active request.
+        {t(
+          "This private owner link is a bearer capability. Anyone with it can view this status or revoke an active request.",
+        )}{" "}
       </p>
       <RequestOwnerStatus
         request={request}
@@ -150,10 +151,10 @@ export function ManageRequest() {
         onUpdate={setLoadedRequest}
       />
       <p className={styles.muted} aria-live="polite">
-        {statusConnectionMessage(connection)}
+        {t(statusConnectionMessage(connection))}
       </p>
       <CopyRequestLink
-        label="Copy owner link"
+        label={t("Copy owner link")}
         value={`${window.location.origin}${window.location.pathname}#${managementToken}`}
       />
       <div className={styles.actions}>
@@ -163,7 +164,7 @@ export function ManageRequest() {
           onClick={() => tokenRef.current && void load(tokenRef.current)}
           type="button"
         >
-          Refresh status
+          {t("Refresh status")}{" "}
         </button>
       </div>
       {error ? (

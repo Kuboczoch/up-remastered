@@ -33,8 +33,28 @@ export function useTranslation() {
       locale,
       t: (key: MessageKey, values?: MessageValues) =>
         translate(locale, key, values),
-      message: (value: string) => translateMessage(locale, value),
+      message: (value: string, fallback?: MessageKey) =>
+        translateMessage(locale, value, fallback),
       formatBytes: (value: number) => formatBytes(value, locale),
+      formatDuration: (milliseconds: number) => {
+        const day = 86_400_000;
+        const hour = 3_600_000;
+        const unit =
+          milliseconds % day === 0
+            ? "day"
+            : milliseconds % hour === 0
+              ? "hour"
+              : "minute";
+        const count =
+          milliseconds /
+          (unit === "day" ? day : unit === "hour" ? hour : 60_000);
+        return new Intl.NumberFormat(locale, {
+          style: "unit",
+          unit,
+          unitDisplay: "long",
+          maximumFractionDigits: 0,
+        }).format(count);
+      },
       // Stable SSR timezone; browser/server defaults can differ during hydration.
       formatDateTime: (value: string | number | Date) =>
         formatLocalDateTime(value, locale, "UTC"),

@@ -1,4 +1,5 @@
 import { encryptFile } from "./encryption";
+import { apiErrorKey } from "@/i18n/messages";
 
 export type UploadOptions = {
   expirationHours?: number;
@@ -19,20 +20,8 @@ export type UploadProgress = (percentage: number) => void;
 
 export { formatBytes } from "@/lib/format";
 
-function responseMessage(body: unknown, fallback: string): string {
-  if (
-    typeof body === "object" &&
-    body !== null &&
-    "error" in body &&
-    typeof body.error === "object" &&
-    body.error !== null &&
-    "message" in body.error &&
-    typeof body.error.message === "string"
-  ) {
-    return body.error.message;
-  }
-
-  return fallback;
+function responseMessage(body: unknown): string {
+  return apiErrorKey(body);
 }
 
 export function parseUploadResponse(body: unknown): UploadResult {
@@ -102,14 +91,7 @@ export function uploadFile(
     });
     request.addEventListener("load", () => {
       if (request.status < 200 || request.status >= 300) {
-        reject(
-          new Error(
-            responseMessage(
-              request.response,
-              `Upload failed with status ${request.status}.`,
-            ),
-          ),
-        );
+        reject(new Error(responseMessage(request.response)));
         return;
       }
 

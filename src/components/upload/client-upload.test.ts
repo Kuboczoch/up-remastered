@@ -92,7 +92,10 @@ describe("upload client", () => {
   it("uses sanitized API error messages", async () => {
     FakeXMLHttpRequest.status = 413;
     FakeXMLHttpRequest.response = {
-      error: { message: "Upload exceeds the maximum upload size." },
+      error: {
+        code: "upload_too_large",
+        message: "SQLITE_ERROR sensitive-token",
+      },
     };
     global.XMLHttpRequest =
       FakeXMLHttpRequest as unknown as typeof XMLHttpRequest;
@@ -100,7 +103,7 @@ describe("upload client", () => {
     const operation = uploadFile(new File(["x"], "large.bin"), () => {});
 
     await expect(operation.promise).rejects.toThrow(
-      "Upload exceeds the maximum upload size.",
+      "The file is too large. Choose a smaller file.",
     );
   });
 

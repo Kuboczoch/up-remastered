@@ -475,6 +475,11 @@ test("rejects ambiguous drops and oversized files before upload", async ({
   page,
 }) => {
   await page.goto("/");
+  // Synthetic DOM events cannot be replayed before client effects attach.
+  await page
+    .getByRole("button", { name: "Advanced options", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Close advanced options" }).click();
 
   await page.evaluate(() => {
     const data = new DataTransfer();
@@ -511,6 +516,11 @@ test("shows a stable drag target and resets it on leave, exit, and drop", async 
   page,
 }) => {
   await page.goto("/");
+  // Synthetic DOM events cannot be replayed before client effects attach.
+  await page
+    .getByRole("button", { name: "Advanced options", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Close advanced options" }).click();
 
   const dispatchFileDrag = async (
     type: "dragenter" | "dragleave" | "drop",
@@ -558,6 +568,11 @@ test("uses short feedback motion and honors reduced-motion preferences", async (
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
+  // Synthetic DOM events cannot be replayed before client effects attach.
+  await page
+    .getByRole("button", { name: "Advanced options", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Close advanced options" }).click();
 
   await page.evaluate(() => {
     const data = new DataTransfer();

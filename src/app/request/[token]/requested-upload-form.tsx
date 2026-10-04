@@ -1,7 +1,8 @@
 "use client";
+import { useTranslation } from "@/i18n/provider";
 
 import { useEffect, useRef, useState } from "react";
-import { formatBytes } from "@/lib/format";
+import { apiErrorKey } from "@/i18n/messages";
 import { RequestExpiry } from "../request-expiry";
 import { CopyRequestLink } from "../copy-request-link";
 import styles from "../request.module.css";
@@ -25,6 +26,7 @@ export function RequestedUploadForm({
   token: string;
   expiresAt?: string;
 }) {
+  const { t, formatBytes } = useTranslation();
   const [file, setFile] = useState<File>();
   const [result, setResult] = useState<UploadResponse>();
   const [error, setError] = useState("");
@@ -60,11 +62,15 @@ export function RequestedUploadForm({
     setError("");
     setNotice("");
     if (!file || file.size === 0) {
-      setError("Choose a non-empty file.");
+      setError(t("Choose a non-empty file."));
       return;
     }
     if (file.size > maxBytes) {
-      setError(`The file must be no larger than ${formatBytes(maxBytes)}.`);
+      setError(
+        t("The file must be no larger than {size}.", {
+          size: formatBytes(maxBytes),
+        }),
+      );
       return;
     }
     const xhr = new XMLHttpRequest();
@@ -95,30 +101,47 @@ export function RequestedUploadForm({
         const body = JSON.parse(xhr.responseText) as UploadResponse & {
           error?: { message?: string };
         };
-        if (xhr.status < 200 || xhr.status >= 300)
-          throw new Error(
-            body.error?.message ??
-              "Upload failed. You can retry with the selected file.",
+        if (xhr.status < 200 || xhr.status >= 300) {
+          setError(
+            t(
+              apiErrorKey(
+                body,
+                "Upload failed. You can retry with the selected file.",
+              ),
+            ),
           );
+          return;
+        }
+        if (
+          !body.upload ||
+          typeof body.upload.originalName !== "string" ||
+          typeof body.upload.shareUrl !== "string" ||
+          typeof body.accessToken !== "string" ||
+          !Number.isFinite(body.upload.size) ||
+          !Number.isFinite(Date.parse(body.upload.expiresAt))
+        ) {
+          setError(t("Upload completed, but the server response was invalid."));
+          return;
+        }
         setResult(body);
-      } catch (caught) {
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : "Upload failed. You can retry with the selected file.",
-        );
+      } catch {
+        setError(t("Upload failed. You can retry with the selected file."));
       }
     };
     xhr.onerror = () => {
       if (finish())
         setError(
-          "Network error. Check your connection and retry with the selected file. If delivery may have completed, reload this request to check its status.",
+          t(
+            "Network error. Check your connection and retry with the selected file. If delivery may have completed, reload this request to check its status.",
+          ),
         );
     };
     xhr.onabort = () => {
       if (!finish()) return;
       setNotice(
-        "Cancelled. The selected file is kept. You can retry once the server releases this request; reload to check if delivery already completed.",
+        t(
+          "Cancelled. The selected file is kept. You can retry once the server releases this request; reload to check if delivery already completed.",
+        ),
       );
       returnFocus.current = true;
     };
@@ -129,24 +152,32 @@ export function RequestedUploadForm({
       xhr.send(body);
     } catch {
       finish();
-      setError("Could not start upload. Please retry with the selected file.");
+      setError(
+        t("Could not start upload. Please retry with the selected file."),
+      );
     }
   }
 
   if (result)
     return (
       <section className={styles.card} aria-labelledby="upload-complete">
-        <h2 id="upload-complete">Upload complete</h2>
+        <h2 id="upload-complete">{t("Upload complete")}</h2>
         <p role="status">
-          Your file has been delivered. The requester can now retrieve it.
+          {t(
+            "Your file has been delivered. The requester can now retrieve it.",
+          )}{" "}
         </p>
         <p className={styles.result}>
           {result.upload.originalName} · {formatBytes(result.upload.size)}
         </p>
         <p>
-          File expires <RequestExpiry expiresAt={result.upload.expiresAt} />
+          {t("File expires")}{" "}
+          <RequestExpiry expiresAt={result.upload.expiresAt} />
         </p>
-        <CopyRequestLink label="Copy link" value={result.upload.shareUrl} />
+        <CopyRequestLink
+          label={t("Copy link")}
+          value={result.upload.shareUrl}
+        />
         <div className={styles.actions}>
           <a
             className={styles.linkButton}
@@ -154,23 +185,24 @@ export function RequestedUploadForm({
             target="_blank"
             rel="noopener noreferrer"
           >
-            Open file
+            {t("Open file")}{" "}
           </a>
           <a
             className={styles.linkButton}
             href={`${result.upload.shareUrl}?download=1`}
           >
-            Download file
+            {t("Download file")}{" "}
           </a>
         </div>
         <details className={styles.result}>
-          <summary>Advanced / API</summary>
+          <summary>{t("Advanced / API")}</summary>
           <p>
-            This upload access token is only needed for API operations on the
-            delivered file. Keep it private.
+            {t(
+              "This upload access token is only needed for API operations on the delivered file. Keep it private.",
+            )}{" "}
           </p>
           <code>{result.accessToken}</code>
-          <p>No owner management token is shared with the uploader.</p>
+          <p>{t("No owner management token is shared with the uploader.")}</p>
         </details>
       </section>
     );
@@ -178,7 +210,7 @@ export function RequestedUploadForm({
   return (
     <form className={styles.card} onSubmit={submit} aria-busy={busy}>
       <label className={styles.field}>
-        Choose file
+        {t("Choose file")}{" "}
         <input
           disabled={busy}
           name="file"
@@ -188,12 +220,12 @@ export function RequestedUploadForm({
         />
       </label>
       <p className={styles.muted}>
-        Maximum {formatBytes(maxBytes)}. This link accepts one successful
-        upload.
+        {t("Maximum")} {formatBytes(maxBytes)}
+        {t(". This link accepts one successful upload.")}{" "}
       </p>
       {expiresAt && (
         <p>
-          Request expires <RequestExpiry expiresAt={expiresAt} />
+          {t("Request expires")} <RequestExpiry expiresAt={expiresAt} />
         </p>
       )}
       {file && (
@@ -202,13 +234,17 @@ export function RequestedUploadForm({
         </p>
       )}
       {busy && (
-        <progress aria-label="Upload progress" value={progress} max={100} />
+        <progress
+          aria-label={t("Upload progress")}
+          value={progress}
+          max={100}
+        />
       )}
       <p role="status">
         {phase === "finalizing"
-          ? "Finalizing delivery…"
+          ? t("Finalizing delivery…")
           : phase === "uploading"
-            ? `Uploading… ${progress}%`
+            ? t("Uploading… {progress}%", { progress })
             : notice}
       </p>
       <div className={styles.actions}>
@@ -218,7 +254,7 @@ export function RequestedUploadForm({
           disabled={busy}
           type="submit"
         >
-          {busy ? "Uploading…" : "Upload file"}
+          {busy ? t("Uploading…") : t("Upload file")}
         </button>
         {busy && (
           <button
@@ -226,7 +262,7 @@ export function RequestedUploadForm({
             type="button"
             onClick={() => transport.current?.abort()}
           >
-            Cancel upload
+            {t("Cancel upload")}{" "}
           </button>
         )}
       </div>

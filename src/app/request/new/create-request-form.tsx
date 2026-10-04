@@ -1,4 +1,5 @@
 "use client";
+import { useTranslation } from "@/i18n/provider";
 
 import {
   useEffect,
@@ -9,7 +10,8 @@ import {
   type FormEvent,
 } from "react";
 
-import { formatBytes, parseByteQuantity, type ByteUnit } from "@/lib/format";
+import { parseByteQuantity, type ByteUnit } from "@/lib/format";
+import { apiErrorKey } from "@/i18n/messages";
 
 import styles from "../request.module.css";
 import { CopyRequestLink } from "../copy-request-link";
@@ -40,18 +42,13 @@ function subscribeToHydration() {
   return () => undefined;
 }
 
-function formatDuration(milliseconds: number): string {
-  if (milliseconds % DAY === 0) return `${milliseconds / DAY} days`;
-  if (milliseconds % HOUR === 0) return `${milliseconds / HOUR} hours`;
-  return `${Math.floor(milliseconds / 60_000)} minutes`;
-}
-
 function toLocalInputValue(date: Date): string {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 16);
 }
 
 export function CreateRequestForm() {
+  const { t, formatBytes, formatDuration } = useTranslation();
   const [limits, setLimits] = useState<{
     maxExpirationMs: number;
     maxUploadBytes: number;
@@ -63,15 +60,17 @@ export function CreateRequestForm() {
   const expirationPresets = useMemo(() => {
     const allowed = EXPIRATION_PRESETS.filter(
       ({ value }) => value <= maxExpirationMs,
-    );
+    ).map(({ value }) => ({ value, label: formatDuration(value) }));
     if (!allowed.some(({ value }) => value === maxExpirationMs)) {
       allowed.push({
-        label: `Maximum (${formatDuration(maxExpirationMs)})`,
+        label: t("Maximum ({duration})", {
+          duration: formatDuration(maxExpirationMs),
+        }),
         value: maxExpirationMs,
       });
     }
     return allowed;
-  }, [maxExpirationMs]);
+  }, [maxExpirationMs, t, formatDuration]);
   const sizePresets = useMemo(
     () =>
       Array.from(
@@ -109,7 +108,7 @@ export function CreateRequestForm() {
           cache: "no-store",
           signal: controller.signal,
         });
-        if (!response.ok) throw new Error("Configuration unavailable.");
+        if (!response.ok) throw new Error(t("Configuration unavailable."));
         const configuration = await response.json();
         if (
           !Number.isFinite(configuration.maxFileLifetime) ||
@@ -117,7 +116,7 @@ export function CreateRequestForm() {
           !Number.isSafeInteger(configuration.maxTemporaryFileSize) ||
           configuration.maxTemporaryFileSize <= 0
         ) {
-          throw new Error("Invalid server limits.");
+          throw new Error(t("Invalid server limits."));
         }
         if (controller.signal.aborted) return;
         setLimits({
@@ -135,7 +134,7 @@ export function CreateRequestForm() {
     }
     void loadLimits();
     return () => controller.abort();
-  }, [limitsAttempt]);
+  }, [limitsAttempt, t]);
   const { connection, request: liveRequest } = useUploadRequestStatus(
     created?.managementToken,
     created,
@@ -171,9 +170,12 @@ export function CreateRequestForm() {
         expiresAt.getTime() <= submittedAt ||
         expiresAt.getTime() > submittedAt + maxExpirationMs
       ) {
-        throw new RangeError(
-          `Expiration must be in the future and within ${formatDuration(maxExpirationMs)}.`,
+        setError(
+          t("Expiration must be in the future and within {duration}.", {
+            duration: formatDuration(maxExpirationMs),
+          }),
         );
+        return;
       }
 
       const maxBytes =
@@ -186,7 +188,9 @@ export function CreateRequestForm() {
         maxBytes > maxUploadBytes
       ) {
         throw new RangeError(
-          `Size must be between 1 byte and ${formatBytes(maxUploadBytes)}.`,
+          t("Size must be between 1 byte and {size}.", {
+            size: formatBytes(maxUploadBytes),
+          }),
         );
       }
 
@@ -201,11 +205,30 @@ export function CreateRequestForm() {
       const body = (await response.json()) as CreatedRequest & {
         error?: { message?: string };
       };
-      if (!response.ok)
-        throw new Error(body.error?.message ?? "Request failed.");
+      if (!response.ok) {
+        setError(t(apiErrorKey(body, "Request failed.")));
+        return;
+      }
+      if (
+        !body ||
+        typeof body.managementToken !== "string" ||
+        typeof body.managementUrl !== "string" ||
+        typeof body.uploadUrl !== "string" ||
+        !Number.isSafeInteger(body.maxBytes) ||
+        !Number.isFinite(Date.parse(body.expiresAt))
+      ) {
+        setError(t("Request failed."));
+        return;
+      }
       setCreated(body);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Request failed.");
+      setError(
+        caught instanceof RangeError
+          ? t("Size must be between 1 byte and {size}.", {
+              size: formatBytes(maxUploadBytes),
+            })
+          : t("Request failed."),
+      );
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -216,23 +239,27 @@ export function CreateRequestForm() {
     const displayedRequest = liveRequest ?? created;
     return (
       <section className={styles.card} aria-labelledby="request-created">
-        <h2 id="request-created">Upload request created</h2>
+        <h2 id="request-created">{t("Upload request created")}</h2>
         <p className={styles.result}>
-          Send this upload link:{" "}
+          {t("Send this upload link:")}{" "}
           <a href={created.uploadUrl}>{created.uploadUrl}</a>
         </p>
-        <CopyRequestLink label="Copy upload link" value={created.uploadUrl} />
+        <CopyRequestLink
+          label={t("Copy upload link")}
+          value={created.uploadUrl}
+        />
         <p className={styles.result}>
-          <strong>Save this private owner link:</strong>{" "}
+          <strong>{t("Save this private owner link:")}</strong>{" "}
           <a href={created.managementUrl}>{created.managementUrl}</a>
         </p>
         <CopyRequestLink
-          label="Copy owner link"
+          label={t("Copy owner link")}
           value={created.managementUrl}
         />
         <p>
-          This link can inspect or revoke the request and cannot be recovered by
-          the server.
+          {t(
+            "This link can inspect or revoke the request and cannot be recovered by the server.",
+          )}{" "}
         </p>
         <RequestOwnerStatus
           request={displayedRequest}
@@ -240,7 +267,7 @@ export function CreateRequestForm() {
           onUpdate={(update) => setCreated({ ...created, ...update })}
         />
         <p className={styles.muted} aria-live="polite">
-          {statusConnectionMessage(connection)}
+          {t(statusConnectionMessage(connection))}
         </p>
         <div className={styles.actions}>
           <button
@@ -248,7 +275,7 @@ export function CreateRequestForm() {
             onClick={() => setCreated(undefined)}
             type="button"
           >
-            Create another
+            {t("Create another")}{" "}
           </button>
         </div>
         {error ? <p className={styles.error}>{error}</p> : null}
@@ -262,8 +289,8 @@ export function CreateRequestForm() {
         <div>
           <p role={limitsError ? "alert" : "status"}>
             {limitsError
-              ? "Could not load server limits. Please retry."
-              : "Loading server limits…"}
+              ? t("Could not load server limits. Please retry.")
+              : t("Loading server limits…")}
           </p>
           {limitsError && (
             <button
@@ -274,32 +301,32 @@ export function CreateRequestForm() {
               }}
               type="button"
             >
-              Retry loading limits
+              {t("Retry loading limits")}{" "}
             </button>
           )}
         </div>
       )}
       <label className={styles.field}>
-        Request expires
+        {t("Request expires")}{" "}
         <select
           disabled={!hydrated || !limits}
           name="expirationPreset"
           onChange={(event) => selectExpiration(event.target.value)}
           value={expirationChoice}
         >
-          {!limits && <option value="0">Loading server limits…</option>}
+          {!limits && <option value="0">{t("Loading server limits…")}</option>}
           {limits &&
             expirationPresets.map(({ label, value }) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
-          <option value="custom">Custom date and time</option>
+          <option value="custom">{t("Custom date and time")}</option>
         </select>
       </label>
       {expirationChoice === "custom" ? (
         <label className={styles.field}>
-          Custom expiration date and time
+          {t("Custom expiration date and time")}{" "}
           <input
             max={customExpirationMax}
             name="expiresAt"
@@ -311,28 +338,28 @@ export function CreateRequestForm() {
         </label>
       ) : null}
       <label className={styles.field}>
-        Maximum upload size
+        {t("Maximum upload size")}{" "}
         <select
           disabled={!hydrated || !limits}
           name="sizePreset"
           onChange={(event) => setSizeChoice(event.target.value)}
           value={sizeChoice}
         >
-          {!limits && <option value="0">Loading server limits…</option>}
+          {!limits && <option value="0">{t("Loading server limits…")}</option>}
           {limits &&
             sizePresets.map((bytes) => (
               <option key={bytes} value={bytes}>
-                {bytes === maxUploadBytes ? "Server maximum: " : ""}
+                {bytes === maxUploadBytes ? t("Server maximum: ") : ""}
                 {formatBytes(bytes)}
               </option>
             ))}
-          <option value="custom">Custom size</option>
+          <option value="custom">{t("Custom size")}</option>
         </select>
       </label>
       {sizeChoice === "custom" ? (
         <div className={styles.inlineFields}>
           <label className={styles.field}>
-            Size amount
+            {t("Size amount")}{" "}
             <input
               inputMode="decimal"
               min="0"
@@ -345,7 +372,7 @@ export function CreateRequestForm() {
             />
           </label>
           <label className={styles.field}>
-            Size unit
+            {t("Size unit")}{" "}
             <select
               name="sizeUnit"
               onChange={(event) =>
@@ -363,15 +390,20 @@ export function CreateRequestForm() {
         </div>
       ) : null}
       <p className={styles.muted}>
-        The link accepts one successful upload.
-        {limits && <> Server maximum: {formatBytes(maxUploadBytes)}.</>}
+        {t("The link accepts one successful upload.")}{" "}
+        {limits && (
+          <>
+            {" "}
+            {t("Server maximum:")} {formatBytes(maxUploadBytes)}.
+          </>
+        )}
       </p>
       <button
         className={styles.button}
         disabled={!hydrated || !limits || busy}
         type="submit"
       >
-        {busy ? "Creating…" : "Create upload request"}
+        {busy ? t("Creating…") : t("Create upload request")}
       </button>
       {error ? (
         <p className={styles.error} role="alert">

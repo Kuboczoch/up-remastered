@@ -1,4 +1,5 @@
 "use client";
+import { useTranslation } from "@/i18n/provider";
 
 import { useEffect, useId, useRef } from "react";
 
@@ -19,6 +20,7 @@ export function DestructiveConfirmation({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
@@ -77,7 +79,7 @@ export function DestructiveConfirmation({
           onClick={onCancel}
           type="button"
         >
-          Cancel
+          {t("Cancel")}{" "}
         </button>
         <button
           className="outline-button destructive-action"
@@ -85,7 +87,7 @@ export function DestructiveConfirmation({
           onClick={onConfirm}
           type="button"
         >
-          {busy ? "Please wait…" : confirmLabel}
+          {busy ? t("Please wait…") : confirmLabel}
         </button>
       </div>
     </dialog>

@@ -29,9 +29,13 @@ test("owner states, safe revoke focus/cancellation/failure, and scrubbed manual 
   await expect(page.getByText("Reserved download link:")).toBeVisible();
   await expect(page).not.toHaveURL(/#/);
   await page.getByRole("button", { name: "Copy owner link" }).click();
-  await expect(page.getByLabel("Link to copy manually")).toHaveValue(
-    request.managementUrl,
-  );
+  await expect(
+    page.getByLabel("Complete link for manual copying"),
+  ).toBeVisible();
+  expect(
+    (await page.getByLabel("Complete link for manual copying").inputValue()) ===
+      request.managementUrl,
+  ).toBe(true);
   await page
     .getByRole("button", { name: "Revoke request", exact: true })
     .click();
@@ -76,12 +80,16 @@ test("owner states, safe revoke focus/cancellation/failure, and scrubbed manual 
     .getByRole("button", { name: "Revoke request", exact: true })
     .click();
   await page.getByRole("button", { name: "Confirm revoke" }).click();
-  await expect(page.getByRole("status")).toContainText("revoked");
+  await expect(
+    page.getByRole("status").filter({ hasText: "revoked" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Revoke request", exact: true }),
   ).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("status")).toContainText("revoked");
+  await expect(
+    page.getByRole("status").filter({ hasText: "revoked" }),
+  ).toBeVisible();
   await page.goto(request.uploadUrl);
   await expect(page.getByText(/revoked.*new request/i)).toBeVisible();
 });
@@ -218,7 +226,7 @@ test("expired and invalid recipient pages give safe next steps; expired owners c
   await expect(page.getByLabel("Choose file")).toHaveCount(0);
 });
 
-test("recipient expiration is exact and localized to the browser timezone", async ({
+test("recipient expiration uses the served locale and stable UTC across browser timezones", async ({
   browser,
   request,
 }) => {
@@ -243,9 +251,10 @@ test("recipient expiration is exact and localized to the browser timezone", asyn
     await page.goto(created.uploadUrl);
     const expected = await page.evaluate(
       (value) =>
-        new Intl.DateTimeFormat(undefined, {
+        new Intl.DateTimeFormat("en", {
           dateStyle: "medium",
           timeStyle: "short",
+          timeZone: "UTC",
         }).format(new Date(value)),
       created.expiresAt,
     );

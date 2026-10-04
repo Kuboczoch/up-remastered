@@ -1,17 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { copyLink } from "@/lib/copy-link";
+import { ManualCopyLink } from "@/components/manual-copy-link";
+import { useTranslation } from "@/i18n/provider";
 import styles from "./request.module.css";
 
-// Reconcile this helper with the upload worker's shared copy-link utility.
+/** Compatibility export; all link copying uses the shared secure-context helper. */
 export async function copyRequestLink(value: string): Promise<boolean> {
-  try {
-    if (!navigator.clipboard?.writeText) return false;
-    await navigator.clipboard.writeText(value);
-    return true;
-  } catch {
-    return false;
-  }
+  return (await copyLink(value)) === "copied";
 }
 
 export function CopyRequestLink({
@@ -21,35 +18,19 @@ export function CopyRequestLink({
   value: string;
   label: string;
 }) {
+  const { t } = useTranslation();
   const [feedback, setFeedback] = useState<"copied" | "manual">();
   return (
     <div className={styles.copy}>
       <button
         className={styles.linkButton}
         type="button"
-        onClick={async () =>
-          setFeedback((await copyRequestLink(value)) ? "copied" : "manual")
-        }
+        onClick={async () => setFeedback(await copyLink(value))}
       >
         {label}
       </button>
-      {feedback && (
-        <p aria-live="polite">
-          {feedback === "copied"
-            ? "Link copied."
-            : "Automatic copy unavailable. Select the complete link below and copy it manually."}
-        </p>
-      )}
-      {feedback === "manual" && (
-        <label className={styles.field}>
-          Link to copy manually
-          <input
-            readOnly
-            value={value}
-            onFocus={(event) => event.currentTarget.select()}
-          />
-        </label>
-      )}
+      {feedback === "copied" && <p aria-live="polite">{t("Link copied.")}</p>}
+      {feedback === "manual" && <ManualCopyLink url={value} />}
     </div>
   );
 }

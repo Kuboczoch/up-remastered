@@ -38,8 +38,7 @@ export default async function RequestedUploadPage({
           <>
             {request.status === "retry" && (
               <p>
-                The previous upload did not complete. You can try again with
-                this request.
+                <T id="The previous upload did not complete. You can try again with this request." />{" "}
               </p>
             )}
             <RequestedUploadForm
@@ -54,19 +53,21 @@ export default async function RequestedUploadPage({
               <T id="Upload request unavailable" />
             </h2>
             <p>
-              {request.status === "expired"
-                ? "This request has expired. Ask the requester for a new request link."
-                : request.status === "revoked"
-                  ? "This request was revoked. Ask the requester for a new request link."
-                  : request.status === "consumed"
-                    ? "A file was already delivered using this request. Ask the requester for a new request link to send another file."
-                    : request.status === "in_progress"
-                      ? "Another upload is in progress. Wait and refresh to check whether this request becomes available again."
-                      : "This request link is invalid. Check the complete link or ask the requester for a new request link."}
+              {request.status === "expired" ? (
+                <T id="This request has expired. Ask the requester for a new request link." />
+              ) : request.status === "revoked" ? (
+                <T id="This request was revoked. Ask the requester for a new request link." />
+              ) : request.status === "consumed" ? (
+                <T id="A file was already delivered using this request. Ask the requester for a new request link to send another file." />
+              ) : request.status === "in_progress" ? (
+                <T id="Another upload is in progress. Wait and refresh to check whether this request becomes available again." />
+              ) : (
+                <T id="This request link is invalid. Check the complete link or ask the requester for a new request link." />
+              )}
             </p>
             {request.status === "in_progress" && (
               <a className={styles.linkButton} href={`/request/${token}`}>
-                Refresh request
+                <T id="Refresh request" />{" "}
               </a>
             )}
           </section>
