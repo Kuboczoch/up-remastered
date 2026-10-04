@@ -72,8 +72,73 @@ test("history-off deletion uses modal safe focus, Escape return, terminal state 
   page,
   request,
 }) => {
+  const historyKey = "up-remastered:upload-history:v1";
+  const priorHistory = JSON.stringify([
+    {
+      id: "ABCDE",
+      accessToken: "prior-owner-token",
+      originalName: "prior-history.txt",
+      size: 5,
+      shareUrl: "http://127.0.0.1:3218/ABCDE",
+      expiresAt: new Date(Date.now() + 3600000).toISOString(),
+      savedAt: new Date().toISOString(),
+    },
+  ]);
+  await page.addInitScript(
+    ({ historyKey, priorHistory }) => {
+      localStorage.setItem(historyKey, priorHistory);
+      const calls: string[] = [];
+      const originalGet = Storage.prototype.getItem;
+      const originalSet = Storage.prototype.setItem;
+      const originalRemove = Storage.prototype.removeItem;
+      const originalClear = Storage.prototype.clear;
+      Storage.prototype.getItem = function (key) {
+        if (this === localStorage && key === historyKey) calls.push("getItem");
+        return originalGet.call(this, key);
+      };
+      Storage.prototype.setItem = function (key, value) {
+        if (this === localStorage && key === historyKey) calls.push("setItem");
+        return originalSet.call(this, key, value);
+      };
+      Storage.prototype.removeItem = function (key) {
+        if (this === localStorage && key === historyKey)
+          calls.push("removeItem");
+        return originalRemove.call(this, key);
+      };
+      Storage.prototype.clear = function () {
+        if (this === localStorage) calls.push("clear");
+        return originalClear.call(this);
+      };
+      Object.assign(window, {
+        historyStorageEvidence: () => ({
+          calls: [...calls],
+          stored: originalGet.call(localStorage, historyKey),
+        }),
+      });
+    },
+    { historyKey, priorHistory },
+  );
+  const assertHistoryUntouched = async () => {
+    expect(
+      await page.evaluate(() =>
+        (
+          window as unknown as {
+            historyStorageEvidence: () => {
+              calls: string[];
+              stored: string | null;
+            };
+          }
+        ).historyStorageEvidence(),
+      ),
+    ).toEqual({ calls: [], stored: priorHistory });
+    await expect(
+      page.getByText("prior-history.txt", { exact: true }),
+    ).toHaveCount(0);
+  };
   await page.goto("/");
+  await assertHistoryUntouched();
   const url = await upload(page);
+  await assertHistoryUntouched();
   await confirmDeletion(page);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -96,9 +161,7 @@ test("history-off deletion uses modal safe focus, Escape return, terminal state 
     0,
   );
   expect((await request.get(url)).status()).toBe(404);
-  expect(
-    await page.evaluate(() => localStorage.getItem("up-remastered:history:v1")),
-  ).toBeNull();
+  await assertHistoryUntouched();
 });
 
 test("failed delete retains live result and duplicate activation sends only one request", async ({
