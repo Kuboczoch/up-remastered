@@ -31,6 +31,7 @@ import {
   setHistoryConsent,
   clearUploadHistory,
   HISTORY_CONSENT_KEY,
+  HISTORY_CLEAR_KEY,
   UPLOAD_HISTORY_STORAGE_KEY,
   type UploadHistoryEntry,
 } from "@/components/upload/upload-history";
@@ -125,6 +126,7 @@ export function UploadExperience({
     null,
   );
   const [historyStatus, setHistoryStatus] = useState("");
+  const [consentStatus, setConsentStatus] = useState("");
   const [isOnline, setIsOnline] = useState(true);
   const [now, setNow] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
@@ -511,12 +513,27 @@ export function UploadExperience({
         event &&
         event.key !== null &&
         event.key !== HISTORY_CONSENT_KEY &&
+        event.key !== HISTORY_CLEAR_KEY &&
         event.key !== UPLOAD_HISTORY_STORAGE_KEY
       )
         return;
       try {
         if (event?.storageArea && event.storageArea !== window.localStorage)
           return;
+        // Initial unconsented restoration is deliberately non-destructive.
+        // Explicit cross-tab revocation/clear must also erase this tab's legacy
+        // store, otherwise enabling later would resurrect those records.
+        if (
+          event &&
+          (event.key === HISTORY_CLEAR_KEY ||
+            (event.key === HISTORY_CONSENT_KEY && event.newValue === "false"))
+        ) {
+          if (!clearUploadHistory(window.sessionStorage)) {
+            setConsentStatus(
+              "Browser history could not be fully cleared. Clear site data before leaving a shared device.",
+            );
+          }
+        }
         const consent = hasHistoryConsent(window.localStorage);
         historyConsentRef.current = consent;
         setSaveHistory(consent);
@@ -546,7 +563,12 @@ export function UploadExperience({
   function clearBrowserHistory(): boolean {
     setHistory([]);
     try {
-      return clearUploadHistory(window.localStorage, window.sessionStorage);
+      const cleared = clearUploadHistory(
+        window.localStorage,
+        window.sessionStorage,
+      );
+      window.localStorage.setItem(HISTORY_CLEAR_KEY, crypto.randomUUID());
+      return cleared;
     } catch {
       return false;
     }
@@ -560,7 +582,7 @@ export function UploadExperience({
       const persisted = setHistoryConsent(window.localStorage, consent);
       if (!consent) {
         const cleared = clearBrowserHistory();
-        setHistoryStatus(
+        setConsentStatus(
           persisted && cleared
             ? "History disabled and cleared in this browser. Server files are unchanged."
             : "History disabled for this page, but browser storage could not be fully cleared. Clear site data before leaving a shared device.",
@@ -576,17 +598,17 @@ export function UploadExperience({
             true,
           ),
         );
-        setHistoryStatus(
+        setConsentStatus(
           "History enabled in this browser. Keys are never saved.",
         );
       } else {
-        setHistoryStatus(
+        setConsentStatus(
           "History could not be enabled because browser storage is unavailable.",
         );
       }
     } catch {
       setHistory([]);
-      setHistoryStatus(
+      setConsentStatus(
         "Browser storage is unavailable. Clear site data before leaving a shared device.",
       );
     }
@@ -1119,6 +1141,9 @@ export function UploadExperience({
               onChange={(event) => changeHistoryConsent(event.target.checked)}
             />
           </div>
+          <p className="history-status" role="status" aria-live="polite">
+            {consentStatus}
+          </p>
           <div className="option-setting" aria-disabled="true">
             <label htmlFor="expiry-hours">Expires after</label>
             <select id="expiry-hours" value={24} disabled>

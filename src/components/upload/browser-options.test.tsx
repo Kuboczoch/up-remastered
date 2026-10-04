@@ -1,5 +1,11 @@
 import { afterEach, expect, it, jest } from "@jest/globals";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { TextEncoder } from "node:util";
 import { UploadExperience } from "./upload-experience";
 
@@ -199,9 +205,11 @@ it("fails closed when consent cannot be persisted", () => {
   const toggle = options(view);
   fireEvent.click(toggle);
   expect(toggle.checked).toBe(false);
-  expect(view.getByRole("status").textContent).toContain(
-    "could not be enabled",
-  );
+  expect(
+    within(view.getByRole("region", { name: "Advanced options" })).getByRole(
+      "status",
+    ).textContent,
+  ).toContain("could not be enabled");
   expect(view.container.querySelector(".history-card")).toBeNull();
 });
 it("keeps history enabled but removes local and session records when cleared", () => {

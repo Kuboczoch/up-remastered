@@ -166,11 +166,13 @@ for (const width of [390, 1366]) {
       page.getByRole("switch", { name: "Save history" }),
     ).not.toBeChecked();
     await expect(page.locator(".history-card")).toBeHidden();
+    // Record events without consent must not restore or mutate legacy data.
+    // Explicit revocation is covered separately by real two-tab tests.
     await page.evaluate(() =>
       window.dispatchEvent(
         new StorageEvent("storage", {
-          key: "up-remastered:history-consent",
-          newValue: "false",
+          key: "up-remastered:upload-history:v1",
+          newValue: "[]",
         }),
       ),
     );

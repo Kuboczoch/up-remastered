@@ -161,6 +161,8 @@ export function removeUploadHistoryEntry(
   return entries;
 }
 
+// Explicit clears need their own event, even when persistent history is empty.
+export const HISTORY_CLEAR_KEY = "up-remastered:history-clear";
 export const HISTORY_CONSENT_KEY = "up-remastered:history-consent";
 export function hasHistoryConsent(storage: Pick<Storage, "getItem">): boolean {
   try {
