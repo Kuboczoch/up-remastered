@@ -59,7 +59,7 @@ test("disabled history never persists uploads or removes server data", async ({
   await page.getByRole("button", { name: /Advanced options/ }).click();
   await expect(
     page.getByRole("switch", { name: "Save history" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await page.getByRole("button", { name: "Close advanced options" }).click();
   await page.locator("#file-picker").setInputFiles({
     buffer: Buffer.from("history"),
@@ -106,7 +106,7 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     const settings = panel.locator(".option-setting");
     const controls = panel.locator("input, select");
     await expect(controls).toHaveCount(5);
-    for (let index = 0; index < 5; index++) {
+    for (let index = 1; index < 5; index++) {
       await expect(controls.nth(index)).toBeDisabled();
       await expect(controls.nth(index)).toHaveCSS("opacity", "1");
       await expect(settings.nth(index)).toHaveCSS("opacity", "0.5");
@@ -133,7 +133,9 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     if (width < 761) {
       await close.focus();
       await page.keyboard.press("Tab");
-      await expect(done).toBeFocused();
+      await expect(
+        page.getByRole("switch", { name: "Save history" }),
+      ).toBeFocused();
       await done.click();
     } else {
       await close.click();
@@ -143,12 +145,12 @@ for (const width of [320, 390, 768, 1024, 1440]) {
 }
 
 for (const width of [390, 1366]) {
-  test(`retained consent and legacy history remain untouched at ${width}px`, async ({
+  test(`unconsented legacy history remains untouched at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 960 });
     await page.addInitScript((records) => {
-      localStorage.setItem("up-remastered:history-consent", "true");
+      localStorage.setItem("up-remastered:history-consent", "false");
       localStorage.setItem(
         "up-remastered:upload-history:v1",
         JSON.stringify(records),
@@ -164,11 +166,13 @@ for (const width of [390, 1366]) {
       page.getByRole("switch", { name: "Save history" }),
     ).not.toBeChecked();
     await expect(page.locator(".history-card")).toBeHidden();
+    // Record events without consent must not restore or mutate legacy data.
+    // Explicit revocation is covered separately by real two-tab tests.
     await page.evaluate(() =>
       window.dispatchEvent(
         new StorageEvent("storage", {
-          key: "up-remastered:history-consent",
-          newValue: "true",
+          key: "up-remastered:upload-history:v1",
+          newValue: "[]",
         }),
       ),
     );
@@ -198,7 +202,7 @@ for (const width of [390, 1366]) {
       await page.evaluate(() =>
         localStorage.getItem("up-remastered:history-consent"),
       ),
-    ).toBe("true");
+    ).toBe("false");
     await expect(page.locator(".history-card")).toBeHidden();
   });
 }
@@ -260,7 +264,7 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     await expect(page.getByRole("slider")).toBeDisabled();
     await expect(
       page.getByRole("switch", { name: "Save history" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await page
       .getByRole("button", {
         name: width < 761 ? "Done" : "Close advanced options",

@@ -1,4 +1,4 @@
-import { expect, test } from "@jest/globals";
+import { expect, test, jest } from "@jest/globals";
 import {
   saveUploadHistoryEntry,
   readUploadHistory,
@@ -35,7 +35,7 @@ test("URL fragments never persist and legacy fragments are scrubbed", () => {
   expect([...values.values()].join()).not.toContain("SECRET");
 });
 
-test("default-off restoration preserves legacy without persisting and scrubs fragments", () => {
+test("default-off restoration does not read, restore, migrate or mutate legacy", () => {
   const makeStorage = () => {
     const values = new Map<string, string>();
     return {
@@ -68,5 +68,41 @@ test("default-off restoration preserves legacy without persisting and scrubs fra
   expect(restoreUploadHistory(local, session)).toEqual([]);
   expect(local.getItem(key)).toBeNull();
   expect(session.getItem(key)).toContain("legacy.txt");
-  expect(session.getItem(key)).not.toContain("SECRET");
+  expect(session.getItem(key)).toContain("SECRET");
+});
+
+test("without consent restoration never touches either storage", () => {
+  const blocked = {
+    getItem: jest.fn(() => null),
+    setItem: jest.fn(),
+    removeItem: jest.fn(),
+  };
+  expect(restoreUploadHistory(blocked, blocked)).toEqual([]);
+  expect(blocked.getItem).not.toHaveBeenCalled();
+  expect(blocked.setItem).not.toHaveBeenCalled();
+  expect(blocked.removeItem).not.toHaveBeenCalled();
+});
+
+test("history whitelist excludes unexpected key material", () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+    },
+    removeItem: (key: string) => {
+      values.delete(key);
+    },
+  };
+  const upload = {
+    accessToken: "token",
+    id: "AAAAA",
+    originalName: "secret.txt",
+    size: 1,
+    expiresAt: "2099-01-01T00:00:00Z",
+    shareUrl: "https://up.example/protected/AAAAA#key=SECRET",
+    key: "SECRET",
+  };
+  saveUploadHistoryEntry(storage, upload);
+  expect([...values.values()].join()).not.toContain("SECRET");
 });

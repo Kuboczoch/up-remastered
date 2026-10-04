@@ -9,8 +9,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-it("disables every Advanced setting without restoring or migrating history", () => {
-  localStorage.setItem("up-remastered:history-consent", "true");
+it("enables only implemented Advanced settings without accessing history before consent", () => {
   sessionStorage.setItem("up-remastered:upload-history:v1", "legacy");
   const write = jest.spyOn(Storage.prototype, "setItem");
   const remove = jest.spyOn(Storage.prototype, "removeItem");
@@ -24,13 +23,14 @@ it("disables every Advanced setting without restoring or migrating history", () 
     HTMLInputElement | HTMLSelectElement
   >("#advanced-options input, #advanced-options select");
   expect(controls).toHaveLength(5);
-  controls.forEach((control) => expect(control.disabled).toBe(true));
+  controls.forEach((control) =>
+    expect(control.disabled).toBe(control.id !== "save-history"),
+  );
   const history = getByRole("switch", {
     name: "Save history",
   }) as HTMLInputElement;
   expect(history.checked).toBe(false);
-  fireEvent.click(history);
-  expect(history.checked).toBe(false);
+  expect(history.disabled).toBe(false);
   expect(container.querySelector(".history-card")).toBeNull();
   expect(container.querySelector("#advanced-options")?.textContent).not.toMatch(
     /coming later|not available yet/i,

@@ -148,7 +148,9 @@ for (const layoutCase of layoutCases) {
         page.getByRole("heading", { name: "stable-layout.txt" }),
       ).toBeHidden();
       if (layoutCase.offline) {
-        await expect(page.getByRole("status")).toHaveText(/offline/i);
+        await expect(page.locator(".connection-warning")).toHaveText(
+          /offline/i,
+        );
       }
       if (layoutCase.configuration === "failed") {
         await expect(page.locator(".warning-note")).toBeVisible();
@@ -688,7 +690,7 @@ test("disabled history stays empty across page restarts", async ({
   expect((await reopenedPage.request.get(shareUrl)).ok()).toBe(true);
 });
 
-test("storage events cannot activate disabled history across tabs", async ({
+test("consent and revocation synchronize history across tabs", async ({
   context,
   page,
 }) => {
@@ -715,11 +717,24 @@ test("storage events cannot activate disabled history across tabs", async ({
   await otherPage.getByRole("button", { name: /Advanced options/ }).click();
   await expect(
     otherPage.getByRole("switch", { name: "Save history" }),
-  ).not.toBeChecked();
+  ).toBeChecked();
   await expect(
     otherPage.getByRole("switch", { name: "Save history" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
+  await otherPage
+    .getByRole("button", { name: "Close advanced options" })
+    .click();
+  await expect(
+    otherPage.getByRole("heading", { name: "synced.txt" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Advanced options/ }).click();
+  await page.getByRole("switch", { name: "Save history" }).click();
   await expect(otherPage.locator(".history-card")).toBeHidden();
+  expect(
+    await otherPage.evaluate(() =>
+      localStorage.getItem("up-remastered:upload-history:v1"),
+    ),
+  ).toBeNull();
   expect(await otherPage.locator("body").innerText()).not.toContain(
     "not-rendered",
   );
@@ -731,7 +746,7 @@ test("announces offline status and clears it after reconnection", async ({
 }) => {
   await page.goto("/");
   await context.setOffline(true);
-  await expect(page.getByRole("status")).toHaveText(/offline/i);
+  await expect(page.locator(".connection-warning")).toHaveText(/offline/i);
   await context.setOffline(false);
   await expect(page.getByText(/You are offline/)).toBeHidden();
 });
