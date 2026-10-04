@@ -31,6 +31,8 @@ import {
 } from "@/components/upload/upload-history";
 import { QrDialog } from "@/components/upload/qr-dialog";
 import { siteName } from "@/config/site";
+import { ManualCopyLink } from "@/components/manual-copy-link";
+import { copyLink } from "@/lib/copy-link";
 import {
   formatBytes,
   formatLocalDateTime,
@@ -119,6 +121,10 @@ export function UploadExperience({
   const textEncoding: TextEncoding = DEFAULT_TEXT_ENCODING;
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [manualCopyUrl, setManualCopyUrl] = useState("");
+  const [historyCopyUrl, setHistoryCopyUrl] = useState("");
+  const copySequence = useRef(0);
+  const historyCopySequence = useRef(0);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrSvg, setQrSvg] = useState("");
   const [qrError, setQrError] = useState("");
@@ -323,7 +329,9 @@ export function UploadExperience({
       const sequence = requestSequence.current + 1;
       requestSequence.current = sequence;
       setError("");
+      copySequence.current += 1;
       setCopied(false);
+      setManualCopyUrl("");
       setQrOpen(false);
       setQrSvg("");
       setQrError("");
@@ -426,7 +434,9 @@ export function UploadExperience({
     setResult(null);
     setQrOpen(false);
     setText("");
+    copySequence.current += 1;
     setCopied(false);
+    setManualCopyUrl("");
     if (copyConfirmationTimerRef.current !== null) {
       window.clearTimeout(copyConfirmationTimerRef.current);
       copyConfirmationTimerRef.current = null;
@@ -513,8 +523,11 @@ export function UploadExperience({
     if (!result) {
       return;
     }
-    try {
-      await navigator.clipboard.writeText(result.shareUrl);
+    setManualCopyUrl("");
+    const sequence = ++copySequence.current;
+    const success = await copyLink(result.shareUrl);
+    if (sequence !== copySequence.current) return;
+    if (success) {
       setCopied(true);
       if (copyConfirmationTimerRef.current !== null) {
         window.clearTimeout(copyConfirmationTimerRef.current);
@@ -523,12 +536,15 @@ export function UploadExperience({
         setCopied(false);
         copyConfirmationTimerRef.current = null;
       }, 2_000);
-    } catch {
+    } else {
       setCopied(false);
+      setManualCopyUrl(result.shareUrl);
     }
   }
 
   function changeSaveHistory(enabled: boolean) {
+    historyCopySequence.current += 1;
+    setHistoryCopyUrl("");
     saveHistoryRef.current = enabled;
     setSaveHistory(enabled);
     setHistoryStatus("");
@@ -551,6 +567,8 @@ export function UploadExperience({
   }
 
   function clearBrowserHistory(): boolean {
+    historyCopySequence.current += 1;
+    setHistoryCopyUrl("");
     if (!saveHistoryRef.current) return false;
     setHistory([]);
     try {
@@ -963,6 +981,7 @@ export function UploadExperience({
                 )}
               </button>
             </div>
+            {manualCopyUrl && <ManualCopyLink value={manualCopyUrl} />}
             <p className="share-note">
               {result.shareUrl.includes("#key=")
                 ? "Only the full link unlocks the file. Keep it safe: keys are not saved in this app’s upload history and cannot be recovered."
@@ -1259,9 +1278,18 @@ export function UploadExperience({
                               : undefined
                           }
                           type="button"
-                          onClick={() => {
-                            void navigator.clipboard.writeText(entry.shareUrl);
-                            setHistoryStatus("Link copied.");
+                          onClick={async () => {
+                            const sequence = ++historyCopySequence.current;
+                            setHistoryStatus("");
+                            setHistoryCopyUrl("");
+                            const success = await copyLink(entry.shareUrl);
+                            if (sequence !== historyCopySequence.current)
+                              return;
+                            if (success) {
+                              setHistoryStatus("Link copied.");
+                            } else {
+                              setHistoryCopyUrl(entry.shareUrl);
+                            }
                           }}
                         >
                           Copy link
@@ -1317,6 +1345,10 @@ export function UploadExperience({
       <p role="status" aria-live="polite">
         {historyStatus}
       </p>
+      {saveHistory &&
+        history.some((entry) => entry.shareUrl === historyCopyUrl) && (
+          <ManualCopyLink value={historyCopyUrl} />
+        )}
     </div>
   );
 }

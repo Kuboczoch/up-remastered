@@ -1,8 +1,11 @@
 "use client";
+import { ManualCopyLink } from "@/components/manual-copy-link";
+import { copyLink as copyCompleteLink } from "@/lib/copy-link";
 
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type FormEvent,
@@ -87,6 +90,8 @@ export function CreateRequestForm() {
   );
   const [created, setCreated] = useState<CreatedRequest>();
   const [copied, setCopied] = useState<"management" | "upload">();
+  const [manualCopyUrl, setManualCopyUrl] = useState("");
+  const copySequence = useRef(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const hydrated = useSyncExternalStore(
@@ -212,6 +217,9 @@ export function CreateRequestForm() {
       if (!response.ok)
         throw new Error(body.error?.message ?? "Request failed.");
       setNow(Date.now());
+      copySequence.current += 1;
+      setCopied(undefined);
+      setManualCopyUrl("");
       setCreated(body);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Request failed.");
@@ -240,13 +248,12 @@ export function CreateRequestForm() {
   }
 
   async function copyLink(kind: "management" | "upload", value: string) {
+    const sequence = ++copySequence.current;
     setError("");
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(kind);
-    } catch {
-      setError("Could not copy the link. Select and copy it manually.");
-    }
+    const success = await copyCompleteLink(value);
+    if (sequence !== copySequence.current) return;
+    setCopied(success ? kind : undefined);
+    setManualCopyUrl(success ? "" : value);
   }
 
   if (created) {
@@ -276,6 +283,7 @@ export function CreateRequestForm() {
         >
           {copied === "management" ? "Owner link copied" : "Copy owner link"}
         </button>
+        {manualCopyUrl && <ManualCopyLink value={manualCopyUrl} />}
         <p>
           This link can inspect or revoke the request and cannot be recovered by
           the server.
@@ -316,7 +324,12 @@ export function CreateRequestForm() {
           </button>
           <button
             className={styles.button}
-            onClick={() => setCreated(undefined)}
+            onClick={() => {
+              copySequence.current += 1;
+              setCreated(undefined);
+              setCopied(undefined);
+              setManualCopyUrl("");
+            }}
             type="button"
           >
             Create another
