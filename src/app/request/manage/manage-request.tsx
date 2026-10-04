@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { ManualCopyLink } from "@/components/manual-copy-link";
+import { copyLink } from "@/lib/copy-link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -69,6 +71,7 @@ export function ManageRequest() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [manualCopyUrl, setManualCopyUrl] = useState("");
   const { connection, request } = useUploadRequestStatus(
     managementToken,
     loadedRequest,
@@ -148,15 +151,10 @@ export function ManageRequest() {
     const token = tokenRef.current;
     if (!token) return;
     setError("");
-    try {
-      const ownerUrl = `${window.location.origin}${window.location.pathname}#${token}`;
-      await navigator.clipboard.writeText(ownerUrl);
-      setCopied(true);
-    } catch {
-      setError(
-        "Could not copy the owner link. Reopen the original private link.",
-      );
-    }
+    const ownerUrl = `${window.location.origin}/request/manage#${token}`;
+    const success = await copyLink(ownerUrl);
+    setCopied(success);
+    setManualCopyUrl(success ? "" : ownerUrl);
   }
 
   if (busy && !request) {
@@ -239,6 +237,7 @@ export function ManageRequest() {
           Refresh status
         </button>
       </div>
+      {manualCopyUrl && <ManualCopyLink value={manualCopyUrl} />}
       {error ? (
         <p className={styles.error} role="alert">
           {error}
