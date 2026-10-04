@@ -2,19 +2,17 @@ import type { Metadata } from "next";
 
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { createPageTitle } from "@/config/site";
-import { getUploadLimits } from "@/server/config/uploads";
 
 import styles from "../request.module.css";
 import { CreateRequestForm } from "./create-request-form";
 
-export const dynamic = "force-dynamic";
+// This page intentionally uses inherited URL metadata from build time.
+export const dynamic = "force-static";
 export const metadata: Metadata = {
   title: createPageTitle("Request a file"),
 };
 
 export default function NewUploadRequestPage() {
-  const { maxExpirationMs, maxUploadBytes } = getUploadLimits();
-
   return (
     <>
       <SiteHeader />
@@ -29,10 +27,7 @@ export default function NewUploadRequestPage() {
             file.
           </p>
         </header>
-        <CreateRequestForm
-          maxExpirationMs={maxExpirationMs}
-          maxUploadBytes={maxUploadBytes}
-        />
+        <CreateRequestForm />
       </main>
       <SiteFooter />
     </>
