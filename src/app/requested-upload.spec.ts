@@ -175,13 +175,15 @@ test("lets the owner revoke an unused request without disclosing capabilities", 
 
   await page.goto(managementUrl!);
 
+  await page.getByRole("button", { name: "Revoke request" }).click();
+  await expect(page.getByRole("button", { name: "Cancel" })).toBeFocused();
   const [response] = await Promise.all([
     page.waitForResponse(
       (candidate) =>
         candidate.request().method() === "DELETE" &&
         candidate.url().endsWith("/api/upload-requests/manage"),
     ),
-    page.getByRole("button", { name: "Revoke request" }).click(),
+    page.getByRole("button", { name: "Confirm revoke request" }).click(),
   ]);
   expect(response.status()).toBe(200);
   expect(response.headers()["cache-control"]).toContain("no-store");

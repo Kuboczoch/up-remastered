@@ -185,6 +185,46 @@ it.each(["false", "TRUE", "1", ""])(
     expect(reads.mock.calls).toEqual([[preferenceKey]]);
   },
 );
+it.each(["HTTP", "aborted"])(
+  "confirms server deletion, cancels without API work, and retains history on %s failure",
+  async (failure) => {
+    localStorage.setItem(preferenceKey, "true");
+    localStorage.setItem(historyKey, JSON.stringify(saved));
+    const view = mount();
+    const trigger = view.getByRole("button", { name: /Delete server file/ });
+    fireEvent.click(trigger);
+    expect(view.getByRole("dialog").textContent).toContain(
+      "shared download links",
+    );
+    fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+    expect(
+      (global.fetch as jest.Mock<typeof fetch>).mock.calls.filter(
+        ([, init]) => init?.method === "DELETE",
+      ),
+    ).toHaveLength(0);
+    global.fetch = jest.fn<typeof fetch>(async () => {
+      if (failure === "aborted")
+        throw new DOMException("Request aborted", "AbortError");
+      return { ok: false, status: 500 } as Response;
+    });
+    fireEvent.click(trigger);
+    fireEvent.click(view.getByRole("button", { name: "Delete server file" }));
+    await waitFor(() =>
+      expect(view.getByRole("alert").textContent).toContain(
+        "could not be deleted",
+      ),
+    );
+    expect(JSON.parse(localStorage.getItem(historyKey)!)).toEqual(saved);
+    expect(view.getByRole("dialog")).toBeTruthy();
+    global.fetch = jest.fn<typeof fetch>(
+      async () => ({ ok: true, status: 200 }) as Response,
+    );
+    fireEvent.click(view.getByRole("button", { name: "Delete server file" }));
+    await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+    expect(JSON.parse(localStorage.getItem(historyKey)!)).toEqual([]);
+  },
+);
+
 it("restores enabled history read-only on mount", () => {
   localStorage.setItem(preferenceKey, "true");
   localStorage.setItem(historyKey, JSON.stringify(saved));

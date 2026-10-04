@@ -1,5 +1,7 @@
 "use client";
 
+import { DestructiveConfirmation } from "@/components/destructive-confirmation";
+
 import Link from "next/link";
 import { ManualCopyLink } from "@/components/manual-copy-link";
 import { copyLink } from "@/lib/copy-link";
@@ -142,6 +144,7 @@ export function ManageRequest() {
           ? caught.message
           : "Could not revoke the request.",
       );
+      throw caught;
     } finally {
       setBusy(false);
     }
@@ -220,14 +223,15 @@ export function ManageRequest() {
         >
           {copied ? "Owner link copied" : "Copy owner link"}
         </button>
-        <button
-          className={styles.button}
+        <DestructiveConfirmation
+          className={styles.linkButton}
           disabled={busy || !["active", "retry"].includes(request.status)}
-          onClick={revoke}
-          type="button"
-        >
-          {busy ? "Revoking…" : "Revoke request"}
-        </button>
+          onConfirm={revoke}
+          label="Revoke request"
+          title="Revoke upload request?"
+          description={`Revoke the upload request expiring ${formatLocalDateTime(request.expiresAt)} (${formatBytes(request.maxBytes)} limit)? Its shared upload link will stop working. This cannot be undone; create a new request instead.`}
+          confirmLabel="Confirm revoke request"
+        />
         <button
           className={styles.linkButton}
           disabled={busy}

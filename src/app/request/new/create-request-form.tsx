@@ -1,4 +1,6 @@
 "use client";
+
+import { DestructiveConfirmation } from "@/components/destructive-confirmation";
 import { ManualCopyLink } from "@/components/manual-copy-link";
 import { copyLink as copyCompleteLink } from "@/lib/copy-link";
 
@@ -242,6 +244,7 @@ export function CreateRequestForm() {
       setCreated({ ...created, ...body.request });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Request failed.");
+      throw caught;
     } finally {
       setBusy(false);
     }
@@ -312,16 +315,17 @@ export function CreateRequestForm() {
           </p>
         ) : null}
         <div className={styles.actions}>
-          <button
-            className={styles.button}
+          <DestructiveConfirmation
+            className={styles.linkButton}
             disabled={
               busy || !["active", "retry"].includes(displayedRequest.status)
             }
-            onClick={revoke}
-            type="button"
-          >
-            Revoke request
-          </button>
+            onConfirm={revoke}
+            label="Revoke request"
+            title="Revoke upload request?"
+            description={`Revoke the upload request expiring ${formatLocalDateTime(displayedRequest.expiresAt)} (${formatBytes(displayedRequest.maxBytes)} limit)? Its shared upload link will stop working. This cannot be undone; create a new request instead.`}
+            confirmLabel="Confirm revoke request"
+          />
           <button
             className={styles.button}
             onClick={() => {
