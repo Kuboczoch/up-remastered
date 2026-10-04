@@ -226,43 +226,45 @@ test("renders an intentional not-found page", async ({ page }) => {
 });
 
 for (const locale of ["en", "pl"] as const) {
-  test(`unknown nested HTML has ${locale} SSR metadata without JavaScript`, async ({
-    browser,
-    baseURL,
-  }) => {
-    const context = await browser.newContext({
+  for (const path of ["/missing/nested", "/request/x/y", "/decrypt/x/y"]) {
+    test(`unknown nested HTML ${path} has ${locale} SSR metadata without JavaScript`, async ({
+      browser,
       baseURL,
-      javaScriptEnabled: false,
-      locale: locale === "pl" ? "pl-PL" : "en-US",
-      extraHTTPHeaders: { "Accept-Language": locale },
+    }) => {
+      const context = await browser.newContext({
+        baseURL,
+        javaScriptEnabled: false,
+        locale: locale === "pl" ? "pl-PL" : "en-US",
+        extraHTTPHeaders: { "Accept-Language": locale },
+      });
+      const page = await context.newPage();
+      try {
+        const response = await page.goto(path);
+        expect(response?.status()).toBe(404);
+        expect(new URL(page.url()).pathname).toBe(path);
+        await expect(page.locator("html")).toHaveAttribute("lang", locale);
+        await expect(page).toHaveTitle(
+          `${locale === "pl" ? "Nie znaleziono strony" : "Page not found"} | Up - Remastered`,
+        );
+        await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+          "content",
+          /noindex/,
+        );
+        await expect(
+          page.getByRole("heading", {
+            name: locale === "pl" ? "Nie znaleziono strony" : "Page not found",
+          }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("link", {
+            name: locale === "pl" ? "Wróć na stronę główną" : "Return home",
+          }),
+        ).toHaveAttribute("href", "/");
+      } finally {
+        await context.close();
+      }
     });
-    const page = await context.newPage();
-    try {
-      const response = await page.goto("/missing/nested");
-      expect(response?.status()).toBe(404);
-      expect(new URL(page.url()).pathname).toBe("/missing/nested");
-      await expect(page.locator("html")).toHaveAttribute("lang", locale);
-      await expect(page).toHaveTitle(
-        `${locale === "pl" ? "Nie znaleziono strony" : "Page not found"} | Up - Remastered`,
-      );
-      await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
-        "content",
-        /noindex/,
-      );
-      await expect(
-        page.getByRole("heading", {
-          name: locale === "pl" ? "Nie znaleziono strony" : "Page not found",
-        }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("link", {
-          name: locale === "pl" ? "Wróć na stronę główną" : "Return home",
-        }),
-      ).toHaveAttribute("href", "/");
-    } finally {
-      await context.close();
-    }
-  });
+  }
 }
 
 test("Polish unknown HTML keeps locale choice, metadata and accessibility", async ({

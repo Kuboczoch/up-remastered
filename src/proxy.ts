@@ -23,7 +23,7 @@ export function proxy(request: NextRequest) {
   const isUnknownNestedUi =
     !internal &&
     url.pathname.split("/").filter(Boolean).length > 1 &&
-    !/^\/(request|decrypt)(?:\/|$)/.test(url.pathname);
+    !/^\/(?:request\/[^/]+|decrypt\/[^/]+)\/?$/.test(url.pathname);
   if (
     isUnknownNestedUi &&
     (!["GET", "HEAD"].includes(request.method) ||
