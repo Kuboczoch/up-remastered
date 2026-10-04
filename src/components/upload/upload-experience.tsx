@@ -954,7 +954,7 @@ export function UploadExperience({
             </div>
             <p className="share-note">
               {result.shareUrl.includes("#key=")
-                ? "Only the full link unlocks the file. Keep it safe: keys are not saved in browser history and cannot be recovered."
+                ? "Only the full link unlocks the file. Keep it safe: keys are not saved in this app’s upload history and cannot be recovered."
                 : "Anyone with the link can download."}
             </p>
             <div

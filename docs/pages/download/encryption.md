@@ -16,14 +16,17 @@ limits remain visible to the service.
 The returned sharing link is `/decrypt/{id}#key={base64url-key}`. The key is
 32 random bytes from `crypto.getRandomValues`, encoded as unpadded base64url.
 It exists in memory and the share-link fragment only; it is never included in an
-HTTP path, query, form, header, application log, or error message. Browser-local
+HTTP path, query, form, header, application log, or error message. This app’s upload
 history must strip the fragment before persisting protected records. Such records
 cannot recover their complete link after reload; retain the original full link
 separately. Enabled history reads scrub fragments and unallowlisted fields from
 valid legacy local records without pruning or migrating history. Disabled
 history does not inspect pre-existing local/session records; dormant legacy
 session data remains untouched. Clear site data on shared devices. The browser address bar/history, clipboard, and anyone receiving the
-full link are trust boundaries, not server-side key storage.
+full link are trust boundaries, not server-side key storage. Opening the complete
+link can retain its fragment in browser navigation history and browser history sync;
+the app’s upload-history sanitization does not prevent this. Treat synced browser
+accounts and devices as holders of the key.
 
 The receiver page does **not** fetch ciphertext on arrival. After validating the
 fragment key, the user selects **Decrypt file**, which fetches `/{id}` once. This
@@ -85,7 +88,11 @@ Encryption is preparation, not network upload progress. The sender labels prepar
 report XHR byte progress only after encryption succeeds. Cancellation rejects
 immediately and prevents sending after asynchronous file reads or crypto operations;
 Web Crypto itself cannot be interrupted mid-operation. Receiver requests are aborted
-on unmount. File reads and cryptographic buffer copies are bounded by the size limit.
+on unmount. Receiver cancellation keeps the key input and retry action disabled
+until the in-flight fetch or crypto attempt settles. Cancelled crypto results are
+discarded; ciphertext already fetched is retained for a subsequent retry without
+another download. Cancelling a fetch may require another counted fetch on retry.
+File reads and cryptographic buffer copies are bounded by the size limit.
 
 ## Security review and tests
 

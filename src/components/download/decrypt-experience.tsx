@@ -88,7 +88,7 @@ export function DecryptExperience({ id }: { id: string }) {
         );
     } finally {
       inFlight.current = false;
-      if (!request.signal.aborted) setBusy(false);
+      setBusy(false);
     }
   }
 
@@ -148,7 +148,9 @@ export function DecryptExperience({ id }: { id: string }) {
             type="button"
             onClick={() => {
               controller.current?.abort();
-              setBusy(false);
+              // Web Crypto cannot be interrupted; unlock retry only after
+              // this attempt settles and releases the in-flight guard.
+              setStage("Cancelling decryption…");
             }}
           >
             Cancel decryption

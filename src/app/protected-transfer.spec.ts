@@ -196,6 +196,121 @@ test("real protected upload roundtrip, fragment privacy, consent and one-downloa
   }
 });
 
+for (const phase of ["fetch", "crypto"] as const) {
+  test(`receiver cancellation during ${phase} permits a subsequent real retry`, async ({
+    page,
+  }) => {
+    const url = await protectedUpload(page, "3");
+    await expect(page.locator(".share-note")).toContainText(
+      "keys are not saved in this app’s upload history",
+    );
+    const rawPath = url.pathname.replace("/decrypt", "");
+    const rawFetches: string[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === rawPath)
+        rawFetches.push(request.url());
+    });
+    // Gate a real network response or real Web Crypto result, not replacement
+    // ciphertext/plaintext. Cancellation must never offer that first result.
+    await page.addInitScript(
+      ({ phase, rawPath }) => {
+        const state = window as typeof window & {
+          receiverEntered: boolean;
+          releaseReceiver: () => void;
+        };
+        state.receiverEntered = false;
+        const gate = new Promise<void>((resolve) => {
+          state.releaseReceiver = resolve;
+        });
+        if (phase === "crypto") {
+          const original = crypto.subtle.decrypt.bind(crypto.subtle);
+          let first = true;
+          crypto.subtle.decrypt = async (...args) => {
+            const result = await original(...args);
+            if (first) {
+              first = false;
+              state.receiverEntered = true;
+              await gate;
+            }
+            return result;
+          };
+        } else {
+          const original = window.fetch.bind(window);
+          let first = true;
+          window.fetch = async (...args) => {
+            const response = await original(...args);
+            if (
+              first &&
+              new URL(String(args[0]), location.href).pathname === rawPath
+            ) {
+              first = false;
+              state.receiverEntered = true;
+              const signal = args[1]?.signal;
+              await new Promise<void>((resolve, reject) => {
+                const abort = () =>
+                  reject(new DOMException("Cancelled", "AbortError"));
+                if (signal?.aborted) abort();
+                else signal?.addEventListener("abort", abort, { once: true });
+                void gate.then(() => {
+                  signal?.removeEventListener("abort", abort);
+                  resolve();
+                });
+              });
+            }
+            return response;
+          };
+        }
+      },
+      { phase, rawPath },
+    );
+    await page.goto(url.toString());
+    await page.getByRole("button", { name: "Decrypt file" }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as typeof window & { receiverEntered: boolean })
+              .receiverEntered,
+        ),
+      )
+      .toBe(true);
+    await page.getByRole("button", { name: "Cancel decryption" }).click();
+    if (phase === "crypto") {
+      await expect(
+        page.getByRole("button", { name: "Downloading and decrypting…" }),
+      ).toBeDisabled();
+      await expect(page.getByLabel("Decryption key")).toBeDisabled();
+      await expect(page.getByRole("status")).toContainText(
+        "Cancelling decryption",
+      );
+    }
+    await page.evaluate(() =>
+      (
+        window as typeof window & { releaseReceiver: () => void }
+      ).releaseReceiver(),
+    );
+    await expect(
+      page.getByRole("button", { name: "Decrypt file" }),
+    ).toBeEnabled();
+    await expect(
+      page.getByRole("link", { name: "Save decrypted file" }),
+    ).toBeHidden();
+    await expect(page.locator(".decrypt-experience [role=alert]")).toBeHidden();
+    await page.getByRole("button", { name: "Decrypt file" }).click();
+    await expect(
+      page.getByRole("link", { name: "Save decrypted file" }),
+    ).toBeVisible();
+    const waiting = page.waitForEvent("download");
+    await page.getByRole("link", { name: "Save decrypted file" }).click();
+    const downloaded = await waiting;
+    expect(downloaded.suggestedFilename()).toBe("private-original.txt");
+    expect(await readFile((await downloaded.path())!)).toEqual(
+      Buffer.from("private original\u0000binary\u00ff"),
+    );
+    expect(rawFetches).toHaveLength(phase === "crypto" ? 1 : 2);
+  });
+}
+
 for (const state of ["corrupt", "expired", "exhausted"] as const) {
   test(`protected receiver handles ${state} without offering a plaintext download`, async ({
     page,
