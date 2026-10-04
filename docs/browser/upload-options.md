@@ -12,38 +12,42 @@ entry point. Server configuration and all legacy expiration fields are bounded
 by the 24-hour maximum. Download limits and key protection remain disabled until
 their respective implementation is integrated.
 
-## Opt-in upload history
+## Optional local upload history
 
-Save history is off unless this browser previously recorded explicit consent.
-Before consent, upload records are not read, restored, migrated, pruned or saved.
-Enabling persists consent and then restores local records and migrates older
-session records. Disabling revokes consent immediately and removes records from
-both local and session storage in this tab and legacy session records in other
-open same-origin tabs; server uploads are unchanged.
-Re-enabling starts with an empty history after a successful disable.
+Save history is a native checkbox exposed as a switch. It starts false on every
+mount, including reloads and newly opened tabs, regardless of legacy consent.
+The setting is held only in component memory: it is not persisted or synchronized.
+With saving disabled, mount, upload completion, and storage events make zero
+history-related storage calls. No consent lookup, migration, pruning write,
+removal, or cross-tab synchronization runs. Legacy local/session data is untouched.
 
-Clear history removes browser records from both stores but keeps consent enabled;
-an explicit local-storage clear notification also erases each receiving tab's
-legacy session records, even if persistent records were already empty. The
-notification uses a fresh non-security nonce for each clear and works on HTTP
-origins where secure-context APIs such as `crypto.randomUUID()` are unavailable.
-Subsequent successful uploads can be recorded. Individual Remove actions forget a
-browser record; Delete file is a separate, explicitly labelled server action.
-Consent and records synchronize through local-storage events across same-origin
-tabs. An upload finishing after revocation checks current persisted consent and
-must not save even if the storage event has not arrived. Session storage belongs
-to its tab; inactive legacy records in another tab are never migrated without
-consent. Browser storage failures fail closed when enabling, and unsuccessful
-clearing is reported rather than claimed successful. Clear site data to remove
-records from a blocked browser or shared device. Save history shows only its
-label and switch: there is no helper text or routine enable/disable feedback.
-Actionable storage failure/clearing warnings appear beside the switch inside
-the options panel and its mobile dialog live region; history-list actions have
-separate feedback.
+Enabling reads existing local history without changing storage, including when
+JSON is malformed or entries are invalid. Session history is neither read nor
+migrated. Turning saving off hides the list and preserves stored records without
+any storage calls. Old entries are shown only while history is enabled.
 
-History stores an allowlisted set of metadata and deletion access tokens. URL
-fragments are stripped on save/read/migration and extra properties are discarded:
-no fragment encryption keys are retained. If protected uploads are integrated,
-history cannot reconstruct their full unlocking links or recover their keys.
-Keep the original full link separately. Fragment scrubbing starts only after
-consent; opting out does not inspect or rewrite pre-existing legacy records.
+A successful upload saves history only if saving remains enabled when it finishes.
+Failed uploads and uploads finishing while disabled are not saved. Saved entries
+retain the complete upload metadata, deletion access token, full share URL,
+and any protected-link key; URL fragments are not scrubbed. History can therefore
+retain sensitive unlocking information readable by same-origin site scripts in
+browser localStorage: use this setting only on trusted devices. No cookies or
+uploaded binary payloads are saved. This preservation does not enable the
+currently disabled Key protect feature.
+
+While enabled, Copy link, Download, Remove, Delete file, and Clear history remain
+explicit list actions. While disabled, history is ignored completely.
+Remove forgets the browser entry; Delete file also makes an explicit server
+request. Clear history explicitly clears local records; it does not persist a
+setting, migrate session data, or broadcast a clear notification to other tabs.
+Storage errors must not break an otherwise successful upload.
+
+The switch shows only its label, without helper text or routine enable/disable
+feedback. Its track background and thumb transform use short CSS transitions;
+keyboard and native checkbox behavior are retained. Reduced motion makes these
+transitions effectively instant on both desktop and mobile.
+
+Production browser regressions live in `src/app/history-review.spec.ts` (storage
+contract, completion gating and manual actions) and `src/app/history-ui.spec.ts`
+(fresh mounts, computed styles, actual frame-sampled motion in both directions,
+reduced motion and keyboard activation at desktop/mobile widths).
