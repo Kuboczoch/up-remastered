@@ -145,7 +145,7 @@ for (const width of [320, 390, 768, 1024, 1440]) {
 }
 
 for (const width of [390, 1366]) {
-  test(`unconsented legacy history remains untouched at ${width}px`, async ({
+  test(`disabled legacy history remains untouched at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 960 });
@@ -166,11 +166,12 @@ for (const width of [390, 1366]) {
       page.getByRole("switch", { name: "Save history" }),
     ).not.toBeChecked();
     await expect(page.locator(".history-card")).toBeHidden();
+    // Disabled history ignores storage events without restoring or mutating data.
     await page.evaluate(() =>
       window.dispatchEvent(
         new StorageEvent("storage", {
-          key: "up-remastered:history-consent",
-          newValue: "false",
+          key: "up-remastered:upload-history:v1",
+          newValue: "[]",
         }),
       ),
     );

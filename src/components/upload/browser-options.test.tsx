@@ -7,10 +7,11 @@ global.TextEncoder = TextEncoder;
 const originalXHR = global.XMLHttpRequest;
 let finishUpload: (() => void) | null = null;
 let deferUpload = false;
+let failUpload = false;
 let files: File[] = [];
 class FakeXHR {
   responseType = "";
-  status = 201;
+  status = failUpload ? 500 : 201;
   response = {
     accessToken: "token",
     upload: {
@@ -46,6 +47,7 @@ function mount() {
   global.fetch = jest.fn<typeof fetch>(() => new Promise(() => {}));
   files = [];
   deferUpload = false;
+  failUpload = false;
   finishUpload = null;
   global.XMLHttpRequest = FakeXHR as unknown as typeof XMLHttpRequest;
   return render(<UploadExperience initialMaxBytes={1000000} />);
@@ -101,70 +103,122 @@ it.each(["button", "panel", "window"])(
     expect(bytes).toEqual([65, 195, 169]);
   },
 );
+const preferenceKey = "up-remastered:history-enabled";
 const historyKey = "up-remastered:upload-history:v1";
-const consentKey = "up-remastered:history-consent";
 const saved = [{ ...result, savedAt: "2026-01-01T00:00:00Z" }];
 function options(view: ReturnType<typeof mount>) {
   fireEvent.click(view.getByRole("button", { name: /Advanced options/ }));
   return view.getByRole("switch", { name: "Save history" }) as HTMLInputElement;
 }
-
-it("does not touch legacy records or save uploads before consent", async () => {
+it("starts false despite legacy consent and ignores all stores while disabled", async () => {
+  localStorage.setItem("up-remastered:history-consent", "true");
+  localStorage.setItem(historyKey, JSON.stringify(saved));
   sessionStorage.setItem(historyKey, JSON.stringify(saved));
+  const reads = jest.spyOn(Storage.prototype, "getItem");
   const writes = jest.spyOn(Storage.prototype, "setItem");
   const removes = jest.spyOn(Storage.prototype, "removeItem");
   const view = mount();
-  const toggle = options(view);
-  expect(toggle.disabled).toBe(false);
-  expect(toggle.checked).toBe(false);
+  expect(options(view).checked).toBe(false);
   fireEvent.click(view.getByRole("button", { name: "Done" }));
+  fireEvent(window, new StorageEvent("storage", { key: historyKey }));
   fireEvent.paste(window, {
     clipboardData: { files: [], getData: () => "hello" },
   });
   await waitFor(() =>
     expect(view.getByRole("button", { name: "Copy URL" })).toBeTruthy(),
   );
+  expect(reads.mock.calls).toEqual([[preferenceKey]]);
   expect(writes).not.toHaveBeenCalled();
   expect(removes).not.toHaveBeenCalled();
 });
-it("migrates only after consent and disabling clears both stores without server deletion", () => {
+it("reads only local history on enable and hides it without mutations on disable", () => {
+  localStorage.setItem(historyKey, JSON.stringify(saved));
   sessionStorage.setItem(historyKey, JSON.stringify(saved));
+  const reads = jest.spyOn(Storage.prototype, "getItem");
+  const writes = jest.spyOn(Storage.prototype, "setItem");
+  const removes = jest.spyOn(Storage.prototype, "removeItem");
+  const view = mount();
+  const toggle = options(view);
+  expect(toggle.hasAttribute("aria-describedby")).toBe(false);
+  expect(toggle.closest(".switch-setting")!.querySelector("small")).toBeNull();
+  fireEvent.click(toggle);
+  expect(toggle.checked).toBe(true);
+  expect(view.getByRole("heading", { name: "Your uploads" })).toBeTruthy();
+  expect(reads.mock.calls).toEqual([[preferenceKey], [historyKey]]);
+  expect(reads.mock.instances[0]).toBe(localStorage);
+  fireEvent.click(toggle);
+  expect(toggle.checked).toBe(false);
+  expect(view.container.querySelector(".history-card")).toBeNull();
+  expect(reads.mock.calls).toEqual([[preferenceKey], [historyKey]]);
+  expect(writes.mock.calls).toEqual([[preferenceKey, "true"]]);
+  expect(removes.mock.calls).toEqual([[preferenceKey]]);
+  expect(localStorage.getItem(historyKey)).toBe(JSON.stringify(saved));
+  expect(localStorage.getItem(preferenceKey)).toBeNull();
+  expect(view.container.textContent).not.toMatch(
+    /History enabled|History disabled/,
+  );
+});
+it("does not synchronize storage events and restores the preference on remount", () => {
+  localStorage.setItem(historyKey, JSON.stringify(saved));
   const view = mount();
   fireEvent.click(options(view));
-  expect(localStorage.getItem(consentKey)).toBe("true");
-  expect(localStorage.getItem(historyKey)).toContain("text.txt");
-  expect(sessionStorage.getItem(historyKey)).toBeNull();
-  fireEvent.click(view.getByRole("switch", { name: "Save history" }));
-  expect(localStorage.getItem(consentKey)).toBe("false");
-  expect(localStorage.getItem(historyKey)).toBeNull();
-  expect(sessionStorage.getItem(historyKey)).toBeNull();
-  expect(view.container.querySelector(".history-card")).toBeNull();
-  expect(global.fetch).toHaveBeenCalledTimes(1);
+  localStorage.setItem(historyKey, "[]");
+  fireEvent(window, new StorageEvent("storage", { key: historyKey }));
+  expect(view.getByRole("heading", { name: "Your uploads" })).toBeTruthy();
+  view.unmount();
+  const next = mount();
+  expect(options(next).checked).toBe(true);
+  expect(next.container.querySelector(".history-card")).toBeNull();
+  fireEvent.click(next.getByRole("switch", { name: "Save history" }));
+  next.unmount();
+  const off = mount();
+  expect(options(off).checked).toBe(false);
 });
-it("synchronizes cross-tab records, clearing, and revoked consent", () => {
-  localStorage.setItem(consentKey, "true");
+it.each(["false", "TRUE", "1", ""])(
+  "does not enable history for flag %j",
+  (value) => {
+    localStorage.setItem(preferenceKey, value);
+    localStorage.setItem(historyKey, JSON.stringify(saved));
+    const reads = jest.spyOn(Storage.prototype, "getItem");
+    const view = mount();
+    expect(options(view).checked).toBe(false);
+    expect(reads.mock.calls).toEqual([[preferenceKey]]);
+  },
+);
+it("restores enabled history read-only on mount", () => {
+  localStorage.setItem(preferenceKey, "true");
+  localStorage.setItem(historyKey, JSON.stringify(saved));
+  const reads = jest.spyOn(Storage.prototype, "getItem");
+  const writes = jest.spyOn(Storage.prototype, "setItem");
+  const removes = jest.spyOn(Storage.prototype, "removeItem");
+  const view = mount();
+  expect(options(view).checked).toBe(true);
+  expect(view.getByRole("heading", { name: "Your uploads" })).toBeTruthy();
+  expect(reads.mock.calls).toEqual([[preferenceKey], [historyKey]]);
+  expect(writes).not.toHaveBeenCalled();
+  expect(removes).not.toHaveBeenCalled();
+});
+it("blocked preference removal keeps the page off and preserves records", () => {
+  localStorage.setItem(preferenceKey, "true");
   localStorage.setItem(historyKey, JSON.stringify(saved));
   const view = mount();
-  expect(view.getByRole("heading", { name: "Your uploads" })).toBeTruthy();
-  fireEvent.click(view.getByRole("button", { name: "Clear history" }));
-  expect(localStorage.getItem(historyKey)).toBeNull();
-  expect(localStorage.getItem(consentKey)).toBe("true");
-  expect(global.fetch).toHaveBeenCalledTimes(1);
-  localStorage.setItem(historyKey, JSON.stringify(saved));
-  fireEvent(
-    window,
-    new StorageEvent("storage", { key: historyKey, storageArea: localStorage }),
-  );
-  expect(view.getByRole("heading", { name: "Your uploads" })).toBeTruthy();
-  localStorage.setItem(consentKey, "false");
-  fireEvent(
-    window,
-    new StorageEvent("storage", { key: consentKey, storageArea: localStorage }),
-  );
+  const reads = jest.spyOn(Storage.prototype, "getItem");
+  const writes = jest.spyOn(Storage.prototype, "setItem");
+  const removes = jest
+    .spyOn(Storage.prototype, "removeItem")
+    .mockImplementation(() => {
+      throw new DOMException("blocked");
+    });
+  const toggle = options(view);
+  fireEvent.click(toggle);
+  expect(toggle.checked).toBe(false);
   expect(view.container.querySelector(".history-card")).toBeNull();
-  expect(options(view).checked).toBe(false);
+  expect(view.getByText(/Allow browser storage/)).toBeTruthy();
+  expect(reads).not.toHaveBeenCalled();
+  expect(writes).not.toHaveBeenCalled();
+  expect(removes.mock.calls).toEqual([[preferenceKey]]);
 });
-it("persists completed uploads only while consent is current and without fragments", async () => {
+it("saves successful uploads while currently enabled", async () => {
   const view = mount();
   fireEvent.click(options(view));
   fireEvent.click(view.getByRole("button", { name: "Done" }));
@@ -174,43 +228,73 @@ it("persists completed uploads only while consent is current and without fragmen
   await waitFor(() =>
     expect(localStorage.getItem(historyKey)).toContain("text.txt"),
   );
+  expect(JSON.parse(localStorage.getItem(historyKey)!)[0]).toMatchObject({
+    ...result,
+    size: 4,
+  });
 });
-it("does not save an in-flight upload after consent is revoked in another tab", async () => {
-  localStorage.setItem(consentKey, "true");
+it("does not save unsuccessful uploads while enabled", async () => {
   const view = mount();
+  fireEvent.click(options(view));
+  fireEvent.click(view.getByRole("button", { name: "Done" }));
+  failUpload = true;
+  const writes = jest.spyOn(Storage.prototype, "setItem");
+  fireEvent.paste(window, {
+    clipboardData: { files: [], getData: () => "hello" },
+  });
+  await waitFor(() => expect(view.getByRole("alert")).toBeTruthy());
+  expect(writes).not.toHaveBeenCalled();
+  expect(localStorage.getItem(historyKey)).toBeNull();
+});
+it("does not save completion after turning the toggle off", async () => {
+  localStorage.setItem(historyKey, JSON.stringify(saved));
+  const view = mount();
+  fireEvent.click(options(view));
+  fireEvent.click(view.getByRole("button", { name: "Done" }));
   deferUpload = true;
   fireEvent.paste(window, {
     clipboardData: { files: [], getData: () => "hello" },
   });
-  expect(finishUpload).not.toBeNull();
-  // Deliberately omit the storage event to exercise the completion-time guard.
-  localStorage.setItem(consentKey, "false");
+  const writes = jest.spyOn(Storage.prototype, "setItem");
+  const reads = jest.spyOn(Storage.prototype, "getItem");
+  const removes = jest.spyOn(Storage.prototype, "removeItem");
+  fireEvent.click(options(view));
   finishUpload!();
   await waitFor(() =>
     expect(view.getByRole("button", { name: "Copy URL" })).toBeTruthy(),
   );
-  expect(localStorage.getItem(historyKey)).toBeNull();
+  expect(reads).not.toHaveBeenCalled();
+  expect(writes).not.toHaveBeenCalled();
+  expect(removes.mock.calls).toEqual([[preferenceKey]]);
 });
-it("fails closed when consent cannot be persisted", () => {
-  const view = mount();
+it("blocked storage leaves the toggle usable and upload successful", async () => {
+  jest.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    throw new DOMException("blocked");
+  });
   jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
     throw new DOMException("blocked");
   });
+  const view = mount();
   const toggle = options(view);
   fireEvent.click(toggle);
-  expect(toggle.checked).toBe(false);
-  expect(view.getByText(/History could not be enabled/).textContent).toContain(
-    "could not be enabled",
+  expect(toggle.checked).toBe(true);
+  expect(view.getByText(/Allow browser storage/)).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Done" }));
+  fireEvent.paste(window, {
+    clipboardData: { files: [], getData: () => "hello" },
+  });
+  await waitFor(() =>
+    expect(view.getByRole("button", { name: "Copy URL" })).toBeTruthy(),
   );
-  expect(view.container.querySelector(".history-card")).toBeNull();
 });
-it("keeps history enabled but removes local and session records when cleared", () => {
-  localStorage.setItem(consentKey, "true");
+it("clear is an explicit enabled-only local action leaving session history untouched", () => {
   localStorage.setItem(historyKey, JSON.stringify(saved));
-  const view = mount();
   sessionStorage.setItem(historyKey, JSON.stringify(saved));
+  const view = mount();
+  fireEvent.click(options(view));
+  fireEvent.click(view.getByRole("button", { name: "Done" }));
   fireEvent.click(view.getByRole("button", { name: "Clear history" }));
   expect(localStorage.getItem(historyKey)).toBeNull();
-  expect(sessionStorage.getItem(historyKey)).toBeNull();
+  expect(sessionStorage.getItem(historyKey)).toBe(JSON.stringify(saved));
   expect(options(view).checked).toBe(true);
 });
