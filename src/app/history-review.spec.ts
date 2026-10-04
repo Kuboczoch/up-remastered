@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const preferenceKey = "up-remastered:history-enabled";
 const historyKey = "up-remastered:upload-history:v1";
 const records = [
   {
@@ -95,7 +96,7 @@ for (const width of [390, 1280]) {
     await upload(page);
     await expect(page.getByRole("heading", { name: "new.txt" })).toBeVisible();
     await expect(page.locator(".history-card")).toBeHidden();
-    expect(await calls(page)).toEqual([]);
+    expect(await calls(page)).toEqual([`local:getItem:${preferenceKey}`]);
     expect(await snapshot(page)).toEqual({
       local: JSON.stringify(records),
       session: JSON.stringify(records),
@@ -103,7 +104,7 @@ for (const width of [390, 1280]) {
     });
     await page.reload();
     await options(page, false);
-    expect(await calls(page)).toEqual([]);
+    expect(await calls(page)).toEqual([`local:getItem:${preferenceKey}`]);
   });
 }
 
@@ -118,19 +119,38 @@ for (const stored of [
     await seedAndTrace(page, stored);
     await page.goto("/");
     await options(page, true);
-    expect(await calls(page)).toEqual([`local:getItem:${historyKey}`]);
+    expect(await calls(page)).toEqual([
+      `local:getItem:${preferenceKey}`,
+      `local:setItem:${preferenceKey}`,
+      `local:getItem:${historyKey}`,
+    ]);
     expect((await snapshot(page)).local).toBe(stored);
     expect((await snapshot(page)).session).toBe(JSON.stringify(records));
     if (stored === JSON.stringify(records))
       await expect(page.locator(".history-card")).toContainText("saved.txt");
     else await expect(page.locator(".history-card")).toBeHidden();
+    await page.reload();
+    await page.getByRole("button", { name: /Advanced options/ }).click();
+    await expect(
+      page.getByRole("switch", { name: "Save history" }),
+    ).toBeChecked();
+    await page.getByRole("button", { name: "Close advanced options" }).click();
+    expect(await calls(page)).toEqual([
+      `local:getItem:${preferenceKey}`,
+      `local:getItem:${historyKey}`,
+    ]);
+    expect((await snapshot(page)).local).toBe(stored);
     await options(page, false);
-    expect(await calls(page)).toEqual([`local:getItem:${historyKey}`]);
+    expect(await calls(page)).toEqual([
+      `local:getItem:${preferenceKey}`,
+      `local:getItem:${historyKey}`,
+      `local:removeItem:${preferenceKey}`,
+    ]);
     expect((await snapshot(page)).local).toBe(stored);
   });
 }
 
-test("tabs never synchronize settings or records; every mount starts off", async ({
+test("tabs never synchronize live settings or records; mounts restore preference", async ({
   page,
   context,
 }) => {
@@ -139,12 +159,17 @@ test("tabs never synchronize settings or records; every mount starts off", async
   await options(page, true);
   const other = await context.newPage();
   await other.goto("/");
+  await other.getByRole("button", { name: /Advanced options/ }).click();
+  await expect(
+    other.getByRole("switch", { name: "Save history" }),
+  ).toBeChecked();
+  await other.getByRole("button", { name: "Close advanced options" }).click();
   await options(other, false);
   await other.evaluate((key) => localStorage.setItem(key, "[]"), historyKey);
   await expect(page.locator(".history-card")).toContainText("saved.txt");
   await page.reload();
   await options(page, false);
-  expect(await calls(page)).toEqual([]);
+  expect(await calls(page)).toEqual([`local:getItem:${preferenceKey}`]);
 });
 
 test("enabled success retains complete metadata, protected URL and key", async ({
@@ -211,7 +236,14 @@ for (const outcome of ["failure", "disabled completion"] as const) {
       await expect(
         page.getByRole("heading", { name: "new.txt" }),
       ).toBeVisible();
-    expect(await calls(page)).toEqual([`local:getItem:${historyKey}`]);
+    expect(await calls(page)).toEqual([
+      `local:getItem:${preferenceKey}`,
+      `local:setItem:${preferenceKey}`,
+      `local:getItem:${historyKey}`,
+      ...(outcome === "disabled completion"
+        ? [`local:removeItem:${preferenceKey}`]
+        : []),
+    ]);
     expect((await snapshot(page)).local).toBe(JSON.stringify(records));
   });
 }
@@ -228,7 +260,12 @@ test("manual list actions require enabled history; off hides the list without mu
   await options(page, false);
   const card = page.locator(".history-card");
   await expect(card).toBeHidden();
-  expect(await calls(page)).toEqual([`local:getItem:${historyKey}`]);
+  expect(await calls(page)).toEqual([
+    `local:getItem:${preferenceKey}`,
+    `local:setItem:${preferenceKey}`,
+    `local:getItem:${historyKey}`,
+    `local:removeItem:${preferenceKey}`,
+  ]);
   expect((await snapshot(page)).local).toBe(JSON.stringify(records));
   await options(page, true);
   await expect(card).toContainText("saved.txt");

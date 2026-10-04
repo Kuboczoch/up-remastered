@@ -76,6 +76,10 @@ function isValidFileDrag(
   return !file || maxBytes === null || file.size <= maxBytes;
 }
 
+const HISTORY_PREFERENCE_KEY = "up-remastered:history-enabled";
+const HISTORY_PREFERENCE_WARNING =
+  "Your Save history preference could not be saved or restored. Allow browser storage for this site to remember it; the switch still works for this page.";
+
 function fileType(name: string): string {
   const extension = name.split(".").pop();
   return extension && extension !== name
@@ -99,6 +103,7 @@ export function UploadExperience({
   const [expirationHours, setExpirationHours] = useState(24);
   const [saveHistory, setSaveHistory] = useState(false);
   const saveHistoryRef = useRef(false);
+  const [historyPreferenceWarning, setHistoryPreferenceWarning] = useState("");
   const optionsRef = useRef<HTMLElement>(null);
   const optionsTriggerRef = useRef<HTMLButtonElement>(null);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -138,6 +143,28 @@ export function UploadExperience({
     dragDepthRef.current = 0;
     setDragActive(false);
   }, []);
+
+  // Hydrate browser-only storage after SSR without changing the server markup.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    let enabled = false;
+    try {
+      enabled = window.localStorage.getItem(HISTORY_PREFERENCE_KEY) === "true";
+    } catch {
+      setHistoryPreferenceWarning(HISTORY_PREFERENCE_WARNING);
+    }
+    saveHistoryRef.current = enabled;
+    setSaveHistory(enabled);
+    if (enabled) {
+      try {
+        setHistory(readUploadHistory(window.localStorage));
+      } catch {
+        setHistory([]);
+      }
+    }
+  }, []);
+
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     originalTitle.current = document.title;
@@ -498,6 +525,13 @@ export function UploadExperience({
     saveHistoryRef.current = enabled;
     setSaveHistory(enabled);
     setHistoryStatus("");
+    try {
+      if (enabled) window.localStorage.setItem(HISTORY_PREFERENCE_KEY, "true");
+      else window.localStorage.removeItem(HISTORY_PREFERENCE_KEY);
+      setHistoryPreferenceWarning("");
+    } catch {
+      setHistoryPreferenceWarning(HISTORY_PREFERENCE_WARNING);
+    }
     if (!enabled) {
       setHistory([]);
       return;
@@ -1033,12 +1067,26 @@ export function UploadExperience({
             </div>
             <input
               id="save-history"
+              aria-describedby={
+                historyPreferenceWarning
+                  ? "history-preference-warning"
+                  : undefined
+              }
               type="checkbox"
               role="switch"
               checked={saveHistory}
               onChange={(event) => changeSaveHistory(event.target.checked)}
             />
           </div>
+          {historyPreferenceWarning && (
+            <p
+              id="history-preference-warning"
+              className="connection-warning"
+              role="status"
+            >
+              {historyPreferenceWarning}
+            </p>
+          )}
           <div className="option-setting" style={{ opacity: 1 }}>
             <label htmlFor="expiry-hours">Expires after</label>
             <select
@@ -1209,6 +1257,7 @@ export function UploadExperience({
             </section>
           )}
       </div>
+
       <p role="status" aria-live="polite">
         {historyStatus}
       </p>

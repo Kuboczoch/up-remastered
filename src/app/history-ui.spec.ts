@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 for (const width of [1280, 390]) {
-  test(`history defaults off each mount without helper or routine feedback at ${width}px`, async ({
+  test(`history defaults off without a flag and restores it without routine feedback at ${width}px`, async ({
     page,
     context,
   }) => {
@@ -28,12 +28,28 @@ for (const width of [1280, 390]) {
     await other.getByRole("button", { name: /Advanced options/ }).click();
     await expect(
       other.getByRole("switch", { name: "Save history" }),
-    ).not.toBeChecked();
+    ).toBeChecked();
+    expect(
+      await page.evaluate(() =>
+        localStorage.getItem("up-remastered:history-enabled"),
+      ),
+    ).toBe("true");
+    await page.reload();
+    toggle = await openOptions();
+    await expect(toggle).toBeChecked();
     await toggle.uncheck();
+    expect(
+      await page.evaluate(() =>
+        localStorage.getItem("up-remastered:history-enabled"),
+      ),
+    ).toBeNull();
     await expect(page.locator("body")).not.toContainText("History disabled");
     await page.reload();
     toggle = await openOptions();
     await expect(toggle).not.toBeChecked();
+    await expect(
+      other.getByRole("switch", { name: "Save history" }),
+    ).toBeChecked();
   });
 
   for (const reducedMotion of ["no-preference", "reduce"] as const) {
