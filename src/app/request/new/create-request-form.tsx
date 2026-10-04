@@ -3,20 +3,17 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type FormEvent,
 } from "react";
 
-import {
-  formatBytes,
-  formatLocalDateTime,
-  formatRelativeExpiry,
-  parseByteQuantity,
-  type ByteUnit,
-} from "@/lib/format";
+import { formatBytes, parseByteQuantity, type ByteUnit } from "@/lib/format";
 
 import styles from "../request.module.css";
+import { CopyRequestLink } from "../copy-request-link";
+import { RequestOwnerStatus } from "../request-owner-status";
 import {
   statusConnectionMessage,
   useUploadRequestStatus,
@@ -86,9 +83,10 @@ export function CreateRequestForm() {
     [maxUploadBytes],
   );
   const [created, setCreated] = useState<CreatedRequest>();
-  const [copied, setCopied] = useState<"management" | "upload">();
+
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
   const hydrated = useSyncExternalStore(
     subscribeToHydration,
     () => true,
@@ -102,7 +100,6 @@ export function CreateRequestForm() {
   const [sizeChoice, setSizeChoice] = useState(String(maxUploadBytes));
   const [customSize, setCustomSize] = useState(String(maxUploadBytes));
   const [customSizeUnit, setCustomSizeUnit] = useState<ByteUnit>("B");
-  const [now, setNow] = useState<number>();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -144,12 +141,6 @@ export function CreateRequestForm() {
     created,
   );
 
-  useEffect(() => {
-    if (!created) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(timer);
-  }, [created]);
-
   function selectExpiration(value: string) {
     setExpirationChoice(value);
     if (value !== "custom") return;
@@ -164,7 +155,8 @@ export function CreateRequestForm() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!limits || busy) return;
+    if (!limits || submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     setError("");
 
@@ -211,41 +203,12 @@ export function CreateRequestForm() {
       };
       if (!response.ok)
         throw new Error(body.error?.message ?? "Request failed.");
-      setNow(Date.now());
       setCreated(body);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Request failed.");
     } finally {
+      submitting.current = false;
       setBusy(false);
-    }
-  }
-
-  async function revoke() {
-    if (!created) return;
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/upload-requests/manage", {
-        headers: { authorization: `Bearer ${created.managementToken}` },
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Could not revoke the request.");
-      const body = (await response.json()) as { request: RequestDetails };
-      setCreated({ ...created, ...body.request });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Request failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copyLink(kind: "management" | "upload", value: string) {
-    setError("");
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(kind);
-    } catch {
-      setError("Could not copy the link. Select and copy it manually.");
     }
   }
 
@@ -258,62 +221,28 @@ export function CreateRequestForm() {
           Send this upload link:{" "}
           <a href={created.uploadUrl}>{created.uploadUrl}</a>
         </p>
-        <button
-          className={styles.linkButton}
-          onClick={() => copyLink("upload", created.uploadUrl)}
-          type="button"
-        >
-          {copied === "upload" ? "Upload link copied" : "Copy upload link"}
-        </button>
+        <CopyRequestLink label="Copy upload link" value={created.uploadUrl} />
         <p className={styles.result}>
           <strong>Save this private owner link:</strong>{" "}
           <a href={created.managementUrl}>{created.managementUrl}</a>
         </p>
-        <button
-          className={styles.linkButton}
-          onClick={() => copyLink("management", created.managementUrl)}
-          type="button"
-        >
-          {copied === "management" ? "Owner link copied" : "Copy owner link"}
-        </button>
+        <CopyRequestLink
+          label="Copy owner link"
+          value={created.managementUrl}
+        />
         <p>
           This link can inspect or revoke the request and cannot be recovered by
           the server.
         </p>
-        <p>
-          Limit: {formatBytes(displayedRequest.maxBytes)} · Expires{" "}
-          {formatRelativeExpiry(
-            displayedRequest.expiresAt,
-            now ?? Date.parse(displayedRequest.expiresAt),
-          )}{" "}
-          ·{" "}
-          <time dateTime={displayedRequest.expiresAt}>
-            {formatLocalDateTime(displayedRequest.expiresAt)}
-          </time>
-        </p>
-        <p className={styles.status} role="status">
-          Status: {displayedRequest.status.replace("_", " ")}
-        </p>
+        <RequestOwnerStatus
+          request={displayedRequest}
+          token={created.managementToken}
+          onUpdate={(update) => setCreated({ ...created, ...update })}
+        />
         <p className={styles.muted} aria-live="polite">
           {statusConnectionMessage(connection)}
         </p>
-        {displayedRequest.uploadId ? (
-          <p>
-            Uploaded file:{" "}
-            <a href={`/${displayedRequest.uploadId}`}>Open file</a>
-          </p>
-        ) : null}
         <div className={styles.actions}>
-          <button
-            className={styles.button}
-            disabled={
-              busy || !["active", "retry"].includes(displayedRequest.status)
-            }
-            onClick={revoke}
-            type="button"
-          >
-            Revoke request
-          </button>
           <button
             className={styles.button}
             onClick={() => setCreated(undefined)}

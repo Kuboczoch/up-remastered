@@ -3,11 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  formatBytes,
-  formatLocalDateTime,
-  formatRelativeExpiry,
-} from "@/lib/format";
+import { CopyRequestLink } from "../copy-request-link";
+import { RequestOwnerStatus } from "../request-owner-status";
 
 import styles from "../request.module.css";
 import {
@@ -68,7 +65,7 @@ export function ManageRequest() {
   const [loadedRequest, setLoadedRequest] = useState<RequestDetails>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
-  const [copied, setCopied] = useState(false);
+
   const { connection, request } = useUploadRequestStatus(
     managementToken,
     loadedRequest,
@@ -118,47 +115,6 @@ export function ManageRequest() {
     }
   }, [load]);
 
-  async function revoke() {
-    const token = tokenRef.current;
-    if (!token || !request) return;
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/upload-requests/manage", {
-        headers: { authorization: `Bearer ${token}` },
-        method: "DELETE",
-      });
-      const body = (await response.json()) as ManageResponse;
-      if (!response.ok || !body.request) {
-        throw new Error(body.error?.message ?? "Could not revoke the request.");
-      }
-      setLoadedRequest(body.request);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Could not revoke the request.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copyOwnerLink() {
-    const token = tokenRef.current;
-    if (!token) return;
-    setError("");
-    try {
-      const ownerUrl = `${window.location.origin}${window.location.pathname}#${token}`;
-      await navigator.clipboard.writeText(ownerUrl);
-      setCopied(true);
-    } catch {
-      setError(
-        "Could not copy the owner link. Reopen the original private link.",
-      );
-    }
-  }
-
   if (busy && !request) {
     return (
       <section className={styles.card} aria-busy="true">
@@ -188,48 +144,19 @@ export function ManageRequest() {
         This private owner link is a bearer capability. Anyone with it can view
         this status or revoke an active request.
       </p>
-      <p className={styles.status} role="status">
-        {request.status.replace("_", " ")}
-      </p>
+      <RequestOwnerStatus
+        request={request}
+        token={managementToken!}
+        onUpdate={setLoadedRequest}
+      />
       <p className={styles.muted} aria-live="polite">
         {statusConnectionMessage(connection)}
       </p>
-      <dl className={styles.details}>
-        <div>
-          <dt>Upload limit</dt>
-          <dd>{formatBytes(request.maxBytes)}</dd>
-        </div>
-        <div>
-          <dt>Expires</dt>
-          <dd>
-            {formatRelativeExpiry(request.expiresAt)} ·{" "}
-            <time dateTime={request.expiresAt}>
-              {formatLocalDateTime(request.expiresAt)}
-            </time>
-          </dd>
-        </div>
-      </dl>
-      {request.uploadId ? (
-        <p>
-          Uploaded file: <a href={`/${request.uploadId}`}>Open file</a>
-        </p>
-      ) : null}
+      <CopyRequestLink
+        label="Copy owner link"
+        value={`${window.location.origin}${window.location.pathname}#${managementToken}`}
+      />
       <div className={styles.actions}>
-        <button
-          className={styles.linkButton}
-          onClick={copyOwnerLink}
-          type="button"
-        >
-          {copied ? "Owner link copied" : "Copy owner link"}
-        </button>
-        <button
-          className={styles.button}
-          disabled={busy || !["active", "retry"].includes(request.status)}
-          onClick={revoke}
-          type="button"
-        >
-          {busy ? "Revoking…" : "Revoke request"}
-        </button>
         <button
           className={styles.linkButton}
           disabled={busy}

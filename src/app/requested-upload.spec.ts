@@ -91,7 +91,9 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
   expect(managementUrl).toMatch(/\/request\/manage#[a-f0-9]{64}$/);
   const managementToken = managementUrl!.split("#")[1];
   await expect(page.locator("time")).toHaveAttribute("datetime", /Z$/);
-  await expect(page.getByText(/Expires in \d+ (minute|hour)/)).toBeVisible();
+  await expect(
+    page.getByText(/Request expires in \d+ (minute|hour)/),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Copy upload link" }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     uploadUrl,
@@ -120,6 +122,8 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
   await expect(
     page.getByRole("heading", { name: "Upload complete" }),
   ).toBeVisible();
+  await expect(page.getByText("No owner management token")).toBeHidden();
+  await page.getByText("Advanced / API").click();
   await expect(page.getByText("No owner management token")).toBeVisible();
 
   const [managementResponse] = await Promise.all([
@@ -132,7 +136,7 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
   ]);
   expect(managementResponse.headers()["cache-control"]).toContain("no-store");
   expect(managementResponse.url()).not.toContain(managementToken);
-  await expect(page.getByRole("status")).toHaveText("consumed");
+  await expect(page.getByRole("status")).toContainText("File delivered.");
   await expect(page).not.toHaveURL(/#/);
   expect(await page.locator("body").textContent()).not.toContain(
     managementToken,
@@ -143,10 +147,10 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
   );
 
   await page.reload();
-  await expect(page.getByRole("status")).toHaveText("consumed");
+  await expect(page.getByRole("status")).toContainText("File delivered.");
   await page.goto("/request/new");
   await page.goBack();
-  await expect(page.getByRole("status")).toHaveText("consumed");
+  await expect(page.getByRole("status")).toContainText("File delivered.");
   await page.getByRole("button", { name: "Copy owner link" }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     managementUrl,
@@ -175,17 +179,18 @@ test("lets the owner revoke an unused request without disclosing capabilities", 
 
   await page.goto(managementUrl!);
 
+  await page.getByRole("button", { name: "Revoke request" }).click();
   const [response] = await Promise.all([
     page.waitForResponse(
       (candidate) =>
         candidate.request().method() === "DELETE" &&
         candidate.url().endsWith("/api/upload-requests/manage"),
     ),
-    page.getByRole("button", { name: "Revoke request" }).click(),
+    page.getByRole("button", { name: "Confirm revoke" }).click(),
   ]);
   expect(response.status()).toBe(200);
   expect(response.headers()["cache-control"]).toContain("no-store");
-  await expect(page.getByRole("status")).toHaveText("revoked");
+  await expect(page.getByRole("status")).toContainText("revoked");
 
   await page.goto(uploadUrl!);
   await expect(

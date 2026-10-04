@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "@jest/globals";
 import { eq } from "drizzle-orm";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -13,6 +13,7 @@ import {
   createRequestedUpload,
   fulfillRequestedUpload,
   getActiveRequestedUpload,
+  getRecipientRequestAvailability,
   inspectRequestedUpload,
   revokeRequestedUpload,
   validateUploadRequestInput,
@@ -150,6 +151,129 @@ describe("requested uploads", () => {
     ).rejects.toMatchObject({
       code: "upload_request_unavailable",
       status: 404,
+    });
+  });
+
+  it.each(["raw", "multipart"])(
+    "releases an actually aborted %s stream, removes partial files, and accepts retry",
+    async (kind) => {
+      createRequest();
+      const controller = new AbortController();
+      const disposed = jest.fn();
+      const stream = new ReadableStream<Uint8Array>({
+        start(streamController) {
+          streamController.enqueue(
+            Buffer.from(
+              kind === "raw"
+                ? "partial"
+                : '--slow\r\nContent-Disposition: form-data; name="file"; filename="slow.txt"\r\nContent-Type: text/plain\r\n\r\npartial',
+            ),
+          );
+        },
+        cancel: disposed,
+      });
+      const request = new Request(
+        "http://localhost/api/upload-requests/upload",
+        {
+          body: stream,
+          duplex: "half",
+          headers: {
+            "content-type":
+              kind === "raw"
+                ? "text/plain"
+                : "multipart/form-data; boundary=slow",
+            "x-file-name": "slow.txt",
+          },
+          method: "POST",
+          signal: controller.signal,
+        } as RequestInit,
+      );
+      const upload = fulfillRequestedUpload(PUBLIC_TOKEN, request, NOW);
+      // Register rejection immediately; no fabricated stream results or mocked persistence.
+      const outcome = upload.then(
+        () => "fulfilled",
+        () => "rejected",
+      );
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(inspectRequestedUpload(MANAGEMENT_TOKEN, NOW)?.status).toBe(
+        "in_progress",
+      );
+      expect(getRecipientRequestAvailability(PUBLIC_TOKEN, NOW)).toEqual({
+        status: "in_progress",
+      });
+      controller.abort();
+      expect(
+        await Promise.race([
+          outcome,
+          new Promise((resolve) =>
+            setTimeout(() => resolve("still waiting"), 500),
+          ),
+        ]),
+      ).toBe("rejected");
+      expect(disposed).toHaveBeenCalledTimes(1);
+      expect(inspectRequestedUpload(MANAGEMENT_TOKEN, NOW)?.status).toBe(
+        "retry",
+      );
+      expect(getRecipientRequestAvailability(PUBLIC_TOKEN, NOW)).toMatchObject({
+        status: "retry",
+        maxBytes: 16,
+      });
+      const entries = await readdir(process.env.UPLOAD_DIR!, {
+        recursive: true,
+      });
+      expect(entries).toEqual([]);
+      await fulfillRequestedUpload(PUBLIC_TOKEN, raw("ok"), NOW);
+      expect(inspectRequestedUpload(MANAGEMENT_TOKEN, NOW)?.status).toBe(
+        "consumed",
+      );
+    },
+  );
+
+  it("accepts a multipart file exactly at the advertised request limit", async () => {
+    createRequest();
+    const body = new FormData();
+    body.set(
+      "file",
+      new File(["x".repeat(16)], "exact.txt", { type: "text/plain" }),
+    );
+    const request = new Request("https://up.test/upload", {
+      method: "POST",
+      body,
+    });
+    const result = await fulfillRequestedUpload(PUBLIC_TOKEN, request, NOW);
+    expect(result.size).toBe(16);
+  });
+
+  it("distinguishes expired and revoked requests without exposing private metadata", () => {
+    createRequest();
+    expect(
+      getRecipientRequestAvailability(
+        PUBLIC_TOKEN,
+        new Date("2027-01-01T00:00:00Z"),
+      ),
+    ).toEqual({ status: "expired" });
+    revokeRequestedUpload(MANAGEMENT_TOKEN, NOW);
+    expect(getRecipientRequestAvailability(PUBLIC_TOKEN, NOW)).toEqual({
+      status: "revoked",
+    });
+  });
+
+  it("only exposes recipient-safe availability and request limits", async () => {
+    expect(getRecipientRequestAvailability("invalid", NOW)).toEqual({
+      status: "invalid",
+    });
+    expect(getRecipientRequestAvailability(PUBLIC_TOKEN, NOW)).toEqual({
+      status: "invalid",
+    });
+    const created = createRequest();
+    expect(getRecipientRequestAvailability(PUBLIC_TOKEN, NOW)).toEqual({
+      status: "active",
+      maxBytes: 16,
+      expiresAt: created.expiresAt,
+    });
+    await fulfillRequestedUpload(PUBLIC_TOKEN, raw("ok"), NOW);
+    expect(getRecipientRequestAvailability(PUBLIC_TOKEN, NOW)).toEqual({
+      status: "consumed",
     });
   });
 
