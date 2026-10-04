@@ -47,7 +47,7 @@ Playwright job:
 - Restores the shared dependency cache.
 - Downloads and extracts the Next.js build artifact from the build job.
 - Caches Playwright browser binaries.
-- Runs Playwright E2E tests with `pnpm run test:e2e:ci`.
+- Runs Playwright E2E tests with `pnpm run test:e2e:ci`: normal `chromium` contracts retain the 4 KiB default cap, while `chromium-stream` runs the mandatory 1 MiB cancellation case against a second isolated standalone server on port + 1. One worker and one combined report cover both projects; see [E2E CI](e2e.md).
 - Uploads the Playwright report artifact.
 
 Docker image job:

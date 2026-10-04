@@ -9,7 +9,7 @@ import {
 const ownerToken = "a".repeat(64);
 const uploadToken = "b".repeat(64);
 const instructions =
-  "Could not copy automatically. Select and copy the complete link below.";
+  "Automatic copy is unavailable. Select the complete link below and copy it manually.";
 const modes = [
   "insecure HTTP",
   "secure clipboard",
@@ -149,7 +149,7 @@ async function openApplication(browser: Browser, baseURL: string, mode: Mode) {
 async function expectManualCopy(page: Page, completeLink: string) {
   await expect(page.getByText(instructions, { exact: true })).toBeVisible();
   const textbox = page.getByRole("textbox", {
-    name: "Link to copy",
+    name: "Complete link for manual copying",
     exact: true,
   });
   await expect(textbox).toBeVisible();
@@ -257,7 +257,7 @@ for (const mode of modes) {
               .getByRole("button", { name: "Copy owner link", exact: true })
               .click();
             completeLink = app.ownerUrl;
-            successLabel = "Owner link copied";
+            successLabel = "Link copied.";
             expect(app.managementAuthorizations.length).toBeGreaterThan(0);
             expect(app.managementAuthorizations).toContain(
               `Bearer ${ownerToken}`,
@@ -274,7 +274,7 @@ for (const mode of modes) {
             ).toBeVisible();
             const owner = action === "request owner";
             completeLink = owner ? app.ownerUrl : app.uploadUrl;
-            successLabel = owner ? "Owner link copied" : "Upload link copied";
+            successLabel = "Link copied.";
             await page
               .getByRole("button", {
                 name: owner ? "Copy owner link" : "Copy upload link",
@@ -287,7 +287,7 @@ for (const mode of modes) {
             await expect
               .poll(() => page.evaluate(() => navigator.clipboard.readText()))
               .toBe(completeLink);
-            if (action === "history") {
+            if (!action.startsWith("result")) {
               await expect(
                 page.getByText(successLabel, { exact: true }),
               ).toBeVisible();
@@ -297,7 +297,9 @@ for (const mode of modes) {
               ).toBeVisible();
             }
             await expect(
-              page.getByRole("textbox", { name: "Link to copy" }),
+              page.getByRole("textbox", {
+                name: "Complete link for manual copying",
+              }),
             ).toHaveCount(0);
             await expect(
               page.getByText(instructions, { exact: true }),
@@ -319,4 +321,234 @@ for (const mode of modes) {
       }
     });
   }
+}
+
+// Deterministic pending clipboard promises: prove a current attempt can update UI,
+// then settle older work after invalidation. No timing-only race assertions.
+declare global {
+  interface Window {
+    copyAttempts: { value: string; resolve: () => void; reject: () => void }[];
+  }
+}
+async function pendingClipboard(page: Page) {
+  await page.evaluate(() => {
+    window.copyAttempts = [];
+    Object.defineProperty(navigator.clipboard, "writeText", {
+      configurable: true,
+      value: (value: string) =>
+        new Promise<void>((resolve, reject) => {
+          window.copyAttempts.push({
+            value,
+            resolve,
+            reject: () => reject(new DOMException("Denied", "NotAllowedError")),
+          });
+        }),
+    });
+  });
+}
+async function settleCopy(page: Page, index: number, success: boolean) {
+  await page.evaluate(
+    async ({ index, success }) => {
+      const attempt = window.copyAttempts[index];
+      if (success) attempt.resolve();
+      else attempt.reject();
+      // Drain async helper and event-handler continuations before asserting absence.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    },
+    { index, success },
+  );
+}
+async function seedCopyHistory(page: Page, shareUrl: string) {
+  await page.evaluate((shareUrl) => {
+    localStorage.setItem("up-remastered:history-enabled", "true");
+    localStorage.setItem(
+      "up-remastered:upload-history:v1",
+      JSON.stringify([
+        {
+          id: "A1B2C",
+          originalName: "copy-history.txt",
+          shareUrl,
+          size: 4,
+          accessToken: "copy-regression-access-token",
+          expiresAt: new Date(Date.now() + 3600000).toISOString(),
+          savedAt: new Date().toISOString(),
+        },
+      ]),
+    );
+  }, shareUrl);
+  await page.reload();
+}
+for (const success of [false, true]) {
+  for (const invalidation of [
+    "reset result",
+    "clear history",
+    "remove history",
+    "history off",
+    "create another",
+  ] as const) {
+    test(`pending copy ${success ? "success" : "rejection"} cannot revive UI after ${invalidation}`, async ({
+      browser,
+      baseURL,
+    }) => {
+      const app = await openApplication(browser, baseURL!, "secure clipboard");
+      try {
+        const { page } = app;
+        if (invalidation === "reset result") {
+          await page.locator("#file-picker").setInputFiles({
+            name: "copy-regression.txt",
+            mimeType: "text/plain",
+            buffer: Buffer.from("copy"),
+          });
+          await expect(
+            page.getByRole("heading", { name: "copy-regression.txt" }),
+          ).toBeVisible();
+          await pendingClipboard(page);
+          await page
+            .getByRole("button", { name: "Copy URL", exact: true })
+            .click();
+        } else if (invalidation === "create another") {
+          await page.goto(`${app.origin}/request/new`);
+          await page
+            .getByRole("button", { name: "Create upload request", exact: true })
+            .click();
+          await expect(
+            page.getByRole("heading", { name: "Upload request created" }),
+          ).toBeVisible();
+          await pendingClipboard(page);
+          await page
+            .getByRole("button", { name: "Copy owner link", exact: true })
+            .click();
+        } else {
+          await seedCopyHistory(page, app.shareUrl);
+          await pendingClipboard(page);
+          await page
+            .getByRole("button", { name: "Copy link", exact: true })
+            .click();
+        }
+        await expect
+          .poll(() => page.evaluate(() => window.copyAttempts.length))
+          .toBe(1);
+        if (invalidation === "reset result") {
+          await page
+            .getByRole("button", { name: "Upload another file", exact: true })
+            .click();
+        } else if (invalidation === "create another") {
+          await page
+            .getByRole("button", { name: "Create another", exact: true })
+            .click();
+        } else if (invalidation === "clear history") {
+          await page
+            .getByRole("button", { name: "Clear history", exact: true })
+            .click();
+        } else if (invalidation === "remove history") {
+          await page
+            .getByRole("button", {
+              name: "More actions for copy-history.txt",
+              exact: true,
+            })
+            .click();
+          await page
+            .getByRole("button", {
+              name: "Remove copy-history.txt from history",
+              exact: true,
+            })
+            .click();
+        } else {
+          await page
+            .getByRole("button", { name: "Advanced options", exact: true })
+            .click();
+          await page
+            .getByRole("switch", {
+              name: "Save history",
+            })
+            .uncheck();
+        }
+        await settleCopy(page, 0, success);
+        await expect(
+          page.getByRole("textbox", {
+            name: "Complete link for manual copying",
+          }),
+        ).toHaveCount(0);
+        await expect(
+          page.getByText("Link copied.", { exact: true }),
+        ).toHaveCount(0);
+        await expect(page.getByRole("button", { name: /^Copied/ })).toHaveCount(
+          0,
+        );
+        expect(app.errors).toEqual([]);
+      } finally {
+        await app.context.close();
+      }
+    });
+  }
+}
+for (const surface of ["result", "history", "request"] as const) {
+  test(`latest ${surface} copy wins over an older delayed rejection`, async ({
+    browser,
+    baseURL,
+  }) => {
+    const app = await openApplication(browser, baseURL!, "secure clipboard");
+    try {
+      const { page } = app;
+      if (surface === "result") {
+        await page.locator("#file-picker").setInputFiles({
+          name: "copy-regression.txt",
+          mimeType: "text/plain",
+          buffer: Buffer.from("copy"),
+        });
+        await expect(
+          page.getByRole("heading", { name: "copy-regression.txt" }),
+        ).toBeVisible();
+      } else if (surface === "history")
+        await seedCopyHistory(page, app.shareUrl);
+      else {
+        await page.goto(`${app.origin}/request/new`);
+        await page
+          .getByRole("button", { name: "Create upload request", exact: true })
+          .click();
+        await expect(
+          page.getByRole("heading", { name: "Upload request created" }),
+        ).toBeVisible();
+      }
+      await pendingClipboard(page);
+      const button = page.getByRole("button", {
+        name:
+          surface === "result"
+            ? "Copy URL"
+            : surface === "history"
+              ? "Copy link"
+              : "Copy owner link",
+        exact: true,
+      });
+      await button.click();
+      await button.click();
+      await expect
+        .poll(() => page.evaluate(() => window.copyAttempts.length))
+        .toBe(2);
+      await settleCopy(page, 1, true);
+      if (surface === "result")
+        await expect(
+          page.getByRole("button", { name: /^Copied/ }),
+        ).toBeVisible();
+      else
+        await expect(
+          page.getByText("Link copied.", { exact: true }),
+        ).toBeVisible();
+      await settleCopy(page, 0, false);
+      await expect(
+        page.getByRole("textbox", { name: "Complete link for manual copying" }),
+      ).toHaveCount(0);
+      if (surface === "result")
+        await expect(
+          page.getByRole("button", { name: /^Copied/ }),
+        ).toBeVisible();
+      else
+        await expect(
+          page.getByText("Link copied.", { exact: true }),
+        ).toBeVisible();
+      expect(app.errors).toEqual([]);
+    } finally {
+      await app.context.close();
+    }
+  });
 }

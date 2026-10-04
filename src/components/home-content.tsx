@@ -6,12 +6,12 @@ import { UploadExperience } from "@/components/upload/upload-experience";
 import {
   createWebsiteStructuredData,
   serializeStructuredData,
-} from "./website-structured-data";
+} from "@/app/website-structured-data";
 
-export const dynamic = "force-dynamic";
-
-export default function Home() {
-  const structuredData = createWebsiteStructuredData(getPublicUrl("/"));
+export default function HomeContent({
+  locale = "en",
+}: { locale?: "en" | "pl" } = {}) {
+  const structuredData = createWebsiteStructuredData(getPublicUrl("/"), locale);
   const { maxUploadBytes } = getUploadLimits();
 
   return (

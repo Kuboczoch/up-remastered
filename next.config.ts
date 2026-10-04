@@ -21,6 +21,7 @@ const baselineSecurityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: { globalNotFound: true },
   output: "standalone",
   reactCompiler: true,
   serverExternalPackages: ["better-sqlite3"],

@@ -1,3 +1,4 @@
+import { T } from "@/i18n/provider";
 import Link from "next/link";
 import type { Metadata } from "next";
 
@@ -17,9 +18,15 @@ export default function ManageUploadRequestPage() {
       <SiteHeader />
       <main className={styles.shell}>
         <header className={styles.header}>
-          <Link href="/">← Home</Link>
-          <h1>Manage upload request.</h1>
-          <p>Check its status or revoke it before a file is uploaded.</p>
+          <Link href="/">
+            <T id="← Home" />
+          </Link>
+          <h1>
+            <T id="Manage upload request." />
+          </h1>
+          <p>
+            <T id="Check its status or revoke it before a file is uploaded." />
+          </p>
         </header>
         <ManageRequest />
       </main>

@@ -274,7 +274,9 @@ async function parseMultipartUpload(
       limits: {
         fields: 50,
         fieldSize: MAX_MULTIPART_FIELD_BYTES,
-        fileSize: byteLimit,
+        // Busboy marks a stream truncated at equality; the byte validator below
+        // enforces the inclusive advertised limit and rejects the extra byte.
+        fileSize: byteLimit + 1,
         files: MAX_MULTIPART_FILES,
         parts: 60,
       },

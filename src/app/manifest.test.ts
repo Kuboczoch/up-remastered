@@ -9,6 +9,7 @@ describe("web manifest", () => {
     expect(manifest()).toEqual({
       name: siteName,
       short_name: "up",
+      lang: "en",
       description: siteDescription,
       start_url: "/",
       display: "standalone",

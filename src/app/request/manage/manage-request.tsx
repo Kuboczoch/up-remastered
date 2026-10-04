@@ -1,21 +1,18 @@
 "use client";
+import { useTranslation } from "@/i18n/provider";
 
 import Link from "next/link";
-import { ManualCopyLink } from "@/components/manual-copy-link";
-import { copyLink } from "@/lib/copy-link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  formatBytes,
-  formatLocalDateTime,
-  formatRelativeExpiry,
-} from "@/lib/format";
+import { CopyRequestLink } from "../copy-request-link";
+import { RequestOwnerStatus } from "../request-owner-status";
 
 import styles from "../request.module.css";
 import {
   statusConnectionMessage,
   useUploadRequestStatus,
   type RequestDetails,
+  isRequestDetails,
 } from "../use-upload-request-status";
 
 type ManageResponse = {
@@ -65,43 +62,40 @@ function readToken(): string | undefined {
 }
 
 export function ManageRequest() {
+  const { t } = useTranslation();
   const tokenRef = useRef<string | undefined>(undefined);
   const [managementToken, setManagementToken] = useState<string>();
   const [loadedRequest, setLoadedRequest] = useState<RequestDetails>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
-  const [copied, setCopied] = useState(false);
-  const [manualCopyUrl, setManualCopyUrl] = useState("");
+
   const { connection, request } = useUploadRequestStatus(
     managementToken,
     loadedRequest,
   );
 
-  const load = useCallback(async (managementToken: string) => {
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/upload-requests/manage", {
-        headers: { authorization: `Bearer ${managementToken}` },
-      });
-      const body = (await response.json()) as ManageResponse;
-      if (!response.ok || !body.request) {
-        throw new Error(
-          body.error?.message ?? "This upload request is unavailable.",
-        );
+  const load = useCallback(
+    async (managementToken: string) => {
+      setBusy(true);
+      setError("");
+      try {
+        const response = await fetch("/api/upload-requests/manage", {
+          headers: { authorization: `Bearer ${managementToken}` },
+        });
+        const body = (await response.json()) as ManageResponse;
+        if (!response.ok || !isRequestDetails(body?.request)) {
+          throw new Error(t("This upload request is unavailable."));
+        }
+        setLoadedRequest(body.request);
+      } catch {
+        setLoadedRequest(undefined);
+        setError(t("This upload request is unavailable."));
+      } finally {
+        setBusy(false);
       }
-      setLoadedRequest(body.request);
-    } catch (caught) {
-      setLoadedRequest(undefined);
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "This upload request is unavailable.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }, []);
+    },
+    [t],
+  );
 
   useEffect(() => {
     const importedToken = readToken();
@@ -114,53 +108,17 @@ export function ManageRequest() {
     else {
       void Promise.resolve().then(() => {
         setError(
-          "Open the private owner link created with your upload request.",
+          t("Open the private owner link created with your upload request."),
         );
         setBusy(false);
       });
     }
-  }, [load]);
-
-  async function revoke() {
-    const token = tokenRef.current;
-    if (!token || !request) return;
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/upload-requests/manage", {
-        headers: { authorization: `Bearer ${token}` },
-        method: "DELETE",
-      });
-      const body = (await response.json()) as ManageResponse;
-      if (!response.ok || !body.request) {
-        throw new Error(body.error?.message ?? "Could not revoke the request.");
-      }
-      setLoadedRequest(body.request);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Could not revoke the request.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copyOwnerLink() {
-    const token = tokenRef.current;
-    if (!token) return;
-    setError("");
-    const ownerUrl = `${window.location.origin}/request/manage#${token}`;
-    const success = await copyLink(ownerUrl);
-    setCopied(success);
-    setManualCopyUrl(success ? "" : ownerUrl);
-  }
+  }, [load, t]);
 
   if (busy && !request) {
     return (
       <section className={styles.card} aria-busy="true">
-        <h2>Loading request status…</h2>
+        <h2>{t("Loading request status…")}</h2>
       </section>
     );
   }
@@ -168,12 +126,12 @@ export function ManageRequest() {
   if (!request) {
     return (
       <section className={styles.card}>
-        <h2>Owner link unavailable</h2>
+        <h2>{t("Owner link unavailable")}</h2>
         <p className={styles.error} role="alert">
           {error}
         </p>
         <Link className={styles.linkButton} href="/request/new">
-          Create a new request
+          {t("Create a new request")}{" "}
         </Link>
       </section>
     );
@@ -181,63 +139,34 @@ export function ManageRequest() {
 
   return (
     <section className={styles.card} aria-labelledby="management-status">
-      <h2 id="management-status">Request status</h2>
+      <h2 id="management-status">{t("Request status")}</h2>
       <p className={styles.muted}>
-        This private owner link is a bearer capability. Anyone with it can view
-        this status or revoke an active request.
+        {t(
+          "This private owner link is a bearer capability. Anyone with it can view this status or revoke an active request.",
+        )}{" "}
       </p>
-      <p className={styles.status} role="status">
-        {request.status.replace("_", " ")}
-      </p>
+      <RequestOwnerStatus
+        request={request}
+        token={managementToken!}
+        onUpdate={setLoadedRequest}
+      />
       <p className={styles.muted} aria-live="polite">
-        {statusConnectionMessage(connection)}
+        {t(statusConnectionMessage(connection))}
       </p>
-      <dl className={styles.details}>
-        <div>
-          <dt>Upload limit</dt>
-          <dd>{formatBytes(request.maxBytes)}</dd>
-        </div>
-        <div>
-          <dt>Expires</dt>
-          <dd>
-            {formatRelativeExpiry(request.expiresAt)} ·{" "}
-            <time dateTime={request.expiresAt}>
-              {formatLocalDateTime(request.expiresAt)}
-            </time>
-          </dd>
-        </div>
-      </dl>
-      {request.uploadId ? (
-        <p>
-          Uploaded file: <a href={`/${request.uploadId}`}>Open file</a>
-        </p>
-      ) : null}
+      <CopyRequestLink
+        label={t("Copy owner link")}
+        value={`${window.location.origin}${window.location.pathname}#${managementToken}`}
+      />
       <div className={styles.actions}>
-        <button
-          className={styles.linkButton}
-          onClick={copyOwnerLink}
-          type="button"
-        >
-          {copied ? "Owner link copied" : "Copy owner link"}
-        </button>
-        <button
-          className={styles.button}
-          disabled={busy || !["active", "retry"].includes(request.status)}
-          onClick={revoke}
-          type="button"
-        >
-          {busy ? "Revoking…" : "Revoke request"}
-        </button>
         <button
           className={styles.linkButton}
           disabled={busy}
           onClick={() => tokenRef.current && void load(tokenRef.current)}
           type="button"
         >
-          Refresh status
+          {t("Refresh status")}{" "}
         </button>
       </div>
-      {manualCopyUrl && <ManualCopyLink value={manualCopyUrl} />}
       {error ? (
         <p className={styles.error} role="alert">
           {error}

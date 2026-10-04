@@ -225,6 +225,85 @@ test("renders an intentional not-found page", async ({ page }) => {
   expect(results.violations).toEqual([]);
 });
 
+for (const locale of ["en", "pl"] as const) {
+  for (const path of ["/missing/nested", "/request/x/y", "/decrypt/x/y"]) {
+    test(`unknown nested HTML ${path} has ${locale} SSR metadata without JavaScript`, async ({
+      browser,
+      baseURL,
+    }) => {
+      const context = await browser.newContext({
+        baseURL,
+        javaScriptEnabled: false,
+        locale: locale === "pl" ? "pl-PL" : "en-US",
+        extraHTTPHeaders: { "Accept-Language": locale },
+      });
+      const page = await context.newPage();
+      try {
+        const response = await page.goto(path);
+        expect(response?.status()).toBe(404);
+        expect(new URL(page.url()).pathname).toBe(path);
+        await expect(page.locator("html")).toHaveAttribute("lang", locale);
+        await expect(page).toHaveTitle(
+          `${locale === "pl" ? "Nie znaleziono strony" : "Page not found"} | Up - Remastered`,
+        );
+        await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+          "content",
+          /noindex/,
+        );
+        await expect(
+          page.getByRole("heading", {
+            name: locale === "pl" ? "Nie znaleziono strony" : "Page not found",
+          }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("link", {
+            name: locale === "pl" ? "Wróć na stronę główną" : "Return home",
+          }),
+        ).toHaveAttribute("href", "/");
+      } finally {
+        await context.close();
+      }
+    });
+  }
+}
+
+test("Polish unknown HTML keeps locale choice, metadata and accessibility", async ({
+  page,
+}) => {
+  await page.goto("/missing/nested?lang=pl");
+  await expect(page.locator("html")).toHaveAttribute("lang", "pl");
+  await expect(page).toHaveTitle("Nie znaleziono strony | Up - Remastered");
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  const response = await page.goto("/another/missing/page");
+  expect(response?.status()).toBe(404);
+  await expect(page.locator("html")).toHaveAttribute("lang", "pl");
+});
+
+test("missing API and asset namespaces bypass locale HTML rewrites", async ({
+  request,
+}) => {
+  for (const path of [
+    "/api/missing/nested",
+    "/_next/missing/nested",
+    "/assets/missing/nested",
+    "/u/missing/nested",
+    "/sh/missing/nested",
+    "/sharex/missing/nested",
+    "/missing/nested.png",
+  ]) {
+    const response = await request.get(path, {
+      headers: { "Accept-Language": "pl" },
+    });
+    expect(response.status()).toBe(404);
+    expect(response.headers()["content-language"]).toBeUndefined();
+    expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers()["x-frame-options"]).toBe("DENY");
+    expect(response.headers()["referrer-policy"]).toBe(
+      "strict-origin-when-cross-origin",
+    );
+  }
+});
+
 test("keeps missing download responses non-disclosing", async ({ request }) => {
   for (const path of ["/not-a-public-upload-id", "/u/not-a-public-upload-id"]) {
     const response = await request.get(path);
@@ -235,5 +314,14 @@ test("keeps missing download responses non-disclosing", async ({ request }) => {
     );
     expect(response.headers()["content-disposition"]).toBeUndefined();
     expect(await response.text()).toBe("File unavailable.\n");
+    expect(response.headers()["content-language"]).toBeUndefined();
+    const head = await request.head(path, {
+      headers: { "Accept-Language": "pl" },
+    });
+    expect(head.status()).toBe(404);
+    expect(head.headers()["content-type"]).toBe("text/plain; charset=utf-8");
+    expect(head.headers()["content-disposition"]).toBeUndefined();
+    expect(head.headers()["content-language"]).toBeUndefined();
+    expect((await head.body()).byteLength).toBe(0);
   }
 });

@@ -77,3 +77,12 @@ The creation result and owner page open one authenticated event stream, announce
 - A process crash during an upload can leave that request conservatively locked rather than risk double use. The owner can revoke it and create another request.
 - Capability URLs are bearer secrets. Owners should transmit them over HTTPS and revoke leaked links.
 - Public deployments should additionally rate-limit request creation at the trusted reverse proxy; the app does not trust spoofable client-IP headers.
+
+### Copy feedback lifecycle
+
+The translated shared request-copy wrapper preserves the complete capability URL
+(including an owner fragment) in native clipboard writes and manual recovery.
+Changing its URL, creating another request, or unmounting invalidates pending
+copy feedback; a later attempt wins over an earlier delayed completion. Copy
+instructions are linked to a read-only input that selects on focus/click. This
+does not add capability secrets to any recovery URL or weaken origin validation.

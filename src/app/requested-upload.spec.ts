@@ -6,10 +6,14 @@ test("keeps the request form visible while returning to uploads", async ({
   await page.goto("/request/new");
   const backLink = page.getByRole("link", { name: "Back to uploads" });
   await expect(backLink).toHaveAttribute("href", "/");
-  const devtools = await page.context().newCDPSession(page);
-  const requestPageScreenshot = await devtools.send("Page.captureScreenshot", {
-    format: "png",
-  });
+  const heading = page.getByRole("heading", { name: "Request a file" });
+  const form = page.locator("form");
+  await expect(heading).toBeVisible();
+  await expect(form).toBeVisible();
+  const headingBounds = await heading.boundingBox();
+  const formBounds = await form.boundingBox();
+  expect(headingBounds).not.toBeNull();
+  expect(formBounds).not.toBeNull();
 
   let releaseHomeRequest!: () => void;
   const homeRequestReleased = new Promise<void>((resolve) => {
@@ -29,25 +33,61 @@ test("keeps the request form visible while returning to uploads", async ({
       url.pathname === "/"
     ) {
       homeRequestHeaders = request.headers();
+      const response = await route.fetch();
       markHomeRequestHeld();
       await homeRequestReleased;
+      await route.fulfill({ response });
+      return;
     }
     await route.continue();
   });
 
+  // A same-origin observer retains access to the outgoing document while
+  // Chromium redirects the navigating tab's automation target to the new one.
+  const observerPromise = page.waitForEvent("popup");
+  await page.evaluate(() =>
+    window.open("about:blank", "request-form-observer"),
+  );
+  const observer = await observerPromise;
+  await page.bringToFront();
+  const observeRequestForm = async () =>
+    observer.evaluate(() => {
+      const document = window.opener.document as Document;
+      const observe = (node: Element | null) => {
+        if (!node) return null;
+        const { x, y, width, height } = node.getBoundingClientRect();
+        const style = window.opener.getComputedStyle(node);
+        return {
+          visible:
+            width > 0 &&
+            height > 0 &&
+            style.visibility !== "hidden" &&
+            style.display !== "none",
+          bounds: { x, y, width, height },
+        };
+      };
+      return {
+        heading: observe(document.querySelector("h1")),
+        form: observe(document.querySelector("form")),
+      };
+    });
+  expect(await observeRequestForm()).toEqual({
+    heading: { visible: true, bounds: headingBounds },
+    form: { visible: true, bounds: formBounds },
+  });
   const click = backLink.click();
   await homeRequestHeld;
   try {
-    const pendingNavigationScreenshot = await devtools.send(
-      "Page.captureScreenshot",
-      { format: "png" },
-    );
-    expect(pendingNavigationScreenshot.data).toBe(requestPageScreenshot.data);
+    expect(await observeRequestForm()).toEqual({
+      heading: { visible: true, bounds: headingBounds },
+      form: { visible: true, bounds: formBounds },
+    });
     expect(homeRequestHeaders).not.toHaveProperty("rsc");
   } finally {
     releaseHomeRequest();
   }
   await click;
+  await observer.close();
   await expect(page).toHaveURL("/");
   await expect(
     page.getByRole("heading", { name: "Share temporary files and text." }),
@@ -91,7 +131,9 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
   expect(managementUrl).toMatch(/\/request\/manage#[a-f0-9]{64}$/);
   const managementToken = managementUrl!.split("#")[1];
   await expect(page.locator("time")).toHaveAttribute("datetime", /Z$/);
-  await expect(page.getByText(/Expires in \d+ (minute|hour)/)).toBeVisible();
+  await expect(
+    page.getByText(/Request expires in \d+ (minute|hour)/),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Copy upload link" }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     uploadUrl,
@@ -120,6 +162,8 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
   await expect(
     page.getByRole("heading", { name: "Upload complete" }),
   ).toBeVisible();
+  await expect(page.getByText("No owner management token")).toBeHidden();
+  await page.getByText("Advanced / API").click();
   await expect(page.getByText("No owner management token")).toBeVisible();
 
   const [managementResponse] = await Promise.all([
@@ -132,7 +176,7 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
   ]);
   expect(managementResponse.headers()["cache-control"]).toContain("no-store");
   expect(managementResponse.url()).not.toContain(managementToken);
-  await expect(page.getByRole("status")).toHaveText("consumed");
+  await expect(page.getByRole("status")).toContainText("File delivered.");
   await expect(page).not.toHaveURL(/#/);
   expect(await page.locator("body").textContent()).not.toContain(
     managementToken,
@@ -143,10 +187,10 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
   );
 
   await page.reload();
-  await expect(page.getByRole("status")).toHaveText("consumed");
+  await expect(page.getByRole("status")).toContainText("File delivered.");
   await page.goto("/request/new");
   await page.goBack();
-  await expect(page.getByRole("status")).toHaveText("consumed");
+  await expect(page.getByRole("status")).toContainText("File delivered.");
   await page.getByRole("button", { name: "Copy owner link" }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     managementUrl,
@@ -175,17 +219,18 @@ test("lets the owner revoke an unused request without disclosing capabilities", 
 
   await page.goto(managementUrl!);
 
+  await page.getByRole("button", { name: "Revoke request" }).click();
   const [response] = await Promise.all([
     page.waitForResponse(
       (candidate) =>
         candidate.request().method() === "DELETE" &&
         candidate.url().endsWith("/api/upload-requests/manage"),
     ),
-    page.getByRole("button", { name: "Revoke request" }).click(),
+    page.getByRole("button", { name: "Confirm revoke" }).click(),
   ]);
   expect(response.status()).toBe(200);
   expect(response.headers()["cache-control"]).toContain("no-store");
-  await expect(page.getByRole("status")).toHaveText("revoked");
+  await expect(page.getByRole("status")).toContainText("revoked");
 
   await page.goto(uploadUrl!);
   await expect(

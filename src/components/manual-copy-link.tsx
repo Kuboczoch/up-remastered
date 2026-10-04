@@ -1,21 +1,25 @@
 "use client";
 
 import { useId } from "react";
+import { useTranslation } from "@/i18n/provider";
 
 /** Keep capability links in the current page only, never in a recovery URL. */
-export function ManualCopyLink({ value }: { value: string }) {
+export function ManualCopyLink({ url }: { url: string }) {
+  const { t } = useTranslation();
   const instructionsId = useId();
   return (
-    <div>
-      <p id={instructionsId} role="status">
-        Could not copy automatically. Select and copy the complete link below.
+    <div className="manual-copy" role="status">
+      <p id={instructionsId}>
+        {t(
+          "Automatic copy is unavailable. Select the complete link below and copy it manually.",
+        )}
       </p>
       <input
-        aria-label="Link to copy"
+        aria-label={t("Complete link for manual copying")}
         aria-describedby={instructionsId}
         className="result-url"
         readOnly
-        value={value}
+        value={url}
         onFocus={(event) => event.currentTarget.select()}
         onClick={(event) => event.currentTarget.select()}
       />

@@ -53,7 +53,9 @@ describe("ManageRequest", () => {
 
     const { getByRole } = render(<ManageRequest />);
 
-    await waitFor(() => expect(getByRole("status").textContent).toBe("active"));
+    await waitFor(() =>
+      expect(getByRole("status").textContent).toBe("Waiting for upload."),
+    );
     expect(window.location.hash).toBe("");
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/upload-requests/manage",
@@ -80,11 +82,33 @@ describe("ManageRequest", () => {
     global.fetch = fetchMock;
 
     const { getByRole } = render(<ManageRequest />);
-    await waitFor(() => expect(getByRole("status").textContent).toBe("active"));
+    await waitFor(() =>
+      expect(getByRole("status").textContent).toBe("Waiting for upload."),
+    );
+    const showModal = jest.fn(function (this: HTMLDialogElement) {
+      this.open = true;
+    });
+    const close = jest.fn(function (this: HTMLDialogElement) {
+      this.open = false;
+    });
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+      configurable: true,
+      value: showModal,
+    });
+    Object.defineProperty(HTMLDialogElement.prototype, "close", {
+      configurable: true,
+      value: close,
+    });
     fireEvent.click(getByRole("button", { name: "Revoke request" }));
+    expect(showModal).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ method: "DELETE" }),
+    );
+    fireEvent.click(getByRole("button", { name: "Confirm revoke" }));
 
     await waitFor(() =>
-      expect(getByRole("status").textContent).toBe("revoked"),
+      expect(getByRole("status").textContent).toContain("revoked"),
     );
     expect(fetchMock).toHaveBeenLastCalledWith(
       "/api/upload-requests/manage",
@@ -135,7 +159,9 @@ describe("ManageRequest", () => {
     );
 
     const { getByRole, getByText } = render(<ManageRequest />);
-    await waitFor(() => expect(getByRole("status").textContent).toBe("active"));
+    await waitFor(() =>
+      expect(getByRole("status").textContent).toBe("Waiting for upload."),
+    );
     expect(
       getByText(/private owner link is a bearer capability/i),
     ).toBeTruthy();
@@ -186,14 +212,17 @@ describe("ManageRequest", () => {
     const { getByRole } = render(<ManageRequest />);
 
     await waitFor(() =>
-      expect(getByRole("status").textContent).toBe("consumed"),
+      expect(getByRole("status").textContent).toBe(
+        "File delivered. You can now open or download it.",
+      ),
     );
     expect(getByRole("link", { name: "Open file" }).getAttribute("href")).toBe(
       "/A1B2C",
     );
     expect(
-      (getByRole("button", { name: "Revoke request" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+      Array.from(document.querySelectorAll("button")).some(
+        (button) => button.textContent === "Revoke request",
+      ),
+    ).toBe(false);
   });
 });

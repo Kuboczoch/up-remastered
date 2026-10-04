@@ -1,12 +1,14 @@
 "use client";
 
+import { T, useTranslation } from "@/i18n/provider";
+
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   decryptFile,
   validateEncryptionKey,
 } from "@/components/upload/encryption";
-import { formatBytes } from "@/lib/format";
+
 import { fetchEncryptedFile } from "./fetch-encrypted-file";
 
 function subscribe(callback: () => void) {
@@ -19,6 +21,7 @@ function fragmentKey() {
 }
 
 export function DecryptExperience({ id }: { id: string }) {
+  const { t, message, formatBytes } = useTranslation();
   const fragment = useSyncExternalStore(subscribe, fragmentKey, () => "");
   const [manualKey, setManualKey] = useState<string | null>(null);
   const key = manualKey ?? fragment;
@@ -97,26 +100,28 @@ export function DecryptExperience({ id }: { id: string }) {
       className="upload-experience decrypt-experience"
       aria-labelledby="decrypt-heading"
     >
-      <p className="eyebrow">Private transfer</p>
-      <h1 id="decrypt-heading">Decrypt your file</h1>
+      <p className="eyebrow">
+        <T id="Private transfer" />
+      </p>
+      <h1 id="decrypt-heading">
+        <T id="Decrypt your file" />
+      </h1>
       <p>
-        This file is protected with a secret key. Decryption happens only in
-        your browser; the server never receives the key.
+        <T id="This file is protected with a secret key. Decryption happens only in your browser; the server never receives the key." />
       </p>
       <p>
-        Files up to 32 MiB are supported. Nothing is downloaded until you choose
-        to decrypt. Fetching the encrypted file uses one download from its
-        limit, even if the key is wrong.
+        <T id="Files up to 32 MiB are supported. Nothing is downloaded until you choose to decrypt. Fetching the encrypted file uses one download from its limit, even if the key is wrong." />
       </p>
       {!validKey && (
         <p role="status">
-          Missing or invalid key. Ask the sender for the complete link,
-          including #key=…, or enter the key below.
+          <T id="Missing or invalid key. Ask the sender for the complete link, including #key=…, or enter the key below." />
         </p>
       )}
       {!download && (
         <>
-          <label htmlFor="decryption-key">Decryption key</label>
+          <label htmlFor="decryption-key">
+            <T id="Decryption key" />
+          </label>
           <input
             id="decryption-key"
             type="password"
@@ -128,8 +133,7 @@ export function DecryptExperience({ id }: { id: string }) {
             aria-describedby="key-help"
           />
           <p id="key-help">
-            Use the key after #key= in the sender’s link. Never send it to the
-            server or put it in a URL query.
+            <T id="Use the key after #key= in the sender’s link. Never send it to the server or put it in a URL query." />
           </p>
           <button
             type="button"
@@ -137,13 +141,13 @@ export function DecryptExperience({ id }: { id: string }) {
             disabled={!validKey || busy}
             onClick={() => void decrypt()}
           >
-            {busy ? "Downloading and decrypting…" : "Decrypt file"}
+            {busy ? t("Downloading and decrypting…") : t("Decrypt file")}
           </button>
         </>
       )}
       {busy && (
         <div role="status">
-          {stage} ({formatBytes(progress)})
+          {message(stage)} ({formatBytes(progress)})
           <button
             type="button"
             onClick={() => {
@@ -153,16 +157,18 @@ export function DecryptExperience({ id }: { id: string }) {
               setStage("Cancelling decryption…");
             }}
           >
-            Cancel decryption
+            <T id="Cancel decryption" />
           </button>
         </div>
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert">{message(error)}</p>}
       {download && (
         <div role="status">
           <p>
-            Decrypted: {download.name} ({formatBytes(download.size)}). Save the
-            original file below.
+            {t("Decrypted: {name} ({size}). Save the original file below.", {
+              name: download.name,
+              size: formatBytes(download.size),
+            })}
           </p>
           <a
             className="primary-action"
@@ -170,13 +176,13 @@ export function DecryptExperience({ id }: { id: string }) {
             download={download.name}
             referrerPolicy="no-referrer"
           >
-            Save decrypted file
+            <T id="Save decrypted file" />
           </a>
         </div>
       )}
       <p>
         <Link href="/" prefetch={false} referrerPolicy="no-referrer">
-          Upload another file
+          <T id="Upload another file" />
         </Link>
       </p>
     </section>

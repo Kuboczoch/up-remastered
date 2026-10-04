@@ -29,6 +29,8 @@ const config = async () => {
         "**/src/config/**/*.test.tsx",
         "**/src/lib/**/*.test.ts",
         "**/src/lib/**/*.test.tsx",
+        "**/src/i18n/**/*.test.ts",
+        "**/src/i18n/**/*.test.tsx",
       ],
     }),
     createProjectConfig({

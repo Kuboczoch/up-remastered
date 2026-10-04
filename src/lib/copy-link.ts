@@ -1,10 +1,12 @@
-/** Copy only after feature detection; missing APIs and denied permission are recoverable. */
-export async function copyLink(value: string): Promise<boolean> {
+export async function copyLink(
+  url: string,
+  environment: { clipboard?: Pick<Clipboard, "writeText"> } = navigator,
+): Promise<"copied" | "manual"> {
   try {
-    if (typeof navigator.clipboard?.writeText !== "function") return false;
-    await navigator.clipboard.writeText(value);
-    return true;
+    if (typeof environment.clipboard?.writeText !== "function") return "manual";
+    await environment.clipboard.writeText(url);
+    return "copied";
   } catch {
-    return false;
+    return "manual";
   }
 }

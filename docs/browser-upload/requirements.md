@@ -36,6 +36,16 @@ Result copying (including double-click), history, and request pages share a clip
 
 Production browser regressions cover all copy entry points on a real insecure named HTTP origin, browser-visible HTTPS with the native Clipboard API, and secure-context permission rejection. Alternate-origin API responses are explicit UI fixtures; origin validation is not weakened.
 
+Copy feedback is scoped to the current result or history generation and the latest
+attempt. Reset/new upload, successful deletion, unmount, history clearing/removal,
+and disabling history invalidate pending Clipboard promises. Result and history
+manual links have separate state. The request copy wrapper also invalidates on
+value changes/unmount and ignores superseded attempts. Manual-copy instructions
+and accessible labels remain typed English/Polish translations, with the input
+linked to its instructions and the whole value selected on focus and click.
+Deterministic deferred-promise browser regressions settle both success and
+rejection after invalidation and prove the latest valid attempt still works.
+
 ## Local history and privacy
 
 Save history restores only the `up-remastered:history-enabled` localStorage flag on mount (exact `true` enables; absent defaults false), ignoring legacy consent. Enabling stores `true`; disabling removes the flag and never stores `false`. Disabled mount/upload/event paths make zero history record storage calls, with the preference lookup as the sole mount exception; no migration, synchronization, or automatic removal runs. Enabled mounts and enabling read local records without ordinary migration or pruning. Disabling hides the list and preserves stored records, while successful upload completion saves only if currently enabled. Blocked preference storage leaves a safe in-page setting with an actionable warning; uploads must not crash. Saved metadata includes fragment-free share URLs and deletion tokens, readable by same-origin site scripts in browser localStorage; encryption keys are never saved. Enabled history reads scrub fragments and extra fields from legacy local records as a narrow security exception to ordinary read-only access. No cookies or binary upload payloads are saved. Manual list actions are available only while enabled. See [Browser upload options](../browser/upload-options.md) for the complete contract. Paste into editable fields remains normal editing, not immediate upload.

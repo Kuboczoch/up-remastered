@@ -91,6 +91,13 @@ it.each(["button", "panel", "window"])(
         },
       );
     }
+    if (path !== "button") {
+      expect(files).toHaveLength(0);
+      expect(
+        (view.getByLabelText("Or upload text") as HTMLTextAreaElement).value,
+      ).toBe("Aé");
+      fireEvent.click(view.getByRole("button", { name: "Upload text" }));
+    }
     await waitFor(() => expect(files).toHaveLength(1));
     const file = files[0];
     expect(file.type).toBe("text/plain;charset=utf-8");
@@ -124,6 +131,7 @@ it("starts false despite legacy consent and ignores all stores while disabled", 
   fireEvent.paste(window, {
     clipboardData: { files: [], getData: () => "hello" },
   });
+  fireEvent.click(view.getByRole("button", { name: "Upload text" }));
   await waitFor(() =>
     expect(view.getByRole("button", { name: "Copy URL" })).toBeTruthy(),
   );
@@ -225,6 +233,7 @@ it("saves successful uploads while currently enabled", async () => {
   fireEvent.paste(window, {
     clipboardData: { files: [], getData: () => "hello" },
   });
+  fireEvent.click(view.getByRole("button", { name: "Upload text" }));
   await waitFor(() =>
     expect(localStorage.getItem(historyKey)).toContain("text.txt"),
   );
@@ -242,6 +251,7 @@ it("does not save unsuccessful uploads while enabled", async () => {
   fireEvent.paste(window, {
     clipboardData: { files: [], getData: () => "hello" },
   });
+  fireEvent.click(view.getByRole("button", { name: "Upload text" }));
   await waitFor(() => expect(view.getByRole("alert")).toBeTruthy());
   expect(writes).not.toHaveBeenCalled();
   expect(localStorage.getItem(historyKey)).toBeNull();
@@ -255,6 +265,7 @@ it("does not save completion after turning the toggle off", async () => {
   fireEvent.paste(window, {
     clipboardData: { files: [], getData: () => "hello" },
   });
+  fireEvent.click(view.getByRole("button", { name: "Upload text" }));
   const writes = jest.spyOn(Storage.prototype, "setItem");
   const reads = jest.spyOn(Storage.prototype, "getItem");
   const removes = jest.spyOn(Storage.prototype, "removeItem");
@@ -283,6 +294,7 @@ it("blocked storage leaves the toggle usable and upload successful", async () =>
   fireEvent.paste(window, {
     clipboardData: { files: [], getData: () => "hello" },
   });
+  fireEvent.click(view.getByRole("button", { name: "Upload text" }));
   await waitFor(() =>
     expect(view.getByRole("button", { name: "Copy URL" })).toBeTruthy(),
   );

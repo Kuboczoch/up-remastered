@@ -1,3 +1,5 @@
+import { presentUnavailableDownload } from "@/server/downloads/unavailable-page";
+
 import {
   createDownloadHeadResponse,
   createDownloadResponse,
@@ -11,11 +13,14 @@ export async function GET(
 ) {
   const { key } = await params;
 
-  return createDownloadResponse(
-    key,
-    request.headers.get("range"),
-    new Date(),
-    new URL(request.url).searchParams.get("download") === "1",
+  return presentUnavailableDownload(
+    request,
+    await createDownloadResponse(
+      key,
+      request.headers.get("range"),
+      new Date(),
+      new URL(request.url).searchParams.get("download") === "1",
+    ),
   );
 }
 

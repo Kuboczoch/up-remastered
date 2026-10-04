@@ -1,4 +1,6 @@
 import "server-only";
+import { Readable } from "node:stream";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 
 import { getPublicUrl } from "@/server/config/public-url";
 import { getUploadLimits } from "@/server/config/uploads";
@@ -224,6 +226,37 @@ export function createRequestedUpload(
   throw new Error("Could not generate unique upload request capabilities.");
 }
 
+export type RecipientRequestAvailability =
+  | { status: "active" | "retry"; expiresAt: string; maxBytes: number }
+  | { status: "invalid" | "consumed" | "expired" | "in_progress" | "revoked" };
+
+// Never return owner metadata, reserved upload IDs or capability hashes to the recipient page.
+export function getRecipientRequestAvailability(
+  publicToken: string,
+  now = new Date(),
+): RecipientRequestAvailability {
+  if (!isCapabilityToken(publicToken)) return { status: "invalid" };
+  ensureDatabaseMigrated();
+  const connection = createSqliteConnection();
+  try {
+    const request = getUploadRequestByPublicHash(
+      createDbClient(connection),
+      hashCapabilityToken(publicToken),
+    );
+    if (!request) return { status: "invalid" };
+    const status = statusOf(request, now);
+    if (status === "active" || status === "retry")
+      return {
+        status,
+        maxBytes: request.maxBytes,
+        expiresAt: request.expiresAt.toISOString(),
+      };
+    return { status };
+  } finally {
+    connection.close();
+  }
+}
+
 export function getActiveRequestedUpload(
   publicToken: string,
   now = new Date(),
@@ -291,28 +324,52 @@ export async function fulfillRequestedUpload(
   request: Request,
   now = new Date(),
 ): Promise<CreatedUpload> {
-  if (!isCapabilityToken(publicToken)) {
-    throw unavailableRequestError();
-  }
-
+  if (!isCapabilityToken(publicToken)) throw unavailableRequestError();
   ensureDatabaseMigrated();
   const publicTokenHash = hashCapabilityToken(publicToken);
   const claimId = createCapabilityToken();
   const connection = createSqliteConnection();
-  const db = createDbClient(connection);
-  const claimed = claimUploadRequest(db, publicTokenHash, claimId, now);
-  connection.close();
-
+  let claimed: UploadRequest | undefined;
+  try {
+    claimed = claimUploadRequest(
+      createDbClient(connection),
+      publicTokenHash,
+      claimId,
+      now,
+    );
+  } finally {
+    connection.close();
+  }
   if (!claimed) throw unavailableRequestError();
 
+  let upload: CreatedUpload | undefined;
+  let body: Readable | undefined;
   try {
-    const upload = await createUpload(request, undefined, undefined, {
+    // Web Request.signal does not itself dispose the body. Bind it explicitly
+    // so abort closes stalled sources and the upload parser removes partial files.
+    if (request.body) {
+      body = Readable.fromWeb(request.body as NodeReadableStream<Uint8Array>, {
+        signal: request.signal,
+      });
+      body.on("error", () => {}); // Validation may reject before the parser subscribes.
+    }
+    const cancellableRequest = body
+      ? new Request(request.url, {
+          body: Readable.toWeb(body),
+          duplex: "half",
+          headers: request.headers,
+          method: request.method,
+          signal: request.signal,
+        } as RequestInit)
+      : request;
+    request.signal.throwIfAborted();
+    upload = await createUpload(cancellableRequest, undefined, undefined, {
       maxUploadBytes: claimed.maxBytes,
       ...(claimed.uploadId ? { reservedUploadId: claimed.uploadId } : {}),
     });
+    request.signal.throwIfAborted();
     const consumeConnection = createSqliteConnection();
     let consumed: boolean;
-
     try {
       consumed = consumeUploadRequest(
         createDbClient(consumeConnection),
@@ -324,26 +381,27 @@ export async function fulfillRequestedUpload(
     } finally {
       consumeConnection.close();
     }
-
-    if (!consumed) {
-      await deleteUploadWithAccessToken(upload.id, upload.accessToken);
-      throw unavailableRequestError();
-    }
-
+    if (!consumed) throw unavailableRequestError();
     return upload;
   } catch (error) {
+    // Cancellation/revocation after persistence must not leave an orphan file.
+    // Only release the claim after cleanup, so retry cannot collide with cleanup.
+    if (upload)
+      await deleteUploadWithAccessToken(upload.id, upload.accessToken);
     const releaseConnection = createSqliteConnection();
     try {
       releaseUploadRequestClaim(
         createDbClient(releaseConnection),
         publicTokenHash,
         claimId,
-        now,
+        new Date(),
       );
     } finally {
       releaseConnection.close();
     }
     throw error;
+  } finally {
+    body?.destroy();
   }
 }
 
