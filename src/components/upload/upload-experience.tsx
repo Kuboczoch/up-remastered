@@ -393,9 +393,10 @@ export function UploadExperience({
         return;
       }
       if (
-        event.target instanceof HTMLTextAreaElement ||
-        (event.target instanceof HTMLInputElement &&
-          event.target.type !== "file") ||
+        (event.target instanceof Element &&
+          (event.target.closest("input, textarea") ||
+            (event.target instanceof HTMLElement &&
+              event.target.isContentEditable))) ||
         optionsOpen
       )
         return;
@@ -411,18 +412,12 @@ export function UploadExperience({
         return;
       }
 
-      const pastedText = event.clipboardData?.getData("text/plain") ?? "";
-      if (pastedText) {
-        event.preventDefault();
-        void beginUpload(
-          createTextFile(pastedText, "pasted-text.txt", textEncoding),
-        );
-      }
+      // Plain text belongs in the editor; publishing requires Upload text.
     };
 
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
-  }, [beginUpload, phase, textEncoding, optionsOpen]);
+  }, [beginUpload, phase, optionsOpen]);
 
   function reset() {
     requestSequence.current += 1;
@@ -477,8 +472,10 @@ export function UploadExperience({
 
   function pasteIntoPanel(event: ReactClipboardEvent<HTMLElement>) {
     if (
-      event.target instanceof HTMLTextAreaElement ||
-      event.target instanceof HTMLInputElement ||
+      (event.target instanceof Element &&
+        (event.target.closest("input, textarea") ||
+          (event.target instanceof HTMLElement &&
+            event.target.isContentEditable))) ||
       optionsOpen
     )
       return;
@@ -499,13 +496,7 @@ export function UploadExperience({
       void beginUpload(files[0]);
       return;
     }
-    const pastedText = event.clipboardData.getData("text/plain");
-    if (pastedText) {
-      event.preventDefault();
-      void beginUpload(
-        createTextFile(pastedText, "pasted-text.txt", textEncoding),
-      );
-    }
+    // Ignore plain text here, just like the window-level file paste listener.
   }
 
   function uploadText() {
