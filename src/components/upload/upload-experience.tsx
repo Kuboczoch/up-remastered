@@ -567,7 +567,12 @@ export function UploadExperience({
         window.localStorage,
         window.sessionStorage,
       );
-      window.localStorage.setItem(HISTORY_CLEAR_KEY, crypto.randomUUID());
+      // This is only a storage-event nonce, not a security token. Avoid
+      // randomUUID(), which is unavailable on non-loopback HTTP origins.
+      window.localStorage.setItem(
+        HISTORY_CLEAR_KEY,
+        `${Date.now()}-${Math.random()}`,
+      );
       return cleared;
     } catch {
       return false;

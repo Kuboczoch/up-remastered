@@ -22,7 +22,9 @@ Re-enabling starts with an empty history after a successful disable.
 
 Clear history removes browser records from both stores but keeps consent enabled;
 an explicit local-storage clear notification also erases each receiving tab's
-legacy session records, even if persistent records were already empty.
+legacy session records, even if persistent records were already empty. The
+notification uses a fresh non-security nonce for each clear and works on HTTP
+origins where secure-context APIs such as `crypto.randomUUID()` are unavailable.
 Subsequent successful uploads can be recorded. Individual Remove actions forget a
 browser record; Delete file is a separate, explicitly labelled server action.
 Consent and records synchronize through local-storage events across same-origin
