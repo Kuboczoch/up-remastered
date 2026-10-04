@@ -1,4 +1,6 @@
 import { siteDescription, siteName } from "@/config/site";
+import { translate } from "@/i18n/messages";
+import type { Locale } from "@/i18n/locale";
 
 export type WebsiteStructuredData = {
   "@context": "https://schema.org";
@@ -10,11 +12,12 @@ export type WebsiteStructuredData = {
 
 export function createWebsiteStructuredData(
   url: string,
+  locale: Locale = "en",
 ): WebsiteStructuredData {
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    description: siteDescription,
+    description: translate(locale, siteDescription),
     name: siteName,
     url,
   };

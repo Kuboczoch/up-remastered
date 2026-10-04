@@ -3,7 +3,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import { axe } from "jest-axe";
 
 import packageMetadata from "../../package.json";
-import Home from "./page";
+import Home from "./content";
 
 beforeEach(() => {
   global.fetch = jest.fn(async () => ({

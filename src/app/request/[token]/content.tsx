@@ -1,3 +1,4 @@
+import { T } from "@/i18n/provider";
 import Link from "next/link";
 import type { Metadata } from "next";
 
@@ -26,8 +27,12 @@ export default async function RequestedUploadPage({
       <SiteHeader />
       <main className={styles.shell}>
         <header className={styles.header}>
-          <Link href="/">← Home</Link>
-          <h1>Upload a requested file.</h1>
+          <Link href="/">
+            <T id="← Home" />
+          </Link>
+          <h1>
+            <T id="Upload a requested file." />
+          </h1>
         </header>
         {"maxBytes" in request ? (
           <>
@@ -45,7 +50,9 @@ export default async function RequestedUploadPage({
           </>
         ) : (
           <section className={styles.card}>
-            <h2>Upload request unavailable</h2>
+            <h2>
+              <T id="Upload request unavailable" />
+            </h2>
             <p>
               {request.status === "expired"
                 ? "This request has expired. Ask the requester for a new request link."

@@ -1,3 +1,4 @@
+import { T } from "@/i18n/provider";
 import type { Metadata } from "next";
 
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
@@ -20,11 +21,14 @@ export default function NewUploadRequestPage() {
         <header className={styles.header}>
           {/* Document navigation keeps this form visible until home is ready. */}
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a href="/">← Back to uploads</a>
-          <h1>Request a file.</h1>
+          <a href="/">
+            <T id="← Back to uploads" />
+          </a>
+          <h1>
+            <T id="Request a file." />
+          </h1>
           <p>
-            Create a private, single-use link for someone else to upload one
-            file.
+            <T id="Create a private, single-use link for someone else to upload one file." />
           </p>
         </header>
         <CreateRequestForm />

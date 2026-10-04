@@ -59,7 +59,7 @@ export function formatRelativeExpiry(
   if (!Number.isFinite(difference)) {
     throw new RangeError("Expiration must be a valid date.");
   }
-  if (difference <= 0) return "expired";
+  if (difference <= 0) return locale?.startsWith("pl") ? "wygasło" : "expired";
 
   const minute = 60_000;
   const hour = 60 * minute;

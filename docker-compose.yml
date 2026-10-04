@@ -2,6 +2,11 @@ services:
   init-data:
     build:
       context: .
+      args:
+        UP_PUBLIC_ORIGIN: "${UP_PUBLIC_ORIGIN:-http://localhost:3000}"
+        MAX_UPLOAD_SIZE: "${MAX_UPLOAD_SIZE:-1073741824}"
+        DEFAULT_EXPIRATION_HOURS: "${DEFAULT_EXPIRATION_HOURS:-24}"
+        MAX_EXPIRATION_HOURS: "${MAX_EXPIRATION_HOURS:-24}"
     user: "0:0"
     volumes:
       - ${UP_DATA_DIR:-./data}:/data
@@ -10,6 +15,11 @@ services:
   up:
     build:
       context: .
+      args:
+        UP_PUBLIC_ORIGIN: "${UP_PUBLIC_ORIGIN:-http://localhost:3000}"
+        MAX_UPLOAD_SIZE: "${MAX_UPLOAD_SIZE:-1073741824}"
+        DEFAULT_EXPIRATION_HOURS: "${DEFAULT_EXPIRATION_HOURS:-24}"
+        MAX_EXPIRATION_HOURS: "${MAX_EXPIRATION_HOURS:-24}"
     restart: unless-stopped
     depends_on:
       init-data:
@@ -44,6 +54,11 @@ services:
     profiles: ["maintenance"]
     build:
       context: .
+      args:
+        UP_PUBLIC_ORIGIN: "${UP_PUBLIC_ORIGIN:-http://localhost:3000}"
+        MAX_UPLOAD_SIZE: "${MAX_UPLOAD_SIZE:-1073741824}"
+        DEFAULT_EXPIRATION_HOURS: "${DEFAULT_EXPIRATION_HOURS:-24}"
+        MAX_EXPIRATION_HOURS: "${MAX_EXPIRATION_HOURS:-24}"
     depends_on:
       init-data:
         condition: service_completed_successfully
