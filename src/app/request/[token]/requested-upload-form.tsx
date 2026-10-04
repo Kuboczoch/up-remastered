@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { formatBytes } from "@/lib/format";
 
 import styles from "../request.module.css";
 
@@ -24,9 +25,11 @@ export function RequestedUploadForm({
   const [result, setResult] = useState<UploadResponse>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (unavailable) return;
     setBusy(true);
     setError("");
 
@@ -37,7 +40,9 @@ export function RequestedUploadForm({
         throw new Error("Choose a non-empty file.");
       }
       if (file.size > maxBytes) {
-        throw new Error(`The file must be no larger than ${maxBytes} bytes.`);
+        throw new Error(
+          `The file must be no larger than ${formatBytes(maxBytes, "en")}.`,
+        );
       }
 
       const upload = new FormData();
@@ -46,6 +51,12 @@ export function RequestedUploadForm({
         body: upload,
         method: "POST",
       });
+      if (response.status === 404) {
+        setUnavailable(true);
+        throw new Error(
+          "This request is no longer available for upload. Do not retry: check its status to see whether it is busy, used, revoked or expired.",
+        );
+      }
       const body = (await response.json()) as UploadResponse & {
         error?: { message?: string };
       };
@@ -80,18 +91,25 @@ export function RequestedUploadForm({
     <form className={styles.card} onSubmit={submit}>
       <label className={styles.field}>
         Choose file
-        <input name="file" required type="file" />
+        <input name="file" required type="file" disabled={unavailable} />
       </label>
       <p className={styles.muted}>
-        Maximum {maxBytes} bytes. This link is single-use.
+        Maximum {formatBytes(maxBytes, "en")}. This link is single-use.
       </p>
-      <button className={styles.button} disabled={busy} type="submit">
+      <button
+        className={styles.button}
+        disabled={busy || unavailable}
+        type="submit"
+      >
         {busy ? "Uploading…" : "Upload file"}
       </button>
       {error ? (
         <p className={styles.error} role="alert">
           {error}
         </p>
+      ) : null}
+      {unavailable ? (
+        <a href={`/request/${token}`}>Check request status</a>
       ) : null}
     </form>
   );
