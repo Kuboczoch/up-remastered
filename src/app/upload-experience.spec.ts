@@ -279,9 +279,7 @@ test("uploads a picked file and exposes result actions", async ({
   await expect(page.locator("#file-picker")).toBeFocused();
 });
 
-test("uploads explicitly submitted text and clipboard files", async ({
-  page,
-}) => {
+test("uploads pasted text and clipboard files", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Text" }).click();
   await expect(page.getByLabel("Or upload text")).toBeVisible();
@@ -290,10 +288,15 @@ test("uploads explicitly submitted text and clipboard files", async ({
   await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
   await page.getByRole("button", { name: "Close advanced options" }).click();
 
-  await page.getByLabel("Or upload text").fill("pasted text");
-  await page.getByRole("button", { name: "Upload text", exact: true }).click();
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.setData("text/plain", "pasted text");
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", { value: data });
+    document.querySelector(".upload-workspace")?.dispatchEvent(event);
+  });
   await expect(
-    page.getByRole("heading", { name: /text-\d+\.txt/ }),
+    page.getByRole("heading", { name: "pasted-text.txt" }),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Upload another file" }).click();
@@ -340,8 +343,13 @@ test("keeps the disabled encoding at UTF-8 for pasted text bytes and MIME charse
   await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
   await page.getByRole("button", { name: "Close advanced options" }).click();
 
-  await page.getByLabel("Or upload text").fill("Aé");
-  await page.getByRole("button", { name: "Upload text", exact: true }).click();
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.setData("text/plain", "Aé");
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", { value: data });
+    document.querySelector(".upload-workspace")?.dispatchEvent(event);
+  });
 
   await expect(
     page.getByRole("heading", { name: "pasted-text.txt" }),

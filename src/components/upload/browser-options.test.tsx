@@ -60,61 +60,52 @@ afterEach(() => {
   global.XMLHttpRequest = originalXHR;
 });
 
-it("keeps UTF-8 fixed for explicitly submitted text across modes", async () => {
-  const view = mount();
-  fireEvent.click(view.getByRole("tab", { name: /^Text$/ }));
-  fireEvent.click(view.getByRole("button", { name: /Advanced options/ }));
-  const select = view.getByLabelText("Text encoding") as HTMLSelectElement;
-  expect(select.disabled).toBe(true);
-  fireEvent.click(view.getByRole("button", { name: "Done" }));
-  fireEvent.click(view.getByRole("tab", { name: /^File$/ }));
-  fireEvent.click(view.getByRole("tab", { name: /^Text$/ }));
-  fireEvent.click(view.getByRole("button", { name: /Advanced options/ }));
-  expect(
-    (view.getByLabelText("Text encoding") as HTMLSelectElement).value,
-  ).toBe("utf-8");
-  fireEvent.click(view.getByRole("button", { name: "Done" }));
-  fireEvent.change(view.getByLabelText("Or upload text"), {
-    target: { value: "Aé" },
-  });
-  fireEvent.click(view.getByRole("button", { name: "Upload text" }));
-  await waitFor(() => expect(files).toHaveLength(1));
-  const file = files[0];
-  expect(file.type).toBe("text/plain;charset=utf-8");
-  const bytes = await new Promise<number[]>((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () =>
-      resolve(Array.from(new Uint8Array(reader.result as ArrayBuffer)));
-    reader.readAsArrayBuffer(file);
-  });
-  expect(bytes).toEqual([65, 195, 169]);
-});
-const preferenceKey = "up-remastered:history-enabled";
-const historyKey = "up-remastered:upload-history:v1";
-const saved = [{ ...result, savedAt: "2026-01-01T00:00:00Z" }];
-it.each(["panel", "window"])(
-  "ignores %s plain-text paste without changing a draft",
+it.each(["button", "panel", "window"])(
+  "keeps UTF-8 fixed for the %s text path across modes",
   async (path) => {
     const view = mount();
     fireEvent.click(view.getByRole("tab", { name: /^Text$/ }));
-    const editor = view.getByLabelText("Or upload text") as HTMLTextAreaElement;
-    fireEvent.change(editor, { target: { value: "existing draft" } });
-    const target =
-      path === "panel"
-        ? view.container.querySelector(".upload-workspace")!
-        : window;
+    fireEvent.click(view.getByRole("button", { name: /Advanced options/ }));
+    const select = view.getByLabelText("Text encoding") as HTMLSelectElement;
+    expect(select.disabled).toBe(true);
+    fireEvent.click(view.getByRole("button", { name: "Done" }));
+    fireEvent.click(view.getByRole("tab", { name: /^File$/ }));
+    fireEvent.click(view.getByRole("tab", { name: /^Text$/ }));
+    fireEvent.click(view.getByRole("button", { name: /Advanced options/ }));
     expect(
-      fireEvent.paste(target, {
-        clipboardData: { files: [], getData: () => "secret" },
-      }),
-    ).toBe(true);
-    expect(editor.value).toBe("existing draft");
-    expect(files).toHaveLength(0);
-    fireEvent.click(view.getByRole("button", { name: "Upload text" }));
+      (view.getByLabelText("Text encoding") as HTMLSelectElement).value,
+    ).toBe("utf-8");
+    fireEvent.click(view.getByRole("button", { name: "Done" }));
+    if (path === "button") {
+      fireEvent.change(view.getByLabelText("Or upload text"), {
+        target: { value: "Aé" },
+      });
+      fireEvent.click(view.getByRole("button", { name: "Upload text" }));
+    } else {
+      fireEvent.paste(
+        path === "panel"
+          ? view.container.querySelector(".upload-workspace")!
+          : window,
+        {
+          clipboardData: { files: [], getData: () => "Aé" },
+        },
+      );
+    }
     await waitFor(() => expect(files).toHaveLength(1));
+    const file = files[0];
+    expect(file.type).toBe("text/plain;charset=utf-8");
+    const bytes = await new Promise<number[]>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        resolve(Array.from(new Uint8Array(reader.result as ArrayBuffer)));
+      reader.readAsArrayBuffer(file);
+    });
+    expect(bytes).toEqual([65, 195, 169]);
   },
 );
-
+const preferenceKey = "up-remastered:history-enabled";
+const historyKey = "up-remastered:upload-history:v1";
+const saved = [{ ...result, savedAt: "2026-01-01T00:00:00Z" }];
 function options(view: ReturnType<typeof mount>) {
   fireEvent.click(view.getByRole("button", { name: /Advanced options/ }));
   return view.getByRole("switch", { name: "Save history" }) as HTMLInputElement;
@@ -131,10 +122,7 @@ it("starts false despite legacy consent and ignores all stores while disabled", 
   fireEvent.click(view.getByRole("button", { name: "Done" }));
   fireEvent(window, new StorageEvent("storage", { key: historyKey }));
   fireEvent.paste(window, {
-    clipboardData: {
-      files: [new File(["hello"], "text.txt", { type: "text/plain" })],
-      getData: () => "hello",
-    },
+    clipboardData: { files: [], getData: () => "hello" },
   });
   await waitFor(() =>
     expect(view.getByRole("button", { name: "Copy URL" })).toBeTruthy(),
@@ -235,10 +223,7 @@ it("saves successful uploads while currently enabled", async () => {
   fireEvent.click(options(view));
   fireEvent.click(view.getByRole("button", { name: "Done" }));
   fireEvent.paste(window, {
-    clipboardData: {
-      files: [new File(["hello"], "text.txt", { type: "text/plain" })],
-      getData: () => "hello",
-    },
+    clipboardData: { files: [], getData: () => "hello" },
   });
   await waitFor(() =>
     expect(localStorage.getItem(historyKey)).toContain("text.txt"),
@@ -255,10 +240,7 @@ it("does not save unsuccessful uploads while enabled", async () => {
   failUpload = true;
   const writes = jest.spyOn(Storage.prototype, "setItem");
   fireEvent.paste(window, {
-    clipboardData: {
-      files: [new File(["hello"], "text.txt", { type: "text/plain" })],
-      getData: () => "hello",
-    },
+    clipboardData: { files: [], getData: () => "hello" },
   });
   await waitFor(() => expect(view.getByRole("alert")).toBeTruthy());
   expect(writes).not.toHaveBeenCalled();
@@ -271,10 +253,7 @@ it("does not save completion after turning the toggle off", async () => {
   fireEvent.click(view.getByRole("button", { name: "Done" }));
   deferUpload = true;
   fireEvent.paste(window, {
-    clipboardData: {
-      files: [new File(["hello"], "text.txt", { type: "text/plain" })],
-      getData: () => "hello",
-    },
+    clipboardData: { files: [], getData: () => "hello" },
   });
   const writes = jest.spyOn(Storage.prototype, "setItem");
   const reads = jest.spyOn(Storage.prototype, "getItem");
@@ -302,10 +281,7 @@ it("blocked storage leaves the toggle usable and upload successful", async () =>
   expect(view.getByText(/Allow browser storage/)).toBeTruthy();
   fireEvent.click(view.getByRole("button", { name: "Done" }));
   fireEvent.paste(window, {
-    clipboardData: {
-      files: [new File(["hello"], "text.txt", { type: "text/plain" })],
-      getData: () => "hello",
-    },
+    clipboardData: { files: [], getData: () => "hello" },
   });
   await waitFor(() =>
     expect(view.getByRole("button", { name: "Copy URL" })).toBeTruthy(),
