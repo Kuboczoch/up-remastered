@@ -20,9 +20,25 @@ export function proxy(request: NextRequest) {
       );
   const destination = url.clone();
   destination.pathname = `/locale/${locale}${url.pathname === "/" ? "" : url.pathname}`;
-  const response = internal
-    ? NextResponse.next()
-    : NextResponse.rewrite(destination);
+  const isUnknownNestedUi =
+    !internal &&
+    url.pathname.split("/").filter(Boolean).length > 1 &&
+    !/^\/(request|decrypt)(?:\/|$)/.test(url.pathname);
+  if (
+    isUnknownNestedUi &&
+    (!["GET", "HEAD"].includes(request.method) ||
+      !request.headers.get("accept")?.includes("text/html"))
+  )
+    return NextResponse.next();
+  const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.set("x-up-not-found-locale", locale);
+  // An unmatched public URL needs the complete global error document. Rewriting
+  // into the async locale layout starts a stream and turns its notFound into 200.
+  const response = isUnknownNestedUi
+    ? NextResponse.next({ request: { headers: forwardedHeaders } })
+    : internal
+      ? NextResponse.next()
+      : NextResponse.rewrite(destination);
   response.headers.set("Content-Language", locale);
   response.headers.set(
     "Vary",
@@ -41,5 +57,13 @@ export function proxy(request: NextRequest) {
   return response;
 }
 export const config = {
-  matcher: ["/", "/request/:path*", "/decrypt/:path*", "/locale/:path*"],
+  matcher: [
+    "/",
+    "/request/:path*",
+    "/decrypt/:path*",
+    "/locale/:path*",
+    // Only otherwise-unowned nested UI paths. A single segment remains the
+    // raw /[id] contract; /u, helpers, APIs, and dotted assets remain untouched.
+    "/((?!api/|_next/|u/|sh/|sharex/|assets/|icons/|.*\\.)[^/]+/.+)",
+  ],
 };

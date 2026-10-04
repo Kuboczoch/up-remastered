@@ -32,6 +32,21 @@ provider, and translates metadata, OpenGraph/Twitter descriptions and manifest.
 Public canonical URLs are retained. Formatting uses the resolved locale and
 UTC for stable server/client date rendering.
 
+Unknown nested HTML GET/HEAD documents (for example `/missing/nested`) enter
+locale negotiation without changing their public URL. APIs, raw aliases,
+helpers, asset namespaces, dotted paths, and single-segment file IDs are
+excluded. These misses use `app/global-not-found.tsx`, enabled with
+`experimental.globalNotFound`, which provides its own complete document,
+localized initial `html[lang]`, title/description, no-index metadata and branded
+404 content. The proxy forwards the selected locale so query/cookie/header
+precedence agrees with known UI routes. Non-HTML requests are not negotiated.
+The internal locale catch-all remains scoped to the locale subtree; no universal
+page catch-all is added. Rewriting public misses into that async root was tested
+and returned streamed **200**, even with `notFound()` and a 404 rewrite status;
+the complete global error document preserves an actual **404**. Regression
+coverage includes English/Polish JavaScript-disabled SSR, Polish browser axe,
+query persistence, missing API/asset security headers, and raw unavailable bytes.
+
 ## Selection, precedence and cache isolation
 
 1. Supported explicit `?lang=en|pl` wins and persists in the `up-locale` cookie.
