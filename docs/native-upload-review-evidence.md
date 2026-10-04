@@ -1,52 +1,54 @@
 # Native upload review evidence
 
 These browser checks exercise the production standalone server, not `next dev`.
-Use Node 24.14.x and pnpm 11. Run the two configurations separately: the
-large-stream case is mandatory when selected and fails explicitly if
-`MAX_UPLOAD_SIZE` is below 1048576. It never silently skips disk evidence.
+Use Node 24.14.x and pnpm 11. The current CI config runs both configurations
+in one invocation: normal `chromium` keeps the 4 KiB ceiling and isolated
+`chromium-stream` enforces the 1 MiB runtime ceiling. The large-stream case
+is mandatory in `test:e2e:ci` and never silently skips disk evidence.
 The default small-file suite is a separate buffered-upload regression; its
 100% browser progress is **not** incomplete-stream evidence.
 
 ## Reproduce
 
-From the repository root, reserve port 3218 and create a new owned data directory
-for each configuration. Keep these variables identical for build and browser run:
+From the repository root, reserve ports 3218 and 3219. Use the default small
+limits for the build and normal project; the stream server applies its larger
+limits at runtime from the same fresh standalone artifact.
 
 ```sh
-export DATA_DIR=$(mktemp -d "${TMPDIR:?}/native-review-XXXXXX")
-export DATABASE_URL="file:$DATA_DIR/app.db"
-export UPLOAD_DIR="$DATA_DIR/uploads"
-export MAX_UPLOAD_SIZE=1048576 MAX_STORED_BYTES=16777216
-export DEFAULT_EXPIRATION_HOURS=1 MAX_EXPIRATION_HOURS=24
-export UP_PUBLIC_ORIGIN=http://127.0.0.1:3218
-export PORT=3218 HOSTNAME=127.0.0.1 CI=1
+export PORT=3218 HOSTNAME=127.0.0.1
+export MAX_UPLOAD_SIZE=4096 MAX_STORED_BYTES=1048576
 set -e -o pipefail
-pnpm run build 2>&1 | tee "$DATA_DIR/build.log"
-pnpm exec playwright test src/app/requested-upload.spec.ts \
-  src/app/request-cancel.spec.ts src/app/upload-ticket-ux.spec.ts \
-  --grep 'keeps the request form visible|history-off|default small buffered|dedicated large actual-stream' \
-  --workers=1 --retries=0 --repeat-each=3 --reporter=line \
-  2>&1 | tee "$DATA_DIR/browser.log"
+pnpm run build
+pnpm run test:e2e:ci src/app/request-cancel.spec.ts --retries=0
 ```
 
-For the default small-file regression, create another fresh `DATA_DIR`, update
-`DATABASE_URL` and `UPLOAD_DIR`, set `MAX_UPLOAD_SIZE=4096` and
-`MAX_STORED_BYTES=1048576`, and **rebuild** before this run:
+Both cancellation tests run with one worker and write one combined HTML/JSON
+report. For all default contracts plus the stream case, use `pnpm run check:full`.
+For isolated repeated evidence use fresh owned normal and stream data directories;
+the stream backend always uses `.playwright-data/stream` independently of normal
+`DATABASE_URL`/`UPLOAD_DIR` overrides. See [E2E CI](ci/e2e.md) for dev opt-in.
 
-```sh
-pnpm run build 2>&1 | tee "$DATA_DIR/build.log"
-pnpm exec playwright test src/app/requested-upload.spec.ts \
-  src/app/request-cancel.spec.ts src/app/upload-ticket-ux.spec.ts \
-  --grep-invert 'dedicated large actual-stream' \
-  --workers=1 --retries=0 --reporter=line \
-  2>&1 | tee "$DATA_DIR/browser.log"
-```
+## Combined-project verification
 
-The exclusion is only for the independently configured small-file run; both
-commands are required for complete evidence. A default unfiltered E2E run with
-a 4096-byte ceiling cannot satisfy the mandatory 1 MiB test.
+With Node 24.14.0 and pnpm 11.1.2, a fresh production build followed by
+`pnpm run test:e2e:ci src/app/request-cancel.spec.ts src/app/api/upload.spec.ts src/app/utilities.spec.ts --retries=0`
+passed all 8 selected tests with one worker and both projects in the JSON report.
+The normal backend retained `MAX_UPLOAD_SIZE=4096`; its oversize-rejection
+contract passed. Each cancellation test created a request at its exact bound
+and required API 201 from its own backend before upload.
 
-## Verified results
+- Small buffered: 4096 bytes; 100% browser progress; cancellation cleanup and
+  successful retry; second upload rejected with 404.
+- Large actual stream: 1048576 bytes; 2% native XHR progress; 16248 actual partial
+  disk bytes before cancellation; no remaining partial file after cancellation;
+  successful retry and second upload rejected with 404.
+- Typecheck, lint, format check, production build, and diff whitespace check passed.
+
+This focused run does not claim a full-suite run. Test enumeration includes the
+large case exactly once alongside all unchanged normal contracts. The existing
+CI E2E job/report and `check:full` scripts select both projects without new jobs.
+
+## Historical verified results (before combined-project wiring)
 
 Based on main `31b1fce`, with only the three review specs and this document changed:
 

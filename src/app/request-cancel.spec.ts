@@ -5,13 +5,11 @@ import { join } from "node:path";
 async function cancelAndRetry(
   page: Page,
   context: BrowserContext,
+  uploadDir: string,
   maxBytes: number,
   requirePartialStream: boolean,
 ) {
   test.setTimeout(60000);
-  expect(Number(process.env.MAX_UPLOAD_SIZE ?? 4096)).toBeGreaterThanOrEqual(
-    maxBytes,
-  );
   const response = await page.request.post("/api/upload-requests", {
     data: { maxBytes, expiresAt: new Date(Date.now() + 3600000).toISOString() },
   });
@@ -31,8 +29,8 @@ async function cancelAndRetry(
     mimeType: "text/plain",
     buffer: Buffer.alloc(maxBytes, 65),
   });
-  await mkdir(process.env.UPLOAD_DIR!, { recursive: true });
-  const before = await readdir(process.env.UPLOAD_DIR!, { recursive: true });
+  await mkdir(uploadDir, { recursive: true });
+  const before = await readdir(uploadDir, { recursive: true });
   const cdp = await context.newCDPSession(page);
   await cdp.send("Network.enable");
   await cdp.send("Network.emulateNetworkConditions", {
@@ -61,13 +59,13 @@ async function cancelAndRetry(
   // Mandatory for the dedicated large case, regardless of environment defaults.
   if (requirePartialStream) {
     const pending = async () =>
-      (await readdir(process.env.UPLOAD_DIR!)).filter(
+      (await readdir(uploadDir)).filter(
         (name) => name.startsWith(".upload-") && name.endsWith(".tmp"),
       );
     await expect
       .poll(async () => (await pending()).length, { timeout: 15000 })
       .toBe(1);
-    const path = join(process.env.UPLOAD_DIR!, (await pending())[0]);
+    const path = join(uploadDir, (await pending())[0]);
     await expect
       .poll(async () => (await stat(path)).size, { timeout: 15000 })
       .toBeGreaterThan(0);
@@ -91,9 +89,7 @@ async function cancelAndRetry(
   await expect(page.getByText(/slow.txt ·/)).toBeVisible();
   await expect.poll(inspect).toBe("retry");
   await expect
-    .poll(async () =>
-      (await readdir(process.env.UPLOAD_DIR!, { recursive: true })).sort(),
-    )
+    .poll(async () => (await readdir(uploadDir, { recursive: true })).sort())
     .toEqual(before.sort());
   await cdp.send("Network.emulateNetworkConditions", {
     offline: false,
@@ -104,9 +100,7 @@ async function cancelAndRetry(
   await page.getByRole("button", { name: "Upload file", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("requester");
   await expect.poll(inspect).toBe("consumed");
-  const afterRetry = (
-    await readdir(process.env.UPLOAD_DIR!, { recursive: true })
-  ).sort();
+  const afterRetry = (await readdir(uploadDir, { recursive: true })).sort();
   const reused = await page.request.post(
     `/api/upload-requests/${new URL(request.uploadUrl).pathname.split("/").pop()}/upload`,
     {
@@ -121,9 +115,9 @@ async function cancelAndRetry(
   );
   expect(reused.status()).toBe(404);
   await expect.poll(inspect).toBe("consumed");
-  expect(
-    (await readdir(process.env.UPLOAD_DIR!, { recursive: true })).sort(),
-  ).toEqual(afterRetry);
+  expect((await readdir(uploadDir, { recursive: true })).sort()).toEqual(
+    afterRetry,
+  );
   console.log(
     JSON.stringify({
       evidence: requirePartialStream
@@ -143,13 +137,17 @@ async function cancelAndRetry(
 test("default small buffered request upload cancels, cleans up and retries once", async ({
   page,
   context,
-}) => {
-  await cancelAndRetry(page, context, 4096, false);
+}, testInfo) => {
+  const uploadDir = testInfo.project.metadata.uploadDir;
+  expect(typeof uploadDir).toBe("string");
+  await cancelAndRetry(page, context, uploadDir, 4096, false);
 });
 
 test("dedicated large actual-stream cancellation has partial disk bytes and incomplete native XHR progress", async ({
   page,
   context,
-}) => {
-  await cancelAndRetry(page, context, 1048576, true);
+}, testInfo) => {
+  const uploadDir = testInfo.project.metadata.uploadDir;
+  expect(typeof uploadDir).toBe("string");
+  await cancelAndRetry(page, context, uploadDir, 1048576, true);
 });
