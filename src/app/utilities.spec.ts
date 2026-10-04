@@ -8,7 +8,7 @@ test("serves public upload limits", async ({ request }) => {
     defaultFileLifetime: 3_600_000,
     maxFileLifetime: 86_400_000,
     maxPermanentFileSize: 0,
-    maxTemporaryFileSize: 64,
+    maxTemporaryFileSize: 4096,
     permanentAllowed: false,
   });
 });

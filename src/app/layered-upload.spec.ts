@@ -95,7 +95,7 @@ const legacyRecords = Array.from({ length: 6 }, (_, index) => ({
 }));
 
 for (const width of [320, 390, 768, 1024, 1440]) {
-  test(`all Advanced settings are disabled and uniformly dimmed at ${width}px`, async ({
+  test(`implemented Advanced settings are enabled and UTF-8 remains disabled at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 960 });
@@ -106,15 +106,16 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     const settings = panel.locator(".option-setting");
     const controls = panel.locator("input, select");
     await expect(controls).toHaveCount(5);
-    for (let index = 3; index < 5; index++) {
-      await expect(controls.nth(index)).toBeDisabled();
+    await expect(controls.nth(4)).toBeDisabled();
+    await expect(settings.nth(4)).toHaveCSS("opacity", "0.5");
+    for (let index = 1; index < 4; index++) {
+      await expect(controls.nth(index)).toBeEnabled();
       await expect(controls.nth(index)).toHaveCSS("opacity", "1");
-      await expect(settings.nth(index)).toHaveCSS("opacity", "0.5");
+      await expect(settings.nth(index)).toHaveCSS("opacity", "1");
       await controls.nth(index).evaluate((element: HTMLInputElement) => {
-        element.click();
         element.focus();
       });
-      await expect(controls.nth(index)).not.toBeFocused();
+      await expect(controls.nth(index)).toBeFocused();
     }
     await expect(
       page.getByRole("switch", { name: "Save history" }),
@@ -259,7 +260,7 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     await expect(page.getByLabel(/Expires after/)).toBeEnabled();
     await expect(
       page.getByRole("switch", { name: "Key protect" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await expect(page.getByRole("slider")).toBeEnabled();
     await expect(
       page.getByRole("switch", { name: "Save history" }),

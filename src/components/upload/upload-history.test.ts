@@ -14,7 +14,7 @@ const upload: UploadResult = {
   originalName: "private.txt",
   size: 5,
   expiresAt: "2025-01-01T00:00:00Z",
-  shareUrl: "https://up.example/AAAAA#key=SECRET",
+  shareUrl: "https://up.example/AAAAA",
 };
 function storage(value: string | null = null) {
   return {
@@ -104,6 +104,50 @@ describe("upload history", () => {
       { ...upload, savedAt: new Date(NOW).toISOString() },
     ]);
     expect(JSON.parse(target.getItem()!)).toEqual(entries);
+  });
+  it("never saves fragment keys or extra key properties", () => {
+    const target = storage();
+    const protectedUpload = {
+      ...upload,
+      shareUrl: "https://up.example/decrypt/AAAAA#key=SECRET",
+      encryptionKey: "SECRET",
+    };
+    const [saved] = saveUploadHistoryEntry(target, protectedUpload, NOW);
+    expect(saved.shareUrl).toBe("https://up.example/decrypt/AAAAA");
+    expect(target.getItem()).not.toContain("SECRET");
+    expect(saved).not.toHaveProperty("encryptionKey");
+    expect(protectedUpload.shareUrl).toContain("#key=SECRET");
+  });
+  it("scrubs legacy stored fragments and extra key fields on enabled reads", () => {
+    const legacy = {
+      ...upload,
+      shareUrl: "https://up.example/decrypt/AAAAA#key=SECRET",
+      encryptionKey: "SECRET",
+      savedAt: new Date(NOW).toISOString(),
+    };
+    const target = storage(JSON.stringify([legacy]));
+    const [entry] = readUploadHistory(target);
+    expect(entry.shareUrl).toBe("https://up.example/decrypt/AAAAA");
+    expect(target.getItem()).not.toContain("SECRET");
+    target.setItem.mockClear();
+    expect(readUploadHistory(target)).toEqual([entry]);
+    expect(target.setItem).not.toHaveBeenCalled();
+  });
+  it("failed legacy scrub writes still return fragment-free visible history", () => {
+    const target = {
+      getItem: () =>
+        JSON.stringify([
+          {
+            ...upload,
+            shareUrl: `${upload.shareUrl}#key=SECRET`,
+            savedAt: new Date(NOW).toISOString(),
+          },
+        ]),
+      setItem: () => {
+        throw new Error("blocked");
+      },
+    };
+    expect(readUploadHistory(target)[0].shareUrl).toBe(upload.shareUrl);
   });
   it("explicitly removes an entry or clears local records", () => {
     const target = storage();

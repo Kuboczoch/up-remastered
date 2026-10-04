@@ -1,6 +1,7 @@
 import "server-only";
 
 import Busboy from "busboy";
+import { open } from "node:fs/promises";
 import type { IncomingHttpHeaders } from "node:http";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -71,6 +72,7 @@ const FILE_FIELD_NAME = "file";
 const MAX_MULTIPART_FIELD_BYTES = 8 * 1024;
 const ALLOWED_MULTIPART_FIELD_NAMES = new Set([
   "maxDownloads",
+  "encrypted",
   "expiresAt",
   "expiresInHours",
   "expiresInMinutes",
@@ -527,6 +529,39 @@ export async function createUpload(
       byteLimit,
       limitKind,
     );
+    const protectedValue = fields.get("encrypted");
+    const protectedUpload = protectedValue === "true";
+    if (protectedValue !== undefined) {
+      if (
+        !protectedUpload ||
+        content.originalName !== "encrypted.up" ||
+        content.mimeType !== "application/octet-stream" ||
+        content.size < 38 ||
+        content.size > 32 * 1024 * 1024 + 65536 + 38
+      ) {
+        throw new UploadRequestError(
+          "Invalid protected envelope contract.",
+          400,
+          "invalid_encrypted_upload",
+        );
+      }
+      const handle = await open(pendingFile.tempPath, "r");
+      try {
+        const header = Buffer.alloc(18);
+        const { bytesRead } = await handle.read(header, 0, 18, 0);
+        if (
+          bytesRead !== 18 ||
+          !header.subarray(0, 6).equals(Buffer.from([85, 80, 69, 78, 67, 1]))
+        )
+          throw new UploadRequestError(
+            "Unsupported protected envelope.",
+            400,
+            "invalid_encrypted_upload",
+          );
+      } finally {
+        await handle.close();
+      }
+    }
     const now = new Date();
     const expiresAt = resolveUploadExpiration(fields, limits, now);
     const maxDownloads = resolveMaxDownloads(fields.get("maxDownloads"));
@@ -598,7 +633,9 @@ export async function createUpload(
       maxDownloads,
       mimeType: content.mimeType,
       originalName: content.originalName,
-      shareUrl: getPublicUrl(`/${uploadId}`),
+      shareUrl: getPublicUrl(
+        protectedUpload ? `/decrypt/${uploadId}` : `/${uploadId}`,
+      ),
       size: content.size,
     };
   } catch (error) {

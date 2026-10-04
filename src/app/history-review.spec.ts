@@ -10,8 +10,7 @@ const records = [
     size: 2,
     expiresAt: "2099-01-01T00:00:00Z",
     savedAt: "2026-01-01T00:00:00Z",
-    shareUrl: "http://127.0.0.1:3000/AAA1A#key=SECRET",
-    encryptionKey: "SECRET",
+    shareUrl: "http://127.0.0.1:3000/AAA1A",
   },
 ];
 
@@ -172,7 +171,7 @@ test("tabs never synchronize live settings or records; mounts restore preference
   expect(await calls(page)).toEqual([`local:getItem:${preferenceKey}`]);
 });
 
-test("enabled success retains complete metadata, protected URL and key", async ({
+test("enabled success retains complete public metadata without keys", async ({
   page,
 }) => {
   await seedAndTrace(page, "[]");
@@ -182,7 +181,7 @@ test("enabled success retains complete metadata, protected URL and key", async (
     originalName: "new.txt",
     size: 2,
     expiresAt: "2099-01-01T00:00:00Z",
-    shareUrl: "http://127.0.0.1:3000/BBB2B#key=SECRET",
+    shareUrl: "http://127.0.0.1:3000/BBB2B",
   };
   await page.route("**/api/upload", (route) =>
     route.fulfill({
@@ -247,6 +246,41 @@ for (const outcome of ["failure", "disabled completion"] as const) {
     expect((await snapshot(page)).local).toBe(JSON.stringify(records));
   });
 }
+
+test("enabled history scrubs legacy keys and never offers unkeyed protected actions", async ({
+  page,
+}) => {
+  const legacy = {
+    ...records[0],
+    shareUrl: "http://127.0.0.1:3000/decrypt/AAA1A#key=SECRET",
+    encryptionKey: "SECRET",
+  };
+  await seedAndTrace(page, JSON.stringify([legacy]));
+  await page.goto("/");
+  await options(page, false);
+  expect((await snapshot(page)).local).toContain("SECRET");
+  await options(page, true);
+  await expect(page.getByText("Key not saved")).toBeVisible();
+  const card = page.locator(".history-card");
+  await expect(
+    card.getByRole("button", { name: "Copy link", exact: true }),
+  ).toBeDisabled();
+  await card
+    .getByRole("button", { name: "More actions for saved.txt" })
+    .click();
+  await expect(
+    card.getByRole("link", { name: "Download", exact: true }),
+  ).toHaveCount(0);
+  const local = (await snapshot(page)).local!;
+  expect(local).not.toContain("SECRET");
+  expect(JSON.parse(local)[0]).toMatchObject({
+    ...records[0],
+    shareUrl: "http://127.0.0.1:3000/decrypt/AAA1A",
+  });
+  await page.reload();
+  await expect(page.getByText("Key not saved")).toBeVisible();
+  expect((await snapshot(page)).local).not.toContain("SECRET");
+});
 
 test("manual list actions require enabled history; off hides the list without mutations", async ({
   page,

@@ -12,7 +12,7 @@ process.env.DATABASE_URL ??= pathToFileURL(
 process.env.DEFAULT_EXPIRATION_HOURS ??= "1";
 process.env.MAX_EXPIRATION_HOURS ??= "24";
 process.env.MAX_STORED_BYTES ??= "1048576";
-process.env.MAX_UPLOAD_SIZE ??= "64";
+process.env.MAX_UPLOAD_SIZE ??= "4096";
 process.env.UPLOAD_DIR ??= join(e2eDataDir, "uploads");
 process.env.UP_PUBLIC_ORIGIN ??= baseURL;
 

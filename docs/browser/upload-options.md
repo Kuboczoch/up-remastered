@@ -13,7 +13,9 @@ by the 24-hour maximum. Download limit offers 1–10 downloads or Unlimited (def
 limit counts each admitted GET, including ranges, retries and interrupted streams;
 HEAD, invalid ranges and failures before admission do not count. See
 `docs/api/download/requirements.md` for atomic admission and cleanup semantics.
-Key protection remains disabled until its implementation is integrated.
+Key protection is opt-in and encrypts original bytes with AES-256-GCM in the
+browser. A complete fragment-key link opens the dedicated receiver; keys are
+never saved in upload history. See `docs/pages/download/encryption.md`.
 
 ## Opt-in upload history
 
@@ -30,8 +32,16 @@ synchronize live settings or records. Successful upload completion saves only
 when history is currently enabled on that page; disabling during an upload
 prevents its completion from being saved.
 
-History stores complete upload metadata, share URLs and deletion access tokens,
-not uploaded binary payloads. Manual Clear history and Remove actions forget
-local records only while enabled. Delete file is a separate server action.
-No automatic pruning, migration or clearing occurs. Same-origin scripts can
-read saved metadata; clear site data on shared devices.
+History stores allowlisted metadata, fragment-free share URLs and deletion
+access tokens, never uploaded binary payloads or encryption keys. New saves
+strip URL fragments and extra properties. Enabled reads scrub legacy local
+records containing fragments or extra fields as a narrow security exception to
+ordinary read-only access; disabled history does not inspect legacy records.
+History cannot reconstruct protected unlocking links or recover keys: keep the
+original complete link separately. Protected history entries disable Copy link
+and omit Download actions rather than offering unusable unkeyed links.
+
+Manual Clear history and Remove actions forget local records only while enabled.
+Delete file is a separate server action. No automatic pruning or migration
+occurs. Same-origin scripts can read saved metadata; clear site data on shared
+devices, including dormant legacy session records.

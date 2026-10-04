@@ -8,7 +8,7 @@ test("stores every UploadResult field without uploaded binary data", () => {
     originalName: "private.txt",
     size: 2,
     expiresAt: "2099-01-01T00:00:00Z",
-    shareUrl: "https://up.example/AAAAA#key=SECRET",
+    shareUrl: "https://up.example/AAAAA",
   };
   let serialized = "";
   const storage = {

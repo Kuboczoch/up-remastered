@@ -40,15 +40,47 @@ function safeSet(
     /* Optional history must not break uploads. */
   }
 }
-// Reads are deliberately read-only: invalid/expired data is never rewritten here.
+function publicHistoryEntry(entry: UploadHistoryEntry): UploadHistoryEntry {
+  return {
+    accessToken: entry.accessToken,
+    id: entry.id,
+    originalName: entry.originalName,
+    size: entry.size,
+    expiresAt: entry.expiresAt,
+    shareUrl: entry.shareUrl.split("#", 1)[0],
+    savedAt: entry.savedAt,
+  };
+}
+// Ordinary reads are read-only. Enabled history strips legacy fragment keys and
+// unallowlisted properties, a narrow security exception rather than migration.
+
 export function readUploadHistory(
-  storage: Pick<Storage, "getItem">,
+  storage: Pick<Storage, "getItem"> & Partial<Pick<Storage, "setItem">>,
 ): UploadHistoryEntry[] {
   try {
     const stored = storage.getItem(UPLOAD_HISTORY_STORAGE_KEY);
     if (!stored) return [];
     const parsed: unknown = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed.filter(isEntry) : [];
+    if (!Array.isArray(parsed)) return [];
+    const sanitized = parsed.map((entry: unknown) =>
+      isEntry(entry) ? publicHistoryEntry(entry) : entry,
+    );
+    const needsScrubbing = parsed.some(
+      (entry: unknown, index: number) =>
+        isEntry(entry) &&
+        (entry.shareUrl.includes("#") ||
+          Object.keys(entry).some(
+            (key) => !Object.hasOwn(sanitized[index] as object, key),
+          )),
+    );
+    if (storage.setItem && needsScrubbing) {
+      try {
+        storage.setItem(UPLOAD_HISTORY_STORAGE_KEY, JSON.stringify(sanitized));
+      } catch {
+        // Storage failures must not expose keys in the visible history.
+      }
+    }
+    return sanitized.filter(isEntry);
   } catch {
     return [];
   }
@@ -65,7 +97,7 @@ export function saveUploadHistoryEntry(
     originalName: upload.originalName,
     size: upload.size,
     expiresAt: upload.expiresAt,
-    shareUrl: upload.shareUrl,
+    shareUrl: upload.shareUrl.split("#", 1)[0],
     savedAt: new Date(now).toISOString(),
   };
   const existing = readUploadHistory(storage);
