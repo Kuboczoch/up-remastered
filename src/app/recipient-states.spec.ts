@@ -32,7 +32,7 @@ test("readable limits and UTC expiry match oversize validation and used-link gui
     buffer: Buffer.alloc(1025),
   });
   await page.getByRole("button", { name: "Upload file" }).click();
-  await expect(page.getByRole("alert")).toHaveText(
+  await expect(page.locator("form").getByRole("alert")).toHaveText(
     "The file must be no larger than 1 KiB.",
   );
   const fileInput = page.getByLabel("Choose file");
@@ -74,7 +74,9 @@ test("revocation of an open form blocks resubmission and exposes only safe page 
   await expect(
     page.getByRole("button", { name: "Upload file" }),
   ).toBeDisabled();
-  await expect(page.getByRole("alert")).toContainText("Do not retry");
+  await expect(page.locator("form").getByRole("alert")).toContainText(
+    "Do not retry",
+  );
   await page.getByRole("link", { name: "Check request status" }).click();
   await expect(page.getByRole("heading")).toHaveText(
     "This upload request was revoked",
