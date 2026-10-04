@@ -1109,9 +1109,6 @@ html {
   /* Dim the entire setting uniformly, including its retained label. */
   opacity: 0.5;
 }
-#history-help {
-  color: var(--muted);
-}
 .options-panel .option-setting :disabled {
   opacity: 1;
   cursor: not-allowed;
@@ -1182,6 +1179,7 @@ html {
   border-radius: 30px;
   position: relative;
   cursor: pointer;
+  transition: background-color 180ms ease;
 }
 .switch-setting input::after {
   content: "";
@@ -1192,12 +1190,16 @@ html {
   background: #ddd8e7;
   top: 4px;
   left: 4px;
+  transform: translateX(0);
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease;
 }
 .switch-setting input:checked {
   background: var(--accent);
 }
 .switch-setting input:checked::after {
-  left: 20px;
+  transform: translateX(16px);
   background: #24202f;
 }
 .options-done,

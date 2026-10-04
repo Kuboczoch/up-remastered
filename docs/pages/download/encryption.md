@@ -19,7 +19,10 @@ It exists in memory and the share-link fragment only; it is never included in an
 HTTP path, query, form, header, application log, or error message. Browser-local
 history must strip the fragment before persisting protected records. Such records
 cannot recover their complete link after reload; retain the original full link
-separately. The browser address bar/history, clipboard, and anyone receiving the
+separately. Enabled history reads scrub fragments and unallowlisted fields from
+valid legacy local records without pruning or migrating history. Disabled
+history does not inspect pre-existing local/session records; dormant legacy
+session data remains untouched. Clear site data on shared devices. The browser address bar/history, clipboard, and anyone receiving the
 full link are trust boundaries, not server-side key storage.
 
 The receiver page does **not** fetch ciphertext on arrival. After validating the

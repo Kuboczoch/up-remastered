@@ -1,191 +1,177 @@
-import { describe, expect, it } from "@jest/globals";
-
+import { describe, expect, it, jest } from "@jest/globals";
 import type { UploadResult } from "./client-upload";
 import {
   readUploadHistory,
-  removeUploadHistoryEntry,
-  restoreUploadHistory,
   saveUploadHistoryEntry,
+  removeUploadHistoryEntry,
+  clearUploadHistory,
+  UPLOAD_HISTORY_STORAGE_KEY as KEY,
 } from "./upload-history";
-
-const NOW = Date.parse("2026-01-01T00:00:00.000Z");
-
-function upload(
-  id: string,
-  overrides: Partial<UploadResult> = {},
-): UploadResult {
+const NOW = Date.parse("2026-01-01T00:00:00Z");
+const upload: UploadResult = {
+  accessToken: "token",
+  id: "AAAAA",
+  originalName: "private.txt",
+  size: 5,
+  expiresAt: "2025-01-01T00:00:00Z",
+  shareUrl: "https://up.example/AAAAA",
+};
+function storage(value: string | null = null) {
   return {
-    accessToken: `token-${id}`,
-    expiresAt: "2026-01-02T00:00:00.000Z",
-    id,
-    originalName: `${id}.txt`,
-    shareUrl: `https://up.example/${id}`,
-    size: 5,
-    ...overrides,
+    getItem: jest.fn(() => value),
+    setItem: jest.fn((_key: string, next: string) => {
+      value = next;
+    }),
+    removeItem: jest.fn((key: string) => {
+      if (key === KEY) value = null;
+    }),
   };
 }
-
-function storage() {
-  const values = new Map<string, string>();
-  return {
-    getItem: (key: string) => values.get(key) ?? null,
-    removeItem: (key: string) => void values.delete(key),
-    setItem: (key: string, value: string) => void values.set(key, value),
-    values,
-  };
-}
-
 describe("upload history", () => {
-  it("stores newest uploads first and replaces duplicate IDs", () => {
-    const target = storage();
-    saveUploadHistoryEntry(target, upload("AAAAA"), NOW);
-    saveUploadHistoryEntry(
-      target,
-      upload("BBBBB", { originalName: "new.txt" }),
-      NOW + 1,
-    );
-    const entries = saveUploadHistoryEntry(
-      target,
-      upload("AAAAA", { originalName: "updated.txt" }),
-      NOW + 2,
-    );
-
-    expect(entries.map(({ id }) => id)).toEqual(["AAAAA", "BBBBB"]);
-    expect(entries[0].originalName).toBe("updated.txt");
+  it("reads full metadata including expired entries without rewriting storage", () => {
+    const entry = { ...upload, savedAt: new Date(NOW).toISOString() };
+    const target = storage(JSON.stringify([entry]));
+    expect(readUploadHistory(target)).toEqual([entry]);
+    expect(target.setItem).not.toHaveBeenCalled();
+    expect(target.removeItem).not.toHaveBeenCalled();
   });
-
-  it("prunes expired, malformed, and excess entries", () => {
-    const target = storage();
-    const entries = Array.from({ length: 55 }, (_, index) => ({
-      ...upload(index.toString(36).toUpperCase().padStart(5, "0")),
-      savedAt: new Date(NOW + index).toISOString(),
-    }));
-    entries.splice(2, 0, {
-      ...upload("ZZZZZ", { expiresAt: "2025-01-01T00:00:00Z" }),
+  it.each(["{", "{}", '[{"id":"broken"}]'])(
+    "leaves invalid storage untouched: %s",
+    (value) => {
+      const target = storage(value);
+      expect(readUploadHistory(target)).toEqual([]);
+      expect(target.setItem).not.toHaveBeenCalled();
+      expect(target.removeItem).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["javascript:alert(1)", "data:text/plain,no", "not-url"])(
+    "rejects unsafe URL %s without writes",
+    (shareUrl) => {
+      const target = storage(
+        JSON.stringify([
+          { ...upload, shareUrl, savedAt: new Date(NOW).toISOString() },
+        ]),
+      );
+      expect(readUploadHistory(target)).toEqual([]);
+      expect(target.setItem).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    ["accessToken", ""],
+    ["accessToken", 1],
+    ["id", "bad"],
+    ["id", 123],
+    ["originalName", ""],
+    ["originalName", null],
+    ["size", -1],
+    ["size", 1.5],
+    ["size", "5"],
+    ["expiresAt", "invalid"],
+    ["savedAt", "invalid"],
+    ["shareUrl", "javascript:alert(1)"],
+  ])("requires complete correctly typed metadata: %s = %s", (field, value) => {
+    const entry = {
+      ...upload,
       savedAt: new Date(NOW).toISOString(),
-    });
-    entries.splice(3, 0, {
-      ...upload("YYYYY", { shareUrl: "javascript:alert(1)" }),
-      savedAt: new Date(NOW).toISOString(),
-    });
-    target.setItem(
-      "up-remastered:upload-history:v1",
-      JSON.stringify([...entries, { id: "broken" }]),
-    );
-
-    const result = readUploadHistory(target, NOW);
-    expect(result).toHaveLength(50);
-    expect(result.some(({ id }) => id === "ZZZZZ")).toBe(false);
-    expect(result.some(({ id }) => id === "YYYYY")).toBe(false);
+      [field]: value,
+    };
+    const target = storage(JSON.stringify([entry]));
+    expect(readUploadHistory(target)).toEqual([]);
+    expect(target.setItem).not.toHaveBeenCalled();
+    expect(target.removeItem).not.toHaveBeenCalled();
   });
-
-  it("prunes entries exactly at the expiry boundary and deduplicates IDs", () => {
+  it.each(Object.keys({ ...upload, savedAt: "" }))(
+    "rejects missing metadata field %s without writes",
+    (field) => {
+      const entry: Record<string, unknown> = {
+        ...upload,
+        savedAt: new Date(NOW).toISOString(),
+      };
+      delete entry[field];
+      const target = storage(JSON.stringify([entry]));
+      expect(readUploadHistory(target)).toEqual([]);
+      expect(target.setItem).not.toHaveBeenCalled();
+      expect(target.removeItem).not.toHaveBeenCalled();
+    },
+  );
+  it("saves complete UploadResult with protected URL and timestamp, newest first", () => {
     const target = storage();
-    target.setItem(
-      "up-remastered:upload-history:v1",
-      JSON.stringify([
-        {
-          ...upload("AAAAA", { expiresAt: new Date(NOW).toISOString() }),
-          savedAt: new Date(NOW + 3).toISOString(),
-        },
-        {
-          ...upload("BBBBB"),
-          savedAt: new Date(NOW + 2).toISOString(),
-        },
-        {
-          ...upload("BBBBB", { originalName: "older.txt" }),
-          savedAt: new Date(NOW + 1).toISOString(),
-        },
-      ]),
-    );
-
-    expect(readUploadHistory(target, NOW)).toMatchObject([
-      { id: "BBBBB", originalName: "BBBBB.txt" },
+    saveUploadHistoryEntry(target, upload, NOW);
+    const next = { ...upload, id: "BBBBB", originalName: "next.txt" };
+    const entries = saveUploadHistoryEntry(target, next, NOW + 1);
+    expect(entries).toEqual([
+      { ...next, savedAt: new Date(NOW + 1).toISOString() },
+      { ...upload, savedAt: new Date(NOW).toISOString() },
     ]);
+    expect(JSON.parse(target.getItem()!)).toEqual(entries);
   });
-
-  it("migrates and merges session history once without duplicate IDs", () => {
-    const persistent = storage();
-    const legacy = storage();
-    saveUploadHistoryEntry(persistent, upload("AAAAA"), NOW);
-    saveUploadHistoryEntry(
-      legacy,
-      upload("AAAAA", { originalName: "newer.txt" }),
-      NOW + 2,
-    );
-    saveUploadHistoryEntry(legacy, upload("BBBBB"), NOW + 1);
-
-    expect(restoreUploadHistory(persistent, legacy, NOW, true)).toMatchObject([
-      { id: "AAAAA", originalName: "newer.txt" },
-      { id: "BBBBB" },
-    ]);
-    expect(legacy.values.size).toBe(0);
-    expect(restoreUploadHistory(persistent, legacy, NOW, true)).toHaveLength(2);
+  it("never saves fragment keys or extra key properties", () => {
+    const target = storage();
+    const protectedUpload = {
+      ...upload,
+      shareUrl: "https://up.example/decrypt/AAAAA#key=SECRET",
+      encryptionKey: "SECRET",
+    };
+    const [saved] = saveUploadHistoryEntry(target, protectedUpload, NOW);
+    expect(saved.shareUrl).toBe("https://up.example/decrypt/AAAAA");
+    expect(target.getItem()).not.toContain("SECRET");
+    expect(saved).not.toHaveProperty("encryptionKey");
+    expect(protectedUpload.shareUrl).toContain("#key=SECRET");
   });
-
-  it("retains legacy history when persistent migration storage fails", () => {
-    const legacy = storage();
-    saveUploadHistoryEntry(legacy, upload("AAAAA"), NOW);
-    const unavailable = {
-      getItem: () => null,
-      removeItem: () => undefined,
+  it("scrubs legacy stored fragments and extra key fields on enabled reads", () => {
+    const legacy = {
+      ...upload,
+      shareUrl: "https://up.example/decrypt/AAAAA#key=SECRET",
+      encryptionKey: "SECRET",
+      savedAt: new Date(NOW).toISOString(),
+    };
+    const target = storage(JSON.stringify([legacy]));
+    const [entry] = readUploadHistory(target);
+    expect(entry.shareUrl).toBe("https://up.example/decrypt/AAAAA");
+    expect(target.getItem()).not.toContain("SECRET");
+    target.setItem.mockClear();
+    expect(readUploadHistory(target)).toEqual([entry]);
+    expect(target.setItem).not.toHaveBeenCalled();
+  });
+  it("failed legacy scrub writes still return fragment-free visible history", () => {
+    const target = {
+      getItem: () =>
+        JSON.stringify([
+          {
+            ...upload,
+            shareUrl: `${upload.shareUrl}#key=SECRET`,
+            savedAt: new Date(NOW).toISOString(),
+          },
+        ]),
       setItem: () => {
-        throw new DOMException("quota exceeded");
+        throw new Error("blocked");
       },
     };
-
-    expect(restoreUploadHistory(unavailable, legacy, NOW, true)).toMatchObject([
-      { id: "AAAAA" },
-    ]);
-    expect(legacy.values.size).toBe(1);
+    expect(readUploadHistory(target)[0].shareUrl).toBe(upload.shareUrl);
   });
-
-  it("rejects unsupported storage schemas", () => {
+  it("explicitly removes an entry or clears local records", () => {
     const target = storage();
-    target.setItem(
-      "up-remastered:upload-history:v1",
-      JSON.stringify({ version: 2, entries: [] }),
-    );
-
-    expect(readUploadHistory(target, NOW)).toEqual([]);
-    expect(target.values.size).toBe(0);
+    saveUploadHistoryEntry(target, upload, NOW);
+    expect(removeUploadHistoryEntry(target, upload.id)).toEqual([]);
+    expect(clearUploadHistory(target)).toBe(true);
+    expect(target.removeItem).toHaveBeenCalledWith(KEY);
   });
-
-  it("removes corrupt JSON rather than throwing", () => {
-    const target = storage();
-    target.setItem("up-remastered:upload-history:v1", "{");
-
-    expect(readUploadHistory(target, NOW)).toEqual([]);
-    expect(target.values.size).toBe(0);
-  });
-
-  it("removes one upload without affecting others", () => {
-    const target = storage();
-    saveUploadHistoryEntry(target, upload("AAAAA"), NOW);
-    saveUploadHistoryEntry(target, upload("BBBBB"), NOW);
-
-    expect(removeUploadHistoryEntry(target, "AAAAA", NOW)).toMatchObject([
-      { id: "BBBBB" },
-    ]);
-  });
-
-  it("degrades gracefully when browser storage is unavailable", () => {
-    const unavailable = {
+  it("storage errors cannot break uploads", () => {
+    const target = {
       getItem: () => {
-        throw new DOMException("blocked");
+        throw new Error("blocked");
+      },
+      setItem: () => {
+        throw new Error("blocked");
       },
       removeItem: () => {
-        throw new DOMException("blocked");
-      },
-      setItem: () => {
-        throw new DOMException("blocked");
+        throw new Error("blocked");
       },
     };
-
-    expect(readUploadHistory(unavailable, NOW)).toEqual([]);
-    expect(
-      saveUploadHistoryEntry(unavailable, upload("AAAAA"), NOW),
-    ).toMatchObject([{ id: "AAAAA" }]);
-    expect(removeUploadHistoryEntry(unavailable, "AAAAA", NOW)).toEqual([]);
+    expect(readUploadHistory(target)).toEqual([]);
+    expect(saveUploadHistoryEntry(target, upload, NOW)).toEqual([
+      { ...upload, savedAt: new Date(NOW).toISOString() },
+    ]);
+    expect(clearUploadHistory(target)).toBe(false);
   });
 });

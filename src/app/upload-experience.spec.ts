@@ -614,7 +614,7 @@ test("disabled history stays empty across page restarts", async ({
   expect((await reopenedPage.request.get(shareUrl)).ok()).toBe(true);
 });
 
-test("consent and revocation synchronize history across tabs", async ({
+test("history toggles are page-local and turning off leaves records untouched", async ({
   context,
   page,
 }) => {
@@ -641,10 +641,11 @@ test("consent and revocation synchronize history across tabs", async ({
   await otherPage.getByRole("button", { name: /Advanced options/ }).click();
   await expect(
     otherPage.getByRole("switch", { name: "Save history" }),
-  ).toBeChecked();
+  ).not.toBeChecked();
   await expect(
     otherPage.getByRole("switch", { name: "Save history" }),
   ).toBeEnabled();
+  await otherPage.getByRole("switch", { name: "Save history" }).check();
   await otherPage
     .getByRole("button", { name: "Close advanced options" })
     .click();
@@ -652,13 +653,18 @@ test("consent and revocation synchronize history across tabs", async ({
     otherPage.getByRole("heading", { name: "synced.txt" }),
   ).toBeVisible();
   await page.getByRole("button", { name: /Advanced options/ }).click();
-  await page.getByRole("switch", { name: "Save history" }).click();
-  await expect(otherPage.locator(".history-card")).toBeHidden();
+  await expect(
+    page.getByRole("switch", { name: "Save history" }),
+  ).not.toBeChecked();
+  await page.getByRole("switch", { name: "Save history" }).check();
+  await page.getByRole("switch", { name: "Save history" }).uncheck();
+  await expect(otherPage.locator(".history-card")).toBeVisible();
+  await expect(page.locator(".history-card")).toBeHidden();
   expect(
     await otherPage.evaluate(() =>
       localStorage.getItem("up-remastered:upload-history:v1"),
     ),
-  ).toBeNull();
+  ).toContain("synced.txt");
   expect(await otherPage.locator("body").innerText()).not.toContain(
     "not-rendered",
   );

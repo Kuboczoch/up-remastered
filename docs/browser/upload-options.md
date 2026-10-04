@@ -8,7 +8,8 @@ Clipboard files retain their original bytes. Closing options or switching
 File/Text preserves the text draft; file mode hides the encoding control.
 
 Expiry offers 1, 3, 6, 12 and 24 hours (default 24) and applies to every upload
-entry point. Download limit offers 1–10 downloads or Unlimited (default). A finite
+entry point. Server configuration and all legacy expiration fields are bounded
+by the 24-hour maximum. Download limit offers 1–10 downloads or Unlimited (default). A finite
 limit counts each admitted GET, including ranges, retries and interrupted streams;
 HEAD, invalid ranges and failures before admission do not count. See
 `docs/api/download/requirements.md` for atomic admission and cleanup semantics.
@@ -18,27 +19,29 @@ never saved in upload history. See `docs/pages/download/encryption.md`.
 
 ## Opt-in upload history
 
-Save history is off unless this browser previously recorded explicit consent.
-Before consent, upload records are not read, restored, migrated, pruned or saved.
-Enabling persists consent and then restores local records and migrates older
-session records. Disabling revokes consent immediately and removes records from
-both local and session storage in this tab; server uploads are unchanged.
-Re-enabling starts with an empty history after a successful disable.
+Save history defaults off when the optional `up-remastered:history-enabled`
+localStorage flag is absent. Mount restores only the exact `true` preference;
+legacy consent is ignored. Enabling stores `true`; disabling removes the flag,
+hides the list and leaves existing records unchanged. Routine toggles have no
+helper copy or status feedback. Blocked preference storage shows an actionable
+warning, but the setting continues to work for this page.
 
-Clear history removes browser records from both stores but keeps consent enabled;
-subsequent successful uploads can be recorded. Individual Remove actions forget a
-browser record; Delete file is a separate, explicitly labelled server action.
-Consent and records synchronize through local-storage events across same-origin
-tabs. An upload finishing after revocation checks current persisted consent and
-must not save even if the storage event has not arrived. Session storage belongs
-to its tab; inactive legacy records in another tab are never migrated without
-consent. Browser storage failures fail closed when enabling, and unsuccessful
-clearing is reported rather than claimed successful. Clear site data to remove
-records from a blocked browser or shared device.
+While disabled, history records are not read or saved. Enabled mounts and
+enabling read local metadata without rewriting or migrating it. Tabs do not
+synchronize live settings or records. Successful upload completion saves only
+when history is currently enabled on that page; disabling during an upload
+prevents its completion from being saved.
 
-History stores an allowlisted set of metadata and deletion access tokens. URL
-fragments are stripped on save/read/migration and extra properties are discarded:
-no fragment encryption keys are retained. For protected uploads,
-history cannot reconstruct their full unlocking links or recover their keys.
-Keep the original full link separately. Fragment scrubbing starts only after
-consent; opting out does not inspect or rewrite pre-existing legacy records.
+History stores allowlisted metadata, fragment-free share URLs and deletion
+access tokens, never uploaded binary payloads or encryption keys. New saves
+strip URL fragments and extra properties. Enabled reads scrub legacy local
+records containing fragments or extra fields as a narrow security exception to
+ordinary read-only access; disabled history does not inspect legacy records.
+History cannot reconstruct protected unlocking links or recover keys: keep the
+original complete link separately. Protected history entries disable Copy link
+and omit Download actions rather than offering unusable unkeyed links.
+
+Manual Clear history and Remove actions forget local records only while enabled.
+Delete file is a separate server action. No automatic pruning or migration
+occurs. Same-origin scripts can read saved metadata; clear site data on shared
+devices, including dormant legacy session records.
