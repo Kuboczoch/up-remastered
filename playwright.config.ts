@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { join } from "node:path";
+import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
 const port = Number(process.env.PORT ?? 3000);
@@ -25,7 +26,12 @@ const includesStreamProject =
   isCiRun || (!isLighthouseRun && process.env.PLAYWRIGHT_LARGE_STREAM === "1");
 const streamPort = port + 1;
 const streamBaseURL = `http://127.0.0.1:${streamPort}`;
-const streamDataDir = join(e2eDataDir, "stream");
+// Separate invocations must not inherit consumed files and exhaust this fixture's quota.
+process.env.PLAYWRIGHT_STREAM_DATA_DIR ??= join(
+  e2eDataDir,
+  `stream-${randomUUID()}`,
+);
+const streamDataDir = process.env.PLAYWRIGHT_STREAM_DATA_DIR;
 const streamUploadDir = join(streamDataDir, "uploads");
 const largeCancellation =
   /dedicated large actual-stream cancellation has partial disk bytes and incomplete native XHR progress/;
