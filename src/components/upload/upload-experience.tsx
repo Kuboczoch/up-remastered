@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { copyLink } from "@/lib/copy-link";
+import { ManualCopyLink } from "@/components/manual-copy-link";
+import { DestructiveConfirmation } from "@/components/destructive-confirmation";
 
 import {
   useCallback,
@@ -41,7 +44,21 @@ type PublicConfiguration = {
   maxTemporaryFileSize: number;
 };
 
-type Phase = "idle" | "uploading" | "success" | "error";
+type Phase = "idle" | "uploading" | "success" | "error" | "deleted";
+
+function isProtectedLink(url: string): boolean {
+  const parsed = new URL(url);
+  return parsed.pathname.startsWith("/decrypt/") || parsed.hash.length > 0;
+}
+
+function isEditable(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    !!target.closest(
+      "input:not([type=file]), textarea, [contenteditable]:not([contenteditable=false])",
+    )
+  );
+}
 
 function isDirectoryDrop(dataTransfer: DataTransfer): boolean {
   return Array.from(dataTransfer.items).some((item) => {
@@ -104,6 +121,17 @@ export function UploadExperience({
   const [expirationHours, setExpirationHours] = useState(24);
   const [saveHistory, setSaveHistory] = useState(false);
   const [protection, setProtection] = useState(false);
+  const [protectionAvailable, setProtectionAvailable] = useState(false);
+  const [shareAvailable, setShareAvailable] = useState(false);
+  const [manualCopyUrl, setManualCopyUrl] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Pick<
+    UploadResult,
+    "id" | "originalName" | "accessToken"
+  > | null>(null);
+  const deletePending = useRef(false);
+  const resultGeneration = useRef(0);
+  const deletedIds = useRef(new Set<string>());
+  const [deleteError, setDeleteError] = useState("");
   const saveHistoryRef = useRef(false);
   const [historyPreferenceWarning, setHistoryPreferenceWarning] = useState("");
   const optionsRef = useRef<HTMLElement>(null);
@@ -134,6 +162,7 @@ export function UploadExperience({
   const dragDepthRef = useRef(0);
   const errorHeadingRef = useRef<HTMLHeadingElement>(null);
   const resultHeadingRef = useRef<HTMLHeadingElement>(null);
+  const deletedHeadingRef = useRef<HTMLHeadingElement>(null);
   const restorePickerFocusRef = useRef(false);
   const qrTriggerRef = useRef<HTMLButtonElement>(null);
   const abortRef = useRef<(() => void) | null>(null);
@@ -150,6 +179,11 @@ export function UploadExperience({
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     let enabled = false;
+    setProtectionAvailable(
+      window.isSecureContext &&
+        typeof window.crypto?.subtle?.encrypt === "function",
+    );
+    setShareAvailable(typeof navigator.share === "function");
     try {
       enabled = window.localStorage.getItem(HISTORY_PREFERENCE_KEY) === "true";
     } catch {
@@ -265,6 +299,7 @@ export function UploadExperience({
     if (phase === "success") {
       resultHeadingRef.current?.focus();
     }
+    if (phase === "deleted") deletedHeadingRef.current?.focus();
   }, [phase, mobile, optionsOpen]);
 
   useEffect(() => {
@@ -321,6 +356,7 @@ export function UploadExperience({
       }
 
       const sequence = requestSequence.current + 1;
+      resultGeneration.current++;
       requestSequence.current = sequence;
       setError("");
       setCopied(false);
@@ -384,13 +420,7 @@ export function UploadExperience({
       if (phase !== "idle" && phase !== "error") {
         return;
       }
-      if (
-        event.target instanceof HTMLTextAreaElement ||
-        (event.target instanceof HTMLInputElement &&
-          event.target.type !== "file") ||
-        optionsOpen
-      )
-        return;
+      if (isEditable(event.target) || optionsOpen) return;
       const files = Array.from(event.clipboardData?.files ?? []);
       if (files.length > 1) {
         setError("Paste one file at a time.");
@@ -406,9 +436,10 @@ export function UploadExperience({
       const pastedText = event.clipboardData?.getData("text/plain") ?? "";
       if (pastedText) {
         event.preventDefault();
-        void beginUpload(
-          createTextFile(pastedText, "pasted-text.txt", textEncoding),
-        );
+        setText(pastedText);
+        setMode("text");
+        setError("");
+        setPhase("idle");
       }
     };
 
@@ -424,6 +455,7 @@ export function UploadExperience({
     setProgress(0);
     setError("");
     setResult(null);
+    setManualCopyUrl(null);
     setQrOpen(false);
     setText("");
     setCopied(false);
@@ -437,6 +469,7 @@ export function UploadExperience({
   }
 
   function startAnotherUpload() {
+    resultGeneration.current++;
     restorePickerFocusRef.current = true;
     reset();
   }
@@ -466,12 +499,7 @@ export function UploadExperience({
   }
 
   function pasteIntoPanel(event: ReactClipboardEvent<HTMLElement>) {
-    if (
-      event.target instanceof HTMLTextAreaElement ||
-      event.target instanceof HTMLInputElement ||
-      optionsOpen
-    )
-      return;
+    if (isEditable(event.target) || optionsOpen) return;
     event.stopPropagation();
     if (phase !== "idle" && phase !== "error") {
       return;
@@ -492,9 +520,10 @@ export function UploadExperience({
     const pastedText = event.clipboardData.getData("text/plain");
     if (pastedText) {
       event.preventDefault();
-      void beginUpload(
-        createTextFile(pastedText, "pasted-text.txt", textEncoding),
-      );
+      setText(pastedText);
+      setMode("text");
+      setError("");
+      setPhase("idle");
     }
   }
 
@@ -513,8 +542,11 @@ export function UploadExperience({
     if (!result) {
       return;
     }
-    try {
-      await navigator.clipboard.writeText(result.shareUrl);
+    const generation = resultGeneration.current;
+    const outcome = await copyLink(result.shareUrl);
+    if (generation !== resultGeneration.current) return;
+    if (outcome === "copied") {
+      setManualCopyUrl(null);
       setCopied(true);
       if (copyConfirmationTimerRef.current !== null) {
         window.clearTimeout(copyConfirmationTimerRef.current);
@@ -523,8 +555,24 @@ export function UploadExperience({
         setCopied(false);
         copyConfirmationTimerRef.current = null;
       }, 2_000);
-    } catch {
+    } else {
       setCopied(false);
+      setManualCopyUrl(result.shareUrl);
+    }
+  }
+
+  async function shareUrl(url: string) {
+    if (isProtectedLink(url) || typeof navigator.share !== "function") return;
+    try {
+      await navigator.share({
+        title: "Temporary file",
+        text: "Anyone with this link can download the file.",
+        url,
+      });
+    } catch (shareError) {
+      if (shareError instanceof Error && shareError.name === "AbortError")
+        return;
+      setHistoryStatus("Sharing failed. Use Copy link instead.");
     }
   }
 
@@ -560,9 +608,13 @@ export function UploadExperience({
     }
   }
 
-  async function deleteHistoryEntry(entry: UploadHistoryEntry) {
-    if (!saveHistoryRef.current) return;
+  async function deleteHistoryEntry(
+    entry: Pick<UploadResult, "id" | "originalName" | "accessToken">,
+  ) {
+    if (deletePending.current) return;
+    deletePending.current = true;
     setDeletingHistoryId(entry.id);
+    setDeleteError("");
     setHistoryStatus("");
     try {
       const response = await fetch(`/api/u/${encodeURIComponent(entry.id)}`, {
@@ -575,19 +627,41 @@ export function UploadExperience({
       }
 
       if (saveHistoryRef.current) {
-        setHistory(removeUploadHistoryEntry(window.localStorage, entry.id));
+        setHistory((items) => items.filter((item) => item.id !== entry.id));
+        try {
+          removeUploadHistoryEntry(window.localStorage, entry.id);
+        } catch {
+          /* Optional browser storage must not undo server deletion. */
+        }
       }
+      deletedIds.current.add(entry.id);
+      if (result?.id === entry.id) {
+        resultGeneration.current++;
+        setPhase("deleted");
+        setResult(null);
+        setQrOpen(false);
+        setQrSvg("");
+        setCopied(false);
+      }
+      if (
+        manualCopyUrl &&
+        ((result?.id === entry.id && manualCopyUrl === result.shareUrl) ||
+          history.some(
+            (item) => item.id === entry.id && item.shareUrl === manualCopyUrl,
+          ))
+      )
+        setManualCopyUrl(null);
+      setDeleteTarget(null);
       setHistoryStatus(
         response.status === 404
           ? `${entry.originalName} was already unavailable and has been forgotten.`
           : `${entry.originalName} was deleted.`,
       );
     } catch {
-      setHistoryStatus(
-        `${entry.originalName} could not be deleted. Try again.`,
-      );
+      setDeleteError(`${entry.originalName} could not be deleted. Try again.`);
     } finally {
       setDeletingHistoryId(null);
+      deletePending.current = false;
     }
   }
 
@@ -774,6 +848,21 @@ export function UploadExperience({
         )}
       </div>
       <div className="upload-stage">
+        {phase === "deleted" && (
+          <section className="upload-card state-card" aria-live="polite">
+            <h2 ref={deletedHeadingRef} tabIndex={-1}>
+              File deleted
+            </h2>
+            <p>Existing sharing links no longer work.</p>
+            <button
+              className="outline-button"
+              type="button"
+              onClick={startAnotherUpload}
+            >
+              Upload another file
+            </button>
+          </section>
+        )}
         <div className="upload-back">
           <div className="upload-rail">
             <Link href="/request/new">Request a file ↗</Link>
@@ -963,9 +1052,12 @@ export function UploadExperience({
                 )}
               </button>
             </div>
+            {manualCopyUrl === result.shareUrl && (
+              <ManualCopyLink url={manualCopyUrl} />
+            )}
             <p className="share-note">
               {result.shareUrl.includes("#key=")
-                ? "Only the full link unlocks the file. Keep it safe: keys are not saved in this app’s upload history and cannot be recovered."
+                ? "Only the full link unlocks the file. Keep it safe: keys are not saved in this app’s upload history and cannot be recovered. Protected links cannot use native Share; use Copy URL for the complete link."
                 : "Anyone with the link can download."}
             </p>
             <div
@@ -973,6 +1065,25 @@ export function UploadExperience({
               className="result-actions"
               role="group"
             >
+              {shareAvailable && !isProtectedLink(result.shareUrl) && (
+                <button
+                  className="outline-button"
+                  type="button"
+                  onClick={() => void shareUrl(result.shareUrl)}
+                >
+                  Share
+                </button>
+              )}
+              <button
+                className="outline-button destructive-action"
+                type="button"
+                onClick={() => {
+                  setDeleteError("");
+                  setDeleteTarget(result);
+                }}
+              >
+                Delete file
+              </button>
               <a href={result.shareUrl} rel="noreferrer" target="_blank">
                 Open file
               </a>
@@ -1164,12 +1275,22 @@ export function UploadExperience({
                 AES-256-GCM in your browser, up to 32 MiB. Keep the complete
                 link: history cannot recover keys.
               </small>
+              {!protectionAvailable && (
+                <small id="protection-unavailable">
+                  Key protection requires HTTPS (or localhost) and Web Crypto.
+                  It is unavailable here; no plaintext fallback.
+                </small>
+              )}
             </div>
             <input
               id="key-protect"
               type="checkbox"
               role="switch"
               checked={protection}
+              disabled={!protectionAvailable}
+              aria-describedby={
+                !protectionAvailable ? "protection-unavailable" : undefined
+              }
               onChange={(event) => setProtection(event.target.checked)}
             />
           </div>
@@ -1197,7 +1318,10 @@ export function UploadExperience({
       <div className="history-region">
         {saveHistory &&
           history.length > 0 &&
-          (phase === "idle" || phase === "success" || phase === "error") && (
+          (phase === "idle" ||
+            phase === "success" ||
+            phase === "error" ||
+            phase === "deleted") && (
             <section className="history-card" aria-labelledby="history-heading">
               <div className="history-header">
                 <h2 id="history-heading" aria-label="Your uploads">
@@ -1245,7 +1369,21 @@ export function UploadExperience({
                       <div className="history-actions">
                         {new URL(entry.shareUrl).pathname.startsWith(
                           "/decrypt/",
-                        ) && <span>Key not saved</span>}
+                        ) && (
+                          <span>
+                            Key not saved. Use your saved full-link copy;
+                            protected links cannot use native Share.
+                          </span>
+                        )}
+                        {shareAvailable && !isProtectedLink(entry.shareUrl) && (
+                          <button
+                            type="button"
+                            onClick={() => void shareUrl(entry.shareUrl)}
+                            aria-label={`Share ${entry.originalName}`}
+                          >
+                            Share
+                          </button>
+                        )}
                         <button
                           className="history-copy-link"
                           disabled={new URL(entry.shareUrl).pathname.startsWith(
@@ -1259,9 +1397,17 @@ export function UploadExperience({
                               : undefined
                           }
                           type="button"
-                          onClick={() => {
-                            void navigator.clipboard.writeText(entry.shareUrl);
-                            setHistoryStatus("Link copied.");
+                          onClick={async () => {
+                            const outcome = await copyLink(entry.shareUrl);
+                            if (deletedIds.current.has(entry.id)) return;
+                            setHistoryStatus(
+                              outcome === "copied"
+                                ? "Link copied."
+                                : "Automatic copy is unavailable. Copy the complete link manually below.",
+                            );
+                            setManualCopyUrl(
+                              outcome === "manual" ? entry.shareUrl : null,
+                            );
                           }}
                         >
                           Copy link
@@ -1291,12 +1437,24 @@ export function UploadExperience({
                               onClick={() => removeHistoryEntry(entry)}
                               type="button"
                             >
-                              Remove
+                              Remove from history
                             </button>
                             <button
                               aria-label={`Delete ${entry.originalName}`}
                               disabled={deletingHistoryId === entry.id}
-                              onClick={() => void deleteHistoryEntry(entry)}
+                              onClick={(event) => {
+                                const trigger = event.currentTarget
+                                  .closest(".history-more")
+                                  ?.querySelector<HTMLButtonElement>(
+                                    "button[popoverTarget]",
+                                  );
+                                event.currentTarget
+                                  .closest<HTMLElement>("[popover]")
+                                  ?.hidePopover?.();
+                                trigger?.focus();
+                                setDeleteError("");
+                                setDeleteTarget(entry);
+                              }}
                               type="button"
                             >
                               {deletingHistoryId === entry.id
@@ -1317,6 +1475,20 @@ export function UploadExperience({
       <p role="status" aria-live="polite">
         {historyStatus}
       </p>
+      {manualCopyUrl && manualCopyUrl !== result?.shareUrl && (
+        <ManualCopyLink url={manualCopyUrl} />
+      )}
+      {deleteTarget && (
+        <DestructiveConfirmation
+          name={deleteTarget.originalName}
+          description="Delete this server file permanently? Existing sharing links will stop working. Removing browser history alone does not delete server files."
+          confirmLabel="Delete file"
+          busy={deletingHistoryId !== null}
+          error={deleteError}
+          onConfirm={() => void deleteHistoryEntry(deleteTarget)}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   );
 }
