@@ -305,11 +305,16 @@ export async function fulfillRequestedUpload(
 
   if (!claimed) throw unavailableRequestError();
 
+  let unconsumedUpload: CreatedUpload | undefined;
   try {
     const upload = await createUpload(request, undefined, undefined, {
       maxUploadBytes: claimed.maxBytes,
       ...(claimed.uploadId ? { reservedUploadId: claimed.uploadId } : {}),
     });
+    unconsumedUpload = upload;
+    if (request.signal.aborted) {
+      throw new DOMException("Upload cancelled.", "AbortError");
+    }
     const consumeConnection = createSqliteConnection();
     let consumed: boolean;
 
@@ -326,12 +331,23 @@ export async function fulfillRequestedUpload(
     }
 
     if (!consumed) {
-      await deleteUploadWithAccessToken(upload.id, upload.accessToken);
       throw unavailableRequestError();
     }
 
+    unconsumedUpload = undefined;
     return upload;
   } catch (error) {
+    // Never release the reserved ID for retry while persisted bytes remain.
+    // A cleanup failure deliberately retains the claim rather than permitting reuse.
+    if (unconsumedUpload) {
+      const disposal = await deleteUploadWithAccessToken(
+        unconsumedUpload.id,
+        unconsumedUpload.accessToken,
+      );
+      if (disposal !== "valid") {
+        throw new Error("Could not confirm disposal of the unconsumed upload.");
+      }
+    }
     const releaseConnection = createSqliteConnection();
     try {
       releaseUploadRequestClaim(

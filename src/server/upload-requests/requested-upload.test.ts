@@ -19,6 +19,23 @@ import {
 } from "./requested-upload";
 import { hashCapabilityToken } from "./capability-token";
 
+jest.mock("../uploads/create-upload", () => {
+  const actual = jest.requireActual<typeof import("../uploads/create-upload")>(
+    "../uploads/create-upload",
+  );
+  return { ...actual, createUpload: jest.fn(actual.createUpload) };
+});
+
+jest.mock("../uploads/manage-upload", () => {
+  const actual = jest.requireActual<typeof import("../uploads/manage-upload")>(
+    "../uploads/manage-upload",
+  );
+  return {
+    ...actual,
+    deleteUploadWithAccessToken: jest.fn(actual.deleteUploadWithAccessToken),
+  };
+});
+
 let tempDir: string;
 let originalEnv: Record<string, string | undefined>;
 const ENV_KEYS = [
@@ -81,6 +98,134 @@ function createRequest() {
 }
 
 describe("requested uploads", () => {
+  it.each([false, true])(
+    "disposes an aborted stalled body and releases its claim (multipart=%s)",
+    async (multipart) => {
+      createRequest();
+      const controller = new AbortController();
+      const body = new ReadableStream<Uint8Array>({
+        start(stream) {
+          stream.enqueue(
+            new TextEncoder().encode(
+              multipart
+                ? '--boundary\r\nContent-Disposition: form-data; name="file"; filename="cancel.txt"\r\nContent-Type: text/plain\r\n\r\npartial'
+                : "partial",
+            ),
+          );
+        },
+      });
+      const request = new Request("https://up.example/api/upload", {
+        method: "POST",
+        body,
+        signal: controller.signal,
+        headers: {
+          "content-type": multipart
+            ? "multipart/form-data; boundary=boundary"
+            : "text/plain",
+        },
+        duplex: "half",
+      } as RequestInit);
+      const pending = fulfillRequestedUpload(PUBLIC_TOKEN, request, NOW);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(inspectRequestedUpload(MANAGEMENT_TOKEN, NOW)?.status).toBe(
+        "in_progress",
+      );
+      controller.abort();
+      await expect(pending).rejects.toBeDefined();
+      expect(getActiveRequestedUpload(PUBLIC_TOKEN, NOW)?.status).toBe("retry");
+      const { readdir } = await import("node:fs/promises");
+      expect(await readdir(process.env.UPLOAD_DIR!)).toEqual([]);
+      await expect(
+        fulfillRequestedUpload(PUBLIC_TOKEN, raw("retry"), NOW),
+      ).resolves.toMatchObject({ size: 5 });
+    },
+  );
+  it("deletes persisted bytes before releasing a late-aborted claim", async () => {
+    createRequest();
+    const controller = new AbortController();
+    const uploads = await import("../uploads/create-upload");
+    const original = jest.requireActual<
+      typeof import("../uploads/create-upload")
+    >("../uploads/create-upload").createUpload;
+    const spy = jest.mocked(uploads.createUpload);
+    spy.mockImplementationOnce(async (...args) => {
+      const upload = await original(...args);
+      controller.abort();
+      return upload;
+    });
+    try {
+      await expect(
+        fulfillRequestedUpload(
+          PUBLIC_TOKEN,
+          new Request("https://up.example/api/upload", {
+            method: "POST",
+            body: "late cancel",
+            headers: { "content-type": "text/plain" },
+            signal: controller.signal,
+          }),
+          NOW,
+        ),
+      ).rejects.toMatchObject({ name: "AbortError" });
+      expect(getActiveRequestedUpload(PUBLIC_TOKEN, NOW)?.status).toBe("retry");
+      const { readdir } = await import("node:fs/promises");
+      expect(await readdir(process.env.UPLOAD_DIR!)).toEqual([]);
+    } finally {
+      spy.mockImplementation(original);
+    }
+    await expect(
+      fulfillRequestedUpload(PUBLIC_TOKEN, raw("retry"), NOW),
+    ).resolves.toMatchObject({ size: 5 });
+  });
+
+  it.each(["error", "not-found", "forbidden"] as const)(
+    "retains the claim if persisted cancellation cleanup fails (%s)",
+    async (failure) => {
+      createRequest();
+      const controller = new AbortController();
+      const uploads = await import("../uploads/create-upload");
+      const original = jest.requireActual<
+        typeof import("../uploads/create-upload")
+      >("../uploads/create-upload").createUpload;
+      jest
+        .mocked(uploads.createUpload)
+        .mockImplementationOnce(async (...args) => {
+          const upload = await original(...args);
+          controller.abort();
+          return upload;
+        });
+      const management = await import("../uploads/manage-upload");
+      if (failure === "error") {
+        jest
+          .mocked(management.deleteUploadWithAccessToken)
+          .mockRejectedValueOnce(new Error("disposal failed"));
+      } else {
+        jest
+          .mocked(management.deleteUploadWithAccessToken)
+          .mockResolvedValueOnce(failure);
+      }
+      await expect(
+        fulfillRequestedUpload(
+          PUBLIC_TOKEN,
+          new Request("https://up.example/api/upload", {
+            method: "POST",
+            body: "late cancel",
+            headers: { "content-type": "text/plain" },
+            signal: controller.signal,
+          }),
+          NOW,
+        ),
+      ).rejects.toThrow(
+        failure === "error" ? "disposal failed" : "Could not confirm disposal",
+      );
+      expect(inspectRequestedUpload(MANAGEMENT_TOKEN, NOW)?.status).toBe(
+        "in_progress",
+      );
+      await expect(
+        fulfillRequestedUpload(PUBLIC_TOKEN, raw("retry"), NOW),
+      ).rejects.toMatchObject({ status: 404 });
+    },
+  );
+
   it("validates bounded strict-UTC input", () => {
     expect(validateUploadRequestInput(input(), NOW)).toMatchObject({
       maxBytes: 16,
