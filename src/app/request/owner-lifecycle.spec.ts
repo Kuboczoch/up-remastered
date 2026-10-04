@@ -94,10 +94,20 @@ for (const terminal of ["consumed", "revoked", "expired"] as const) {
       manager.getByRole("button", { name: "Revoke request" }),
     ).toHaveCount(0);
     if (terminal === "consumed") {
+      const openedFile = manager.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === `/${uploadId}` &&
+          response.request().method() === "GET",
+      );
       await manager.getByRole("link", { name: "Open file" }).click();
-      await expect(
-        manager.getByRole("heading", { name: "owner-lifecycle.txt", level: 1 }),
-      ).toBeVisible();
+      const fileResponse = await openedFile;
+      expect(fileResponse.status()).toBe(200);
+      expect(fileResponse.headers()["content-type"]).toContain("text/plain");
+      expect(await fileResponse.text()).toBe(
+        "Owner lifecycle preview acceptance",
+      );
+      // Text files deliberately retain their raw contract; no HTML heading
+      // or wrapper is expected solely because the browser followed Open file.
       // Only the owner capability can claim this received file for deletion.
       const claim = await request.post("/api/upload-requests/manage/claim", {
         headers: { authorization: `Bearer ${managementToken}` },
