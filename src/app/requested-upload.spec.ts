@@ -120,7 +120,12 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
   await expect(
     page.getByRole("heading", { name: "Upload complete" }),
   ).toBeVisible();
-  await expect(page.getByText("No owner management token")).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText(
+    "The requester can now retrieve your file.",
+  );
+  await expect(page.getByRole("button", { name: "Upload file" })).toHaveCount(
+    0,
+  );
 
   const [managementResponse] = await Promise.all([
     page.waitForResponse(
