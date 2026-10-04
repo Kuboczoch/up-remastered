@@ -3,7 +3,7 @@ export async function copyLink(
   environment: { clipboard?: Pick<Clipboard, "writeText"> } = navigator,
 ): Promise<"copied" | "manual"> {
   try {
-    if (!environment.clipboard?.writeText) return "manual";
+    if (typeof environment.clipboard?.writeText !== "function") return "manual";
     await environment.clipboard.writeText(url);
     return "copied";
   } catch {

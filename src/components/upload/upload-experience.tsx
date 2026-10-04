@@ -167,6 +167,9 @@ export function UploadExperience({
   const textEncoding: TextEncoding = DEFAULT_TEXT_ENCODING;
   const [dragActive, setDragActive] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [historyCopyUrl, setHistoryCopyUrl] = useState("");
+  const copySequence = useRef(0);
+  const historyCopySequence = useRef(0);
   const [qrOpen, setQrOpen] = useState(false);
   const [qrSvg, setQrSvg] = useState("");
   const [qrError, setQrError] = useState("");
@@ -257,6 +260,8 @@ export function UploadExperience({
       });
 
     return () => {
+      copySequence.current += 1;
+      historyCopySequence.current += 1;
       controller.abort();
       abortRef.current?.();
       if (copyConfirmationTimerRef.current !== null) {
@@ -385,7 +390,9 @@ export function UploadExperience({
       resultGeneration.current++;
       requestSequence.current = sequence;
       setError("");
+      copySequence.current += 1;
       setCopied(false);
+      setManualCopyUrl(null);
       setQrOpen(false);
       setQrSvg("");
       setQrError("");
@@ -490,10 +497,11 @@ export function UploadExperience({
     setProgress(0);
     setError("");
     setResult(null);
-    setManualCopyUrl(null);
     setQrOpen(false);
     setText("");
+    copySequence.current += 1;
     setCopied(false);
+    setManualCopyUrl(null);
     if (copyConfirmationTimerRef.current !== null) {
       window.clearTimeout(copyConfirmationTimerRef.current);
       copyConfirmationTimerRef.current = null;
@@ -579,9 +587,20 @@ export function UploadExperience({
     if (!result) {
       return;
     }
+    setManualCopyUrl(null);
+    setCopied(false);
+    if (copyConfirmationTimerRef.current !== null) {
+      window.clearTimeout(copyConfirmationTimerRef.current);
+      copyConfirmationTimerRef.current = null;
+    }
+    const sequence = ++copySequence.current;
     const generation = resultGeneration.current;
     const outcome = await copyLink(result.shareUrl);
-    if (generation !== resultGeneration.current) return;
+    if (
+      generation !== resultGeneration.current ||
+      sequence !== copySequence.current
+    )
+      return;
     if (outcome === "copied") {
       setManualCopyUrl(null);
       setCopied(true);
@@ -614,6 +633,8 @@ export function UploadExperience({
   }
 
   function changeSaveHistory(enabled: boolean) {
+    historyCopySequence.current += 1;
+    setHistoryCopyUrl("");
     saveHistoryRef.current = enabled;
     setSaveHistory(enabled);
     setHistoryStatus("");
@@ -636,6 +657,8 @@ export function UploadExperience({
   }
 
   function clearBrowserHistory(): boolean {
+    historyCopySequence.current += 1;
+    setHistoryCopyUrl("");
     if (!saveHistoryRef.current) return false;
     setHistory([]);
     try {
@@ -672,6 +695,8 @@ export function UploadExperience({
         }
       }
       deletedIds.current.add(entry.id);
+      historyCopySequence.current += 1;
+      setHistoryCopyUrl("");
       if (result?.id === entry.id) {
         resultGeneration.current++;
         setPhase("deleted");
@@ -709,6 +734,8 @@ export function UploadExperience({
   }
 
   function removeHistoryEntry(entry: UploadHistoryEntry) {
+    historyCopySequence.current += 1;
+    setHistoryCopyUrl("");
     if (!saveHistoryRef.current) return;
     setHistory(removeUploadHistoryEntry(window.localStorage, entry.id));
     setHistoryStatus(
@@ -1458,8 +1485,16 @@ export function UploadExperience({
                           }
                           type="button"
                           onClick={async () => {
+                            const sequence = ++historyCopySequence.current;
+                            setHistoryStatus("");
+                            setHistoryCopyUrl("");
                             const outcome = await copyLink(entry.shareUrl);
-                            if (deletedIds.current.has(entry.id)) return;
+                            if (
+                              sequence !== historyCopySequence.current ||
+                              deletedIds.current.has(entry.id) ||
+                              !saveHistoryRef.current
+                            )
+                              return;
                             setHistoryStatus(
                               outcome === "copied"
                                 ? t("Link copied.")
@@ -1467,8 +1502,8 @@ export function UploadExperience({
                                     "Automatic copy is unavailable. Copy the complete link manually below.",
                                   ),
                             );
-                            setManualCopyUrl(
-                              outcome === "manual" ? entry.shareUrl : null,
+                            setHistoryCopyUrl(
+                              outcome === "manual" ? entry.shareUrl : "",
                             );
                           }}
                         >
@@ -1543,9 +1578,10 @@ export function UploadExperience({
       <p role="status" aria-live="polite">
         {historyStatus}
       </p>
-      {manualCopyUrl && manualCopyUrl !== result?.shareUrl && (
-        <ManualCopyLink url={manualCopyUrl} />
-      )}
+      {saveHistory &&
+        history.some((entry) => entry.shareUrl === historyCopyUrl) && (
+          <ManualCopyLink url={historyCopyUrl} />
+        )}
       {deleteTarget && (
         <DestructiveConfirmation
           name={deleteTarget.originalName}

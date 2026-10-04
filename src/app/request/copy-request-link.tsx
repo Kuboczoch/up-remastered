@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { copyLink } from "@/lib/copy-link";
 import { ManualCopyLink } from "@/components/manual-copy-link";
 import { useTranslation } from "@/i18n/provider";
@@ -19,18 +19,34 @@ export function CopyRequestLink({
   label: string;
 }) {
   const { t } = useTranslation();
-  const [feedback, setFeedback] = useState<"copied" | "manual">();
+  const sequence = useRef(0);
+  const [feedback, setFeedback] = useState<{
+    value: string;
+    outcome: "copied" | "manual";
+  }>();
+  useEffect(() => {
+    return () => {
+      sequence.current += 1;
+    };
+  }, [value]);
+  const outcome = feedback?.value === value ? feedback.outcome : undefined;
   return (
     <div className={styles.copy}>
       <button
         className={styles.linkButton}
         type="button"
-        onClick={async () => setFeedback(await copyLink(value))}
+        onClick={async () => {
+          const attempt = ++sequence.current;
+          setFeedback(undefined);
+          const outcome = await copyLink(value);
+          if (attempt !== sequence.current) return;
+          setFeedback({ value, outcome });
+        }}
       >
         {label}
       </button>
-      {feedback === "copied" && <p aria-live="polite">{t("Link copied.")}</p>}
-      {feedback === "manual" && <ManualCopyLink url={value} />}
+      {outcome === "copied" && <p aria-live="polite">{t("Link copied.")}</p>}
+      {outcome === "manual" && <ManualCopyLink url={value} />}
     </div>
   );
 }

@@ -43,6 +43,8 @@ Creation and owner-management responses send `Cache-Control: no-store` because t
 
 The creation result offers separate copy actions for the uploader and owner links. The owner page warns that its private link is a bearer capability, can recreate that link for copying after fragment scrubbing, and keeps the imported capability in same-tab session storage so refresh and back navigation remain usable without persisting it across browser sessions.
 
+All copy actions use the shared clipboard utility. On LAN HTTP without Clipboard API support, or when clipboard permissions reject a write, a live status gives manual-copy instructions alongside a read-only selectable complete link. The owner page reconstructs its original `/request/manage#<capability>` link from the imported in-memory capability after scrubbing the address bar. Recovery does not navigate, add query/path secrets, log the link, or introduce additional storage. Treat the displayed private fallback as a bearer secret and copy it only to trusted recipients. Automatic-copy success is shown only after the write resolves.
+
 ## Uploader
 
 `GET /request/{publicToken}` displays the request only while active. `POST /api/upload-requests/{publicToken}/upload` accepts one file through the normal streaming upload pipeline. The effective limit is the minimum of request `maxBytes`, global per-upload limit, and remaining global storage quota.
@@ -75,3 +77,12 @@ The creation result and owner page open one authenticated event stream, announce
 - A process crash during an upload can leave that request conservatively locked rather than risk double use. The owner can revoke it and create another request.
 - Capability URLs are bearer secrets. Owners should transmit them over HTTPS and revoke leaked links.
 - Public deployments should additionally rate-limit request creation at the trusted reverse proxy; the app does not trust spoofable client-IP headers.
+
+### Copy feedback lifecycle
+
+The translated shared request-copy wrapper preserves the complete capability URL
+(including an owner fragment) in native clipboard writes and manual recovery.
+Changing its URL, creating another request, or unmounting invalidates pending
+copy feedback; a later attempt wins over an earlier delayed completion. Copy
+instructions are linked to a read-only input that selects on focus/click. This
+does not add capability secrets to any recovery URL or weaken origin validation.
