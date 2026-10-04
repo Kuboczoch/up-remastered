@@ -37,8 +37,19 @@ export function acceptsUnavailablePage(request: Request): boolean {
         hasQuality = true;
         quality = Number(value.slice(2));
       } else if (!hasQuality) {
-        // Only the representation's actual charset is supported.
-        if (value !== "charset=utf-8" && value !== 'charset="utf-8"')
+        // Other advertised media ranges may carry valid representation
+        // parameters (Chromium sends signed-exchange;v=b3). Those do not
+        // describe our HTML and must not invalidate the entire Accept list.
+        if (
+          !/^[a-z0-9!#$&^_.+-]+=(?:[a-z0-9!#$&^_.+-]+|"[^"\r\n]*")$/.test(value)
+        )
+          return false;
+        // Only the HTML representation's actual charset is supported.
+        if (
+          type === "text/html" &&
+          value !== "charset=utf-8" &&
+          value !== 'charset="utf-8"'
+        )
           return false;
       } else if (
         !/^[a-z0-9!#$&^_.+-]+(?:=(?:[a-z0-9!#$&^_.+-]+|"[^"\r\n]*"))?$/.test(

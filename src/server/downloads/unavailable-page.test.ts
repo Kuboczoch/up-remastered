@@ -20,6 +20,7 @@ describe("unavailable document negotiation", () => {
   it.each([
     "text/html",
     "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
     "text/html;q=0.8,text/plain;q=0.5",
     "text/html;charset=UTF-8",
     "text/html;q=1;extension=value",
