@@ -5,10 +5,13 @@ async function expectTouchTarget(target: Locator) {
   await target.scrollIntoViewIfNeeded();
   const geometry = await target.evaluate((element) => {
     const rect = element.getBoundingClientRect();
-    // Insets exercise the padded edges rather than just the text at the center.
+    // Sample all padded edges and the center. Rounded controls intentionally
+    // clip their extreme rectangular corners; preserve the approved radius.
     const points = [
-      [rect.left + 2, rect.top + 2],
-      [rect.right - 2, rect.bottom - 2],
+      [rect.left + 2, rect.top + rect.height / 2],
+      [rect.right - 2, rect.top + rect.height / 2],
+      [rect.left + rect.width / 2, rect.top + 2],
+      [rect.left + rect.width / 2, rect.bottom - 2],
       [rect.left + rect.width / 2, rect.top + rect.height / 2],
     ];
     return {
