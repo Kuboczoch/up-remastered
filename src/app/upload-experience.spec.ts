@@ -385,6 +385,82 @@ test("keeps advanced settings collapsed, accessible, and narrow-layout safe", as
   await expect(trigger).toBeFocused();
 });
 
+for (const outcome of ["success", "error"] as const) {
+  test(`keeps mobile Advanced isolated after delayed upload ${outcome}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    let releaseUpload!: () => void;
+    const uploadGate = new Promise<void>((resolve) => {
+      releaseUpload = resolve;
+    });
+    await page.route("**/api/upload", async (route) => {
+      await uploadGate;
+      if (outcome === "error") {
+        await route.fulfill({ status: 500, body: "Upload failed" });
+      } else {
+        await route.continue();
+      }
+    });
+    await page.goto("/");
+    await page.locator("#file-picker").setInputFiles({
+      buffer: Buffer.from("modal"),
+      mimeType: "text/plain",
+      name: "modal.txt",
+    });
+    await expect(page.locator(".state-card")).toBeVisible();
+    const trigger = page.getByRole("button", { name: /Advanced options/ });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: "Advanced options" });
+    await expect(dialog).toBeVisible();
+    releaseUpload();
+    const replacement = page.locator(
+      outcome === "success" ? ".result-card" : ".drop-zone",
+    );
+    await expect(replacement).toBeVisible();
+    const isolation = expect.configure({ soft: true });
+    await isolation(replacement).toHaveJSProperty("inert", true);
+    await isolation
+      .poll(() =>
+        dialog.evaluate((element) => element.contains(document.activeElement)),
+      )
+      .toBe(true);
+    // Even an explicit background focus attempt must not leave the modal.
+    await replacement
+      .locator("button")
+      .first()
+      .evaluate((element) => element.focus());
+    await expect
+      .poll(() =>
+        dialog.evaluate((element) => element.contains(document.activeElement)),
+      )
+      .toBe(true);
+    for (const key of ["Tab", "Shift+Tab", "Tab"]) {
+      await page.keyboard.press(key);
+      await expect
+        .poll(() =>
+          dialog.evaluate((element) =>
+            element.contains(document.activeElement),
+          ),
+        )
+        .toBe(true);
+    }
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await expect(replacement).toHaveJSProperty("inert", false);
+    await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+    if (outcome === "success") {
+      await page.getByRole("button", { name: "Upload another file" }).click();
+      await expect(page.locator("#file-picker")).toBeFocused();
+    } else {
+      await page.getByRole("button", { name: "Try again" }).click();
+    }
+    await expect(page.locator(".drop-zone")).toBeVisible();
+  });
+}
+
 test("rejects ambiguous drops and oversized files before upload", async ({
   page,
 }) => {
