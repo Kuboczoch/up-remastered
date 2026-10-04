@@ -256,13 +256,14 @@ export function UploadExperience({
   }, [phase, progress]);
 
   useEffect(() => {
+    if (mobile && optionsOpen) return;
     if (phase === "error") {
       errorHeadingRef.current?.focus();
     }
     if (phase === "success") {
       resultHeadingRef.current?.focus();
     }
-  }, [phase]);
+  }, [phase, mobile, optionsOpen]);
 
   useEffect(() => {
     if (!qrOpen || !result || qrSvg) {
@@ -613,16 +614,25 @@ export function UploadExperience({
     panel
       ?.querySelector<HTMLButtonElement>("button")
       ?.focus({ preventScroll: true });
-    const background = [
-      ...document.querySelectorAll<HTMLElement>(
-        ".workspace-heading, .upload-card, .upload-back, .history-region, .site-footer",
-      ),
-    ];
+    // Completion can replace background cards while the dialog stays open.
+    const background = new Map<HTMLElement, boolean>();
+    const isolateBackground = () => {
+      document
+        .querySelectorAll<HTMLElement>(
+          ".workspace-heading, .upload-card, .upload-back, .history-region, .site-footer",
+        )
+        .forEach((element) => {
+          if (!background.has(element)) {
+            background.set(element, element.inert);
+            element.inert = true;
+          }
+        });
+    };
+    const observer = new MutationObserver(isolateBackground);
     const previousOverflow = document.body.style.overflow;
     if (mobile) {
-      background.forEach((element) => {
-        element.inert = true;
-      });
+      isolateBackground();
+      observer.observe(document.body, { childList: true, subtree: true });
       document.body.style.overflow = "hidden";
     }
     const keyboard = (event: KeyboardEvent) => {
@@ -652,8 +662,9 @@ export function UploadExperience({
     };
     document.addEventListener("keydown", keyboard);
     return () => {
-      background.forEach((element) => {
-        element.inert = false;
+      observer.disconnect();
+      background.forEach((inert, element) => {
+        element.inert = inert;
       });
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", keyboard);
