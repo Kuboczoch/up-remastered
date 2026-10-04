@@ -24,6 +24,6 @@ Successful responses set:
 
 The open file descriptor backs both the stat and stream, avoiding a path-swap window between validation and streaming. The stored path is resolved from server metadata under `UPLOAD_DIR`, never from the public route value.
 
-One explicit `bytes=start-end` range returns `206` with `Content-Range`; open-ended ranges are capped at 4 MiB. A valid start at or beyond EOF returns `416`. Malformed, suffix, multi-range, and unsupported-unit headers deliberately fall back to a full `200`, matching current upstream behavior.
+One explicit `bytes=start-end` range returns `206` with `Content-Range`; open-ended ranges are capped at 4 MiB. A valid start at or beyond EOF, malformed, suffix, multi-range, and unsupported-unit headers return `416` with `Content-Range: bytes */size` and no response body. Rejected ranges and `HEAD` do not consume download slots. Every admitted body-bearing `GET`, including a supported range or an interrupted transfer, consumes one slot atomically; see [download requirements](requirements.md).
 
 Nginx `X-Accel-Redirect` remains a possible future serving mode and is not required for basic Docker deployments.

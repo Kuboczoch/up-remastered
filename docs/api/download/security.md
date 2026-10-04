@@ -17,4 +17,8 @@ Download rules:
 - Build `Content-Disposition` according to RFC 6266: an ASCII-sanitized `filename` fallback plus UTF-8 `filename*`. Strip paths and neutralize control characters before encoding either value.
 - Let clients force any otherwise safe inline response to attachment with `?download=1`. Forced download does not bypass classification or alter availability, range, or expiration checks.
 
-Password protection and download limits are not implemented yet. Download URLs remain excluded from `sitemap.xml` and must not be made indexable without an explicit crawler review.
+Finite download limits are enforced atomically before returning a body-bearing `GET`; exhausted uploads use the same unavailable response as expired or missing files. `HEAD` and rejected ranges do not consume slots, while admitted retries, ranges, and interrupted transfers do. See [download requirements](requirements.md) for the complete admission policy.
+
+Password protection is not implemented. Optional [key protection](../../pages/download/encryption.md) encrypts original file bytes in the browser; the server serves ciphertext and never receives the fragment key. It is not server-side password authentication.
+
+Download URLs remain excluded from `sitemap.xml` and must not be made indexable without an explicit crawler review.
