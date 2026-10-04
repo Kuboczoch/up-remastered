@@ -61,7 +61,7 @@ Send `Authorization: Bearer {ownerCapability}` to:
 - `GET /api/upload-requests/manage/events` to follow status changes as server-sent events;
 - `DELETE /api/upload-requests/manage` to revoke an unused request.
 
-Wrong or malformed owner capabilities receive the same non-disclosing 404 response. Consumed requests cannot be retroactively revoked; the uploader owns the resulting file through its separate upload access token.
+Wrong or malformed owner capabilities receive the same non-disclosing 404 response. Both owner views confirm revocation with the request expiry and size limit, explaining that the shared upload link will stop working and recovery requires a new request. Cancel is focused first; Escape/cancel dismisses without an API mutation. Pending confirmations block duplicate submissions and remain visible until the server responds; failure retains the request and announces an error without claiming revocation. Consumed requests cannot be retroactively revoked; the uploader owns the resulting file through its separate upload access token.
 
 The event stream uses the same bearer header rather than placing the owner capability in a URL. It sends an immediate authoritative snapshot, `status` events with deterministic IDs, and accepts `Last-Event-ID` when reconnecting. Terminal `consumed`, `revoked`, and `expired` events close the stream. Non-terminal streams send keep-alive comments and close after 55 seconds so clients reconnect instead of holding unbounded server resources. Responses use `no-store`, disable reverse-proxy buffering, and never include the uploader capability.
 

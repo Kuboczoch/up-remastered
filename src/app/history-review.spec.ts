@@ -316,11 +316,58 @@ test("manual list actions require enabled history; off hides the list without mu
     card.getByRole("link", { name: "Download", exact: true }),
   ).toHaveAttribute("href", /download=1/);
   await expect(
-    card.getByRole("button", { name: "Delete saved.txt", exact: true }),
+    card.getByRole("button", {
+      name: "Delete server file saved.txt",
+      exact: true,
+    }),
   ).toBeEnabled();
   await card
     .getByRole("button", { name: "Remove saved.txt from history", exact: true })
     .click();
   await expect(card).toBeHidden();
   expect(JSON.parse((await snapshot(page)).local!)).toEqual([]);
+});
+
+test("server deletion confirmation cancels safely and retains history after failure", async ({
+  page,
+}) => {
+  await seedAndTrace(page);
+  let deletes = 0;
+  await page.route("**/api/u/AAA1A", (route) => {
+    if (route.request().method() === "DELETE") deletes += 1;
+    return route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: "{}",
+    });
+  });
+  await page.goto("/");
+  await options(page, true);
+  const more = page.getByRole("button", { name: "More actions for saved.txt" });
+  await more.click();
+  await page
+    .getByRole("button", { name: "Delete server file saved.txt" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Delete saved.txt?" });
+  await expect(dialog).toContainText("All shared download links");
+  const cancel = dialog.getByRole("button", { name: "Cancel" });
+  await expect(cancel).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(
+    dialog.getByRole("button", { name: "Delete server file" }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(cancel).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(more).toBeFocused();
+  expect(deletes).toBe(0);
+  await more.click();
+  await page
+    .getByRole("button", { name: "Delete server file saved.txt" })
+    .click();
+  await dialog.getByRole("button", { name: "Delete server file" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("could not be deleted");
+  expect(deletes).toBe(1);
+  expect((await snapshot(page)).local).toBe(JSON.stringify(records));
 });
