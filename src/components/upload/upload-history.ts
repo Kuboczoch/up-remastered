@@ -1,42 +1,6 @@
 import type { UploadResult } from "./client-upload";
-
 export const UPLOAD_HISTORY_STORAGE_KEY = "up-remastered:upload-history:v1";
-const STORAGE_KEY = UPLOAD_HISTORY_STORAGE_KEY;
-const MAX_ENTRIES = 50;
-
-function safeGet(storage: Pick<Storage, "getItem">): string | null {
-  try {
-    return storage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function safeSet(
-  storage: Pick<Storage, "setItem">,
-  entries: UploadHistoryEntry[],
-): boolean {
-  try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    return true;
-  } catch {
-    // History is optional; uploads must work when storage is unavailable.
-    return false;
-  }
-}
-
-function safeRemove(storage: Pick<Storage, "removeItem">): void {
-  try {
-    storage.removeItem(STORAGE_KEY);
-  } catch {
-    // Storage can be unavailable in private or restricted browser contexts.
-  }
-}
-
-export type UploadHistoryEntry = UploadResult & {
-  savedAt: string;
-};
-
+export type UploadHistoryEntry = UploadResult & { savedAt: string };
 function isUrl(value: unknown): value is string {
   if (typeof value !== "string") return false;
   try {
@@ -46,7 +10,6 @@ function isUrl(value: unknown): value is string {
     return false;
   }
 }
-
 function isEntry(value: unknown): value is UploadHistoryEntry {
   if (typeof value !== "object" || value === null) return false;
   const entry = value as Partial<UploadHistoryEntry>;
@@ -67,131 +30,65 @@ function isEntry(value: unknown): value is UploadHistoryEntry {
     entry.size >= 0
   );
 }
-
-function normalizeEntries(
-  values: unknown[],
-  now: number,
-): UploadHistoryEntry[] {
-  const seen = new Set<string>();
-  return values
-    .filter(isEntry)
-    .map((entry) => {
-      const url = new URL(entry.shareUrl);
-      url.hash = "";
-      return {
-        accessToken: entry.accessToken,
-        id: entry.id,
-        originalName: entry.originalName,
-        size: entry.size,
-        expiresAt: entry.expiresAt,
-        savedAt: entry.savedAt,
-        shareUrl: url.toString(),
-      };
-    })
-    .filter((entry) => Date.parse(entry.expiresAt) > now)
-    .sort((left, right) => Date.parse(right.savedAt) - Date.parse(left.savedAt))
-    .filter((entry) => {
-      if (seen.has(entry.id)) return false;
-      seen.add(entry.id);
-      return true;
-    })
-    .slice(0, MAX_ENTRIES);
-}
-
-export function readUploadHistory(
-  storage: Pick<Storage, "getItem" | "removeItem" | "setItem">,
-  now = Date.now(),
-): UploadHistoryEntry[] {
-  const stored = safeGet(storage);
-  if (!stored) return [];
-
+function safeSet(
+  storage: Pick<Storage, "setItem">,
+  entries: UploadHistoryEntry[],
+): void {
   try {
-    const parsed: unknown = JSON.parse(stored);
-    if (!Array.isArray(parsed)) throw new Error("Invalid upload history.");
-    const entries = normalizeEntries(parsed, now);
-    if (stored !== JSON.stringify(entries)) safeSet(storage, entries);
-    return entries;
+    storage.setItem(UPLOAD_HISTORY_STORAGE_KEY, JSON.stringify(entries));
   } catch {
-    safeRemove(storage);
+    /* Optional history must not break uploads. */
+  }
+}
+// Reads are deliberately read-only: invalid/expired data is never rewritten here.
+export function readUploadHistory(
+  storage: Pick<Storage, "getItem">,
+): UploadHistoryEntry[] {
+  try {
+    const stored = storage.getItem(UPLOAD_HISTORY_STORAGE_KEY);
+    if (!stored) return [];
+    const parsed: unknown = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed.filter(isEntry) : [];
+  } catch {
     return [];
   }
 }
-
 export function saveUploadHistoryEntry(
-  storage: Pick<Storage, "getItem" | "removeItem" | "setItem">,
+  storage: Pick<Storage, "getItem" | "setItem">,
   upload: UploadResult,
   now = Date.now(),
 ): UploadHistoryEntry[] {
-  const entry = { ...upload, savedAt: new Date(now).toISOString() };
-  const entries = normalizeEntries(
-    [entry, ...readUploadHistory(storage, now)],
-    now,
-  );
+  // Enumerate complete metadata, never uploaded File/Blob payloads.
+  const entry: UploadHistoryEntry = {
+    accessToken: upload.accessToken,
+    id: upload.id,
+    originalName: upload.originalName,
+    size: upload.size,
+    expiresAt: upload.expiresAt,
+    shareUrl: upload.shareUrl,
+    savedAt: new Date(now).toISOString(),
+  };
+  const existing = readUploadHistory(storage);
+  if (!isEntry(entry)) return existing;
+  const entries = [entry, ...existing];
   safeSet(storage, entries);
   return entries;
 }
-
-export function restoreUploadHistory(
-  persistentStorage: Pick<Storage, "getItem" | "removeItem" | "setItem">,
-  legacyStorage: Pick<Storage, "getItem" | "removeItem" | "setItem">,
-  now = Date.now(),
-  consent = false,
-): UploadHistoryEntry[] {
-  if (!consent) return [];
-  const persisted = readUploadHistory(persistentStorage, now);
-  const legacy = readUploadHistory(legacyStorage, now);
-  if (legacy.length === 0) return persisted;
-
-  const entries = normalizeEntries([...persisted, ...legacy], now);
-  if (safeSet(persistentStorage, entries)) {
-    safeRemove(legacyStorage);
-  }
-  return entries;
-}
-
 export function removeUploadHistoryEntry(
-  storage: Pick<Storage, "getItem" | "removeItem" | "setItem">,
+  storage: Pick<Storage, "getItem" | "setItem">,
   id: string,
-  now = Date.now(),
 ): UploadHistoryEntry[] {
-  const entries = readUploadHistory(storage, now).filter(
-    (entry) => entry.id !== id,
-  );
+  const entries = readUploadHistory(storage).filter((entry) => entry.id !== id);
   safeSet(storage, entries);
   return entries;
-}
-
-// Explicit clears need their own event, even when persistent history is empty.
-export const HISTORY_CLEAR_KEY = "up-remastered:history-clear";
-export const HISTORY_CONSENT_KEY = "up-remastered:history-consent";
-export function hasHistoryConsent(storage: Pick<Storage, "getItem">): boolean {
-  try {
-    return storage.getItem(HISTORY_CONSENT_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-export function setHistoryConsent(
-  storage: Pick<Storage, "setItem" | "getItem">,
-  consent: boolean,
-): boolean {
-  try {
-    storage.setItem(HISTORY_CONSENT_KEY, String(consent));
-    return storage.getItem(HISTORY_CONSENT_KEY) === String(consent);
-  } catch {
-    return false;
-  }
 }
 export function clearUploadHistory(
-  ...stores: Pick<Storage, "removeItem">[]
+  storage: Pick<Storage, "removeItem">,
 ): boolean {
-  let cleared = true;
-  for (const storage of stores) {
-    try {
-      storage.removeItem(UPLOAD_HISTORY_STORAGE_KEY);
-    } catch {
-      cleared = false;
-    }
+  try {
+    storage.removeItem(UPLOAD_HISTORY_STORAGE_KEY);
+    return true;
+  } catch {
+    return false;
   }
-  return cleared;
 }

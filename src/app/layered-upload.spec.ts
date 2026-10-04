@@ -106,7 +106,7 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     const settings = panel.locator(".option-setting");
     const controls = panel.locator("input, select");
     await expect(controls).toHaveCount(5);
-    for (let index = 1; index < 5; index++) {
+    for (let index = 2; index < 5; index++) {
       await expect(controls.nth(index)).toBeDisabled();
       await expect(controls.nth(index)).toHaveCSS("opacity", "1");
       await expect(settings.nth(index)).toHaveCSS("opacity", "0.5");
@@ -145,7 +145,7 @@ for (const width of [320, 390, 768, 1024, 1440]) {
 }
 
 for (const width of [390, 1366]) {
-  test(`unconsented legacy history remains untouched at ${width}px`, async ({
+  test(`disabled legacy history remains untouched at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 960 });
@@ -166,8 +166,7 @@ for (const width of [390, 1366]) {
       page.getByRole("switch", { name: "Save history" }),
     ).not.toBeChecked();
     await expect(page.locator(".history-card")).toBeHidden();
-    // Record events without consent must not restore or mutate legacy data.
-    // Explicit revocation is covered separately by real two-tab tests.
+    // Disabled history ignores storage events without restoring or mutating data.
     await page.evaluate(() =>
       window.dispatchEvent(
         new StorageEvent("storage", {
@@ -257,7 +256,7 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     expect(after.y).toBe(before.y);
     expect(after.front).toEqual(before.front);
     expect(after.footer).toEqual(before.footer);
-    await expect(page.getByLabel(/Expires after/)).toBeDisabled();
+    await expect(page.getByLabel(/Expires after/)).toBeEnabled();
     await expect(
       page.getByRole("switch", { name: "Key protect" }),
     ).toBeDisabled();

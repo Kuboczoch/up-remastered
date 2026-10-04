@@ -5,6 +5,7 @@ import { formatBytes, uploadFile } from "./client-upload";
 class FakeXMLHttpRequest {
   static response: unknown;
   static status = 201;
+  static sentForm: FormData;
 
   private listeners = new Map<string, () => void>();
   private progressListener: ((event: ProgressEvent) => void) | undefined;
@@ -38,6 +39,7 @@ class FakeXMLHttpRequest {
 
   send(body: Document | XMLHttpRequestBodyInit | null) {
     expect(body).toBeInstanceOf(FormData);
+    FakeXMLHttpRequest.sentForm = body as FormData;
     this.progressListener?.({
       lengthComputable: true,
       loaded: 5,
@@ -73,6 +75,7 @@ describe("upload client", () => {
     const operation = uploadFile(
       new File(["hello"], "hello.txt", { type: "text/plain" }),
       (value) => progress.push(value),
+      { expirationHours: 6 },
     );
 
     await expect(operation.promise).resolves.toMatchObject({
@@ -82,6 +85,7 @@ describe("upload client", () => {
       size: 5,
     });
     expect(progress).toEqual([50]);
+    expect(FakeXMLHttpRequest.sentForm.get("expiresInHours")).toBe("6");
   });
 
   it("uses sanitized API error messages", async () => {

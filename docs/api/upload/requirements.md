@@ -57,7 +57,8 @@ Rules:
 - Multipart metadata fields are intentionally small; use raw uploads for large text payloads.
 - Default expiration is `DEFAULT_EXPIRATION_HOURS`, currently 24h in production config.
 - Requested expiration can use strict UTC ISO `expiresAt`, `expiresInHours`, `expiresInMinutes`, or `expiresInSeconds`.
-- Reject requested expiration beyond `MAX_EXPIRATION_HOURS`, currently 24h in production config.
+- The effective maximum is the lesser of `MAX_EXPIRATION_HOURS` and 24 hours; legacy deployment settings cannot raise the 24-hour ceiling. The effective default is capped by that maximum.
+- Browser choices are 1, 3, 6, 12, and 24 hours. Legacy duration fields retain positive decimal durations within the effective maximum. Supply exactly one expiration field; absolute UTC dates must be real calendar dates.
 - Enforce `MAX_UPLOAD_SIZE`, currently 1 GiB in production config.
 - Enforce `MAX_STORED_BYTES`, currently 10 GiB in production config.
 - Stream file and raw uploads; do not buffer entire file/raw request bodies into memory.
