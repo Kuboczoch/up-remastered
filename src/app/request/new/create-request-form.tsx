@@ -19,6 +19,10 @@ import {
   type ByteUnit,
 } from "@/lib/format";
 
+import {
+  isTerminalRequest,
+  OwnerRequestLifecycle,
+} from "../owner-request-lifecycle";
 import styles from "../request.module.css";
 import {
   statusConnectionMessage,
@@ -229,7 +233,12 @@ export function CreateRequestForm() {
   }
 
   async function revoke() {
-    if (!created) return;
+    if (
+      !created ||
+      busy ||
+      !["active", "retry"].includes((liveRequest ?? created).status)
+    )
+      return;
     setBusy(true);
     setError("");
     try {
@@ -305,23 +314,20 @@ export function CreateRequestForm() {
         <p className={styles.muted} aria-live="polite">
           {statusConnectionMessage(connection)}
         </p>
-        {displayedRequest.uploadId ? (
-          <p>
-            Uploaded file:{" "}
-            <a href={`/${displayedRequest.uploadId}`}>Open file</a>
-          </p>
-        ) : null}
+        <OwnerRequestLifecycle request={displayedRequest} />
         <div className={styles.actions}>
-          <button
-            className={styles.button}
-            disabled={
-              busy || !["active", "retry"].includes(displayedRequest.status)
-            }
-            onClick={revoke}
-            type="button"
-          >
-            Revoke request
-          </button>
+          {!isTerminalRequest(displayedRequest.status) && (
+            <button
+              className={styles.button}
+              disabled={
+                busy || !["active", "retry"].includes(displayedRequest.status)
+              }
+              onClick={revoke}
+              type="button"
+            >
+              Revoke request
+            </button>
+          )}
           <button
             className={styles.button}
             onClick={() => {

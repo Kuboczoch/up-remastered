@@ -11,6 +11,10 @@ import {
   formatRelativeExpiry,
 } from "@/lib/format";
 
+import {
+  isTerminalRequest,
+  OwnerRequestLifecycle,
+} from "../owner-request-lifecycle";
 import styles from "../request.module.css";
 import {
   statusConnectionMessage,
@@ -123,7 +127,13 @@ export function ManageRequest() {
 
   async function revoke() {
     const token = tokenRef.current;
-    if (!token || !request) return;
+    if (
+      !token ||
+      !request ||
+      busy ||
+      !["active", "retry"].includes(request.status)
+    )
+      return;
     setBusy(true);
     setError("");
     try {
@@ -207,11 +217,7 @@ export function ManageRequest() {
           </dd>
         </div>
       </dl>
-      {request.uploadId ? (
-        <p>
-          Uploaded file: <a href={`/${request.uploadId}`}>Open file</a>
-        </p>
-      ) : null}
+      <OwnerRequestLifecycle request={request} />
       <div className={styles.actions}>
         <button
           className={styles.linkButton}
@@ -220,14 +226,20 @@ export function ManageRequest() {
         >
           {copied ? "Owner link copied" : "Copy owner link"}
         </button>
-        <button
-          className={styles.button}
-          disabled={busy || !["active", "retry"].includes(request.status)}
-          onClick={revoke}
-          type="button"
-        >
-          {busy ? "Revoking…" : "Revoke request"}
-        </button>
+        {isTerminalRequest(request.status) ? (
+          <Link className={styles.linkButton} href="/request/new">
+            Create a new request
+          </Link>
+        ) : (
+          <button
+            className={styles.button}
+            disabled={busy || !["active", "retry"].includes(request.status)}
+            onClick={revoke}
+            type="button"
+          >
+            {busy ? "Revoking…" : "Revoke request"}
+          </button>
+        )}
         <button
           className={styles.linkButton}
           disabled={busy}
