@@ -108,12 +108,15 @@ for (const terminal of ["consumed", "revoked", "expired"] as const) {
       );
       // Text files deliberately retain their raw contract; no HTML heading
       // or wrapper is expected solely because the browser followed Open file.
-      // Only the owner capability can claim this received file for deletion.
-      const claim = await request.post("/api/upload-requests/manage/claim", {
+      // Confirm the existing authenticated management inspection contract;
+      // do not invent a claim endpoint or change ownership APIs for this UI fix.
+      const inspection = await request.get("/api/upload-requests/manage", {
         headers: { authorization: `Bearer ${managementToken}` },
       });
-      expect(claim.status()).toBe(200);
-      expect((await claim.json()).uploadId).toBe(uploadId);
+      expect(inspection.status()).toBe(200);
+      const ownerDetails = (await inspection.json()).request;
+      expect(ownerDetails.status).toBe("consumed");
+      expect(ownerDetails.uploadId).toBe(uploadId);
     }
     await manager.close();
   });
