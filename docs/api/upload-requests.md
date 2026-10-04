@@ -51,7 +51,17 @@ All copy actions use the shared clipboard utility. On LAN HTTP without Clipboard
 
 The server atomically claims the request before reading the upload. Concurrent reuse fails with the same non-disclosing `404 upload_request_unavailable` response used for invalid, expired, revoked, consumed, and in-progress links. A failed validation/upload releases the claim for retry. A successful upload consumes the request and uses the ID/share URL reserved when the request was created. If consumption loses a revocation race, the newly created upload is deleted before an unavailable response is returned.
 
-The uploader receives the ordinary upload access token for managing the uploaded file, but never receives the owner management token.
+The uploader API receives the ordinary upload access token for managing the uploaded file, but never receives the owner management token. The recipient completion UI deliberately discards that access token and any other private response fields; it does not expose an Advanced/API credential disclosure or write capabilities to recipient history/storage.
+
+### Recipient completion
+
+After a successful upload, the form is replaced by a completion receipt: filename, IEC size, and absolute local file expiration in a `<time datetime>` element. The completion heading receives focus and a live status confirms that the requester can retrieve the file. The consumed request cannot accept a second upload; reloading it follows the existing generic unavailable page. Sending another file requires a new request link from the requester.
+
+Open file and Copy link use a same-origin public URL constructed from the validated five-character upload ID, not a raw response URL. Download file uses that URL with `?download=1`, matching the existing forced-download route. Anyone with the public file link can access it until expiration. No owner or uploader management capability is included in these URLs.
+
+Copy link becomes Copied only after the shared clipboard utility reports a successful write, with a polite announcement and a three-second reset. Unsupported Clipboard API (including LAN HTTP) or denied permission provides a labelled read-only link and manual-copy instructions without claiming success. Rapid retries apply only the latest attempt; unmount cancels feedback/reset timers. No recipient copy helper depends on unpublished changes to other request surfaces.
+
+Coverage: recipient component regressions cover completion, safe links, capability exclusion, manual recovery, latest-attempt-wins and unmount/reset behavior. `src/app/requested-upload-success.spec.ts` adds browser acceptance for real file delivery, Open/Download, clipboard supported/missing/rejected, 320px layout, accessibility and consumed reload. These browser assertions require the configured Playwright application server and are not replaced by unit validation.
 
 ## Owner
 
