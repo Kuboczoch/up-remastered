@@ -14,7 +14,10 @@ The displayed `v<version>` value comes directly from the root `package.json` dur
 - Footer content wraps compactly rather than causing horizontal scrolling on narrow viewports, with long version labels, or at 200% zoom.
 - Subdued text retains WCAG AA contrast against the page background.
 - Footer links expose a visible keyboard focus outline.
+- At widths up to 760 px, each link has an actual minimum 44×44 CSS px box with horizontal padding, unchanged 11 px typography, and an 8 px flex gap. Wrapping keeps hit areas separate; no pseudo-element hit extensions overlap nearby links. Responsive gutters and bottom padding honor device safe-area insets.
 
 ## Verification
 
 Unit coverage verifies the footer landmark, primary destinations, and that the rendered version matches `package.json`. Playwright verifies full-width desktop alignment, narrow-mobile reflow, long-version reflow, 200% zoom reflow, and browser-level accessibility.
+
+`mobile-navigation.test.ts` checks CSS source contracts only, not rendered layout. `mobile-navigation.spec.ts` measures link bounding boxes, padded-edge pointer hit testing, separation, focus, typography, and overflow on the home and new-request pages at 320 and 390 px. Execution of those browser assertions requires a running app; source checks are not a substitute.
