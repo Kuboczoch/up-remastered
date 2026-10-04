@@ -115,6 +115,24 @@ function options(view: ReturnType<typeof mount>) {
   return view.getByRole("switch", { name: "Save history" }) as HTMLInputElement;
 }
 
+it("shows only the history label and stays silent after routine consent changes", () => {
+  const view = mount();
+  const toggle = options(view);
+  expect(toggle.checked).toBe(false);
+  expect(toggle.hasAttribute("aria-describedby")).toBe(false);
+  expect(toggle.closest(".switch-setting")!.querySelector("small")).toBeNull();
+  for (const enabled of [true, false, true, false]) {
+    fireEvent.click(toggle);
+    expect(toggle.checked).toBe(enabled);
+    expect(
+      view.container.querySelector("#advanced-options .history-status"),
+    ).toBeNull();
+    expect(view.container.textContent).not.toMatch(
+      /History enabled|History disabled/,
+    );
+  }
+});
+
 it("does not touch legacy records or save uploads before consent", async () => {
   sessionStorage.setItem(historyKey, JSON.stringify(saved));
   const writes = jest.spyOn(Storage.prototype, "setItem");

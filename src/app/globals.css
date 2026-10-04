@@ -1109,9 +1109,6 @@ html {
   /* Dim the entire setting uniformly, including its retained label. */
   opacity: 0.5;
 }
-#history-help {
-  color: var(--muted);
-}
 .options-panel .option-setting :disabled {
   opacity: 1;
   cursor: not-allowed;

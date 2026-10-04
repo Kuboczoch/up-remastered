@@ -590,7 +590,7 @@ export function UploadExperience({
         const cleared = clearBrowserHistory();
         setConsentStatus(
           persisted && cleared
-            ? "History disabled and cleared in this browser. Server files are unchanged."
+            ? ""
             : "History disabled for this page, but browser storage could not be fully cleared. Clear site data before leaving a shared device.",
         );
       } else if (persisted) {
@@ -604,9 +604,7 @@ export function UploadExperience({
             true,
           ),
         );
-        setConsentStatus(
-          "History enabled in this browser. Keys are never saved.",
-        );
+        setConsentStatus("");
       } else {
         setConsentStatus(
           "History could not be enabled because browser storage is unavailable.",
@@ -1131,25 +1129,26 @@ export function UploadExperience({
           <div className="option-setting switch-setting" style={{ opacity: 1 }}>
             <div>
               <label htmlFor="save-history">Save history</label>
-              <small>In this browser only</small>
-              <small id="history-help">
-                Turning off clears records, not server files. Keys are never
-                saved; retain the full protected link, which history cannot
-                recover.
-              </small>
             </div>
             <input
               id="save-history"
-              aria-describedby="history-help"
+              aria-describedby={consentStatus ? "history-warning" : undefined}
               type="checkbox"
               role="switch"
               checked={saveHistory}
               onChange={(event) => changeHistoryConsent(event.target.checked)}
             />
           </div>
-          <p className="history-status" role="status" aria-live="polite">
-            {consentStatus}
-          </p>
+          {consentStatus && (
+            <p
+              id="history-warning"
+              className="history-status"
+              role="status"
+              aria-live="polite"
+            >
+              {consentStatus}
+            </p>
+          )}
           <div className="option-setting" style={{ opacity: 1 }}>
             <label htmlFor="expiry-hours">Expires after</label>
             <select

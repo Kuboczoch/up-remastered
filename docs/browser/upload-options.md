@@ -35,9 +35,11 @@ must not save even if the storage event has not arrived. Session storage belongs
 to its tab; inactive legacy records in another tab are never migrated without
 consent. Browser storage failures fail closed when enabling, and unsuccessful
 clearing is reported rather than claimed successful. Clear site data to remove
-records from a blocked browser or shared device. Consent success and storage
-failure/clearing warnings appear beside Save history inside the options panel
-and its mobile dialog live region; history-list actions have separate feedback.
+records from a blocked browser or shared device. Save history shows only its
+label and switch: there is no helper text or routine enable/disable feedback.
+Actionable storage failure/clearing warnings appear beside the switch inside
+the options panel and its mobile dialog live region; history-list actions have
+separate feedback.
 
 History stores an allowlisted set of metadata and deletion access tokens. URL
 fragments are stripped on save/read/migration and extra properties are discarded:
