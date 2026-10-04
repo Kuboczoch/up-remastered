@@ -133,9 +133,20 @@ export async function deleteUploadWithAccessToken(
       finishUploadDeletion(db, id, claimId);
     } catch (error) {
       if (renamed && !unlinked) {
-        // Only release after restoring the path. A failed restore keeps the claim
-        // fenced for cleanup, rather than making a half-deleted upload public.
-        await fileOperations.rename(tombstonePath, storagePath);
+        // Retry one transient restore failure, but never clear the durable
+        // tombstone identity or expose the upload until its bytes are restored.
+        try {
+          await fileOperations.rename(tombstonePath, storagePath);
+        } catch (restoreError) {
+          try {
+            await fileOperations.rename(tombstonePath, storagePath);
+          } catch (retryError) {
+            throw new AggregateError(
+              [error, restoreError, retryError],
+              "Upload deletion failed and its tombstone could not be restored.",
+            );
+          }
+        }
       }
       if (!unlinked) releaseUploadDeletion(db, id, claimId);
       if (isMissingFileError(error) && !renamed) return "not-found";

@@ -96,7 +96,8 @@ export async function cleanupExpiredUploads({
   const staleBeforeMs = nowMs - leaseMs;
   const candidates = database
     .prepare(
-      `SELECT id, stored_name AS storedName, size
+      `SELECT id, stored_name AS storedName, size,
+              cleanup_claim_id AS claimId, cleanup_claimed_at AS claimedAt
        FROM upload_metadata
        WHERE (expires_at <= ? OR (max_downloads IS NOT NULL AND download_count >= max_downloads))
          AND (cleanup_claim_id IS NULL OR cleanup_claimed_at <= ?)
@@ -116,48 +117,69 @@ export async function cleanupExpiredUploads({
     `UPDATE upload_metadata
      SET cleanup_claim_id = ?, cleanup_claimed_at = ?
      WHERE id = ? AND (expires_at <= ? OR (max_downloads IS NOT NULL AND download_count >= max_downloads))
-       AND (cleanup_claim_id IS NULL OR cleanup_claimed_at <= ?)`,
+       AND (cleanup_claim_id IS NULL OR cleanup_claimed_at <= ?)
+       AND cleanup_claim_id IS ? AND cleanup_claimed_at IS ?`,
   );
   const release = database.prepare(
     `UPDATE upload_metadata
      SET cleanup_claim_id = NULL, cleanup_claimed_at = NULL
-     WHERE id = ? AND cleanup_claim_id = ?`,
+     WHERE id = ? AND cleanup_claim_id = ? AND cleanup_claimed_at = ?`,
   );
   const remove = database.prepare(
-    `DELETE FROM upload_metadata WHERE id = ? AND cleanup_claim_id = ?`,
+    `DELETE FROM upload_metadata WHERE id = ? AND cleanup_claim_id = ? AND cleanup_claimed_at = ?`,
   );
 
   for (const candidate of candidates) {
-    const claimId = createClaimId();
+    // A stale claim is also the durable suffix identifying a delete tombstone.
+    // Renew its lease without replacing that identity.
+    const recovering = candidate.claimId !== null;
+    const claimId = candidate.claimId ?? createClaimId();
     const claimed = claim.run(
       claimId,
       nowMs,
       candidate.id,
       nowMs,
       staleBeforeMs,
+      candidate.claimId,
+      candidate.claimedAt,
     );
     if (claimed.changes !== 1) continue;
     summary.claimed += 1;
 
-    let missing = false;
+    const releaseClaim = () => {
+      // A recovery failure must remain fenced with the same tombstone suffix.
+      if (!recovering) release.run(candidate.id, claimId, nowMs);
+    };
+    let missing = true;
     try {
-      await unlinkFile(
-        resolveUploadPath(uploadDirectory, candidate.storedName),
-      );
-    } catch (error) {
-      if (isMissingFileError(error)) {
-        missing = true;
-      } else {
-        release.run(candidate.id, claimId);
-        summary.failed += 1;
-        continue;
+      const paths = [resolveUploadPath(uploadDirectory, candidate.storedName)];
+      if (recovering) {
+        paths.unshift(
+          resolveUploadPath(
+            uploadDirectory,
+            `${candidate.storedName}.deleting-${claimId}`,
+          ),
+        );
       }
+      // Both possible locations must be reclaimed before releasing quota.
+      for (const path of paths) {
+        try {
+          await unlinkFile(path);
+          missing = false;
+        } catch (error) {
+          if (!isMissingFileError(error)) throw error;
+        }
+      }
+    } catch {
+      releaseClaim();
+      summary.failed += 1;
+      continue;
     }
 
     try {
-      const removed = remove.run(candidate.id, claimId);
+      const removed = remove.run(candidate.id, claimId, nowMs);
       if (removed.changes !== 1) {
-        release.run(candidate.id, claimId);
+        // Bytes are already gone: retain the fence for a later DB-only retry.
         summary.failed += 1;
         continue;
       }
@@ -165,7 +187,8 @@ export async function cleanupExpiredUploads({
       summary.freedBytes += Number(candidate.size);
       if (missing) summary.missing += 1;
     } catch {
-      release.run(candidate.id, claimId);
+      // Never release a claim after reclaiming its bytes but failing metadata
+      // deletion; the next stale-lease pass can safely finish the DB mutation.
       summary.failed += 1;
     }
   }
