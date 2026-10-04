@@ -8,6 +8,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -104,6 +105,96 @@ describe("upload management", () => {
     expect(await retry.text()).toBe("hello");
     expect(readRow()?.downloadCount).toBe(2);
   });
+  it("retries a transient rollback rename without resetting concurrent counters", async () => {
+    insertUpload();
+    const path = join(process.env.UPLOAD_DIR!, "A7K2Q.bin");
+    await writeFile(path, "hello");
+    const connection = createSqliteConnection();
+    connection.prepare("UPDATE upload_metadata SET max_downloads = 2").run();
+    connection.close();
+    const admitted = await createDownloadResponse("A7K2Q", null, NOW);
+    expect(await admitted.text()).toBe("hello");
+    let renames = 0;
+    await expect(
+      deleteUploadWithAccessToken("A7K2Q", TOKEN, NOW, {
+        rename: async (from, to) => {
+          renames += 1;
+          expect(
+            (await createDownloadResponse("A7K2Q", null, NOW)).status,
+          ).toBe(404);
+          expect(await deleteUploadWithAccessToken("A7K2Q", TOKEN, NOW)).toBe(
+            "not-found",
+          );
+          if (renames === 2) throw new Error("transient restore failure");
+          await rename(from, to);
+        },
+        unlink: async () => {
+          throw new Error("failed unlink");
+        },
+      }),
+    ).rejects.toThrow("failed unlink");
+    expect(renames).toBe(3);
+    expect(readRow()).toMatchObject({ downloadCount: 1, cleanupClaimId: null });
+    expect(await readFile(path, "utf8")).toBe("hello");
+    const retry = await createDownloadResponse("A7K2Q", null, NOW);
+    expect(await retry.text()).toBe("hello");
+    expect(readRow()?.downloadCount).toBe(2);
+    expect((await createDownloadResponse("A7K2Q", null, NOW)).status).toBe(404);
+    expect(verifyUploadAccess("A7K2Q", TOKEN, NOW)).toBe("not-found");
+  });
+
+  it("keeps persistent rollback failures fenced with the actual tombstone identity", async () => {
+    insertUpload();
+    const path = join(process.env.UPLOAD_DIR!, "A7K2Q.bin");
+    await writeFile(path, "hello");
+    let renames = 0;
+    await expect(
+      deleteUploadWithAccessToken("A7K2Q", TOKEN, NOW, {
+        rename: async (from, to) => {
+          renames += 1;
+          if (renames > 1) throw new Error("persistent restore failure");
+          await rename(from, to);
+        },
+        unlink: async () => {
+          throw new Error("failed unlink");
+        },
+      }),
+    ).rejects.toThrow();
+    const claim = readRow()?.cleanupClaimId;
+    expect(claim).toBeTruthy();
+    expect(readRow()).toMatchObject({ downloadCount: 0, size: 5 });
+    expect(await readFile(`${path}.deleting-${claim}`, "utf8")).toBe("hello");
+    await expect(access(path)).rejects.toMatchObject({ code: "ENOENT" });
+    expect((await createDownloadResponse("A7K2Q", null, NOW)).status).toBe(404);
+    expect(await deleteUploadWithAccessToken("A7K2Q", TOKEN, NOW)).toBe(
+      "not-found",
+    );
+    const cleanup = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `import { cleanupExpiredUploads, openCleanupDatabase } from './scripts/cleanup-expired-files.mjs';
+       const database = openCleanupDatabase({ databaseUrl: process.env.DATABASE_URL, migrationsFolder: './drizzle' });
+       try {
+         console.log(JSON.stringify(await cleanupExpiredUploads({ database, uploadDirectory: process.env.UPLOAD_DIR, now: new Date('2026-01-03T00:00:00Z') })));
+       } finally { database.close(); }`,
+      ],
+      { encoding: "utf8", env: process.env },
+    );
+    expect(cleanup.status).toBe(0);
+    expect(JSON.parse(cleanup.stdout)).toMatchObject({
+      deleted: 1,
+      failed: 0,
+      missing: 0,
+      freedBytes: 5,
+    });
+    expect(readRow()).toBeUndefined();
+    await expect(access(`${path}.deleting-${claim}`)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
   it("returns public details without exposing the access token hash", () => {
     insertUpload();
 
