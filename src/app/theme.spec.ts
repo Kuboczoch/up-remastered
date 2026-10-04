@@ -29,7 +29,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       );
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
-      await page.getByRole("button", { name: "Text", exact: true }).click();
+      await page.getByRole("tab", { name: "Text", exact: true }).click();
       const text = page.getByLabel("Or upload text");
       await expect(text).toHaveCSS("background-color", "rgb(43, 44, 53)");
       await text.focus();

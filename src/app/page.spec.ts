@@ -20,10 +20,10 @@ test("renders the homepage value proposition and structured data", async ({
 
   const uploadCard = page.locator(".upload-card");
   const fileModeHeight = (await uploadCard.boundingBox())?.height;
-  await page.getByRole("button", { name: "Text" }).click();
+  await page.getByRole("tab", { name: "Text" }).click();
   await expect(page.getByLabel("Or upload text")).toHaveCSS(
     "max-height",
-    "180px",
+    "160px",
   );
   expect((await uploadCard.boundingBox())?.height).toBe(fileModeHeight);
 
@@ -108,13 +108,19 @@ test("keeps the shared footer usable across responsive layouts", async ({
   const footerInner = footer.locator(".site-footer-inner");
 
   await expect(footer).toBeVisible();
-  await expect(footer).toHaveCSS("width", "1280px");
+  await expect(footer).toHaveCSS(
+    "width",
+    `${await page.evaluate(() => document.body.clientWidth)}px`,
+  );
   await expect(footerInner).toHaveCSS("width", "800px");
   expect((await footer.boundingBox())?.y).toBeGreaterThanOrEqual(810);
-  await expect(footer).toHaveCSS("opacity", "0.75");
+  await expect(footer).toHaveCSS("opacity", "1");
   await expect(
-    footer.getByRole("link", { name: "Request a file" }),
-  ).toHaveAttribute("href", "/request/new");
+    footer.getByRole("link", { name: "ShareX config" }),
+  ).toHaveAttribute("href", "/sharex");
+  await expect(
+    footer.getByRole("link", { name: "Shell helper" }),
+  ).toHaveAttribute("href", "/sh");
   const repositoryLink = footer.getByRole("link", {
     name: "GitHub repository (opens in a new tab)",
   });

@@ -146,7 +146,7 @@ for (const layoutCase of layoutCases) {
 
       await expect(
         page.getByRole("heading", { name: "stable-layout.txt" }),
-      ).toBeVisible();
+      ).toBeHidden();
       if (layoutCase.offline) {
         await expect(page.getByRole("status")).toHaveText(/offline/i);
       }
@@ -279,11 +279,12 @@ test("uploads a picked file and exposes result actions", async ({
 
 test("uploads pasted text and clipboard files", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Text" }).click();
+  await page.getByRole("tab", { name: "Text" }).click();
   await expect(page.getByLabel("Or upload text")).toBeVisible();
   await expect(page.getByText("64 B max")).toBeVisible();
-  await page.getByText("Advanced options").click();
+  await page.getByRole("button", { name: /Advanced options/ }).click();
   await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
+  await page.getByRole("button", { name: "Close advanced options" }).click();
 
   await page.evaluate(() => {
     const data = new DataTransfer();
@@ -311,7 +312,7 @@ test("uploads pasted text and clipboard files", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("uses the selected encoding for pasted text bytes and MIME charset", async ({
+test("keeps the disabled encoding at UTF-8 for pasted text bytes and MIME charset", async ({
   page,
 }) => {
   let uploadBody: Buffer | null = null;
@@ -333,10 +334,12 @@ test("uses the selected encoding for pasted text bytes and MIME charset", async 
     });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Text" }).click();
+  await page.getByRole("tab", { name: "Text" }).click();
   await expect(page.getByLabel("Or upload text")).toBeVisible();
-  await page.getByText("Advanced options").click();
-  await page.getByLabel("Text encoding").selectOption("utf-16le");
+  await page.getByRole("button", { name: /Advanced options/ }).click();
+  await expect(page.getByLabel("Text encoding")).toBeDisabled();
+  await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
+  await page.getByRole("button", { name: "Close advanced options" }).click();
 
   await page.evaluate(() => {
     const data = new DataTransfer();
@@ -351,11 +354,9 @@ test("uses the selected encoding for pasted text bytes and MIME charset", async 
   ).toBeVisible();
   expect(uploadBody).not.toBeNull();
   expect(uploadBody!.toString("latin1")).toContain(
-    "Content-Type: text/plain;charset=utf-16le",
+    "Content-Type: text/plain;charset=utf-8",
   );
-  expect(uploadBody!.includes(Buffer.from([0x41, 0x00, 0xe9, 0x00]))).toBe(
-    true,
-  );
+  expect(uploadBody!.includes(Buffer.from("Aé", "utf8"))).toBe(true);
 });
 
 test("keeps advanced settings collapsed, accessible, and narrow-layout safe", async ({
@@ -363,32 +364,102 @@ test("keeps advanced settings collapsed, accessible, and narrow-layout safe", as
 }) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto("/");
-
-  const details = page.locator("details.advanced-options");
-  const summary = page.getByText("Advanced options");
-  await expect(details).not.toHaveAttribute("open", "");
-  await expect(page.getByLabel("Text encoding")).toBeHidden();
-  await expect(page.getByRole("link", { name: "ShareX config" })).toBeHidden();
-
-  await summary.focus();
-  await expect(summary).toBeFocused();
+  const trigger = page.getByRole("button", { name: /Advanced options/ });
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("#advanced-options")).toBeHidden();
+  await expect(page.getByRole("link", { name: "ShareX config" })).toBeVisible();
+  await trigger.focus();
   await page.keyboard.press("Enter");
-
-  await expect(details).toHaveAttribute("open", "");
-  await expect(page.getByLabel("Text encoding")).toHaveValue("utf-8");
-  await expect(
-    page.getByRole("navigation", { name: "Upload integrations" }),
-  ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Shell helper" })).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Advanced options" });
+  await expect(dialog).toBeVisible();
+  await expect(page.getByLabel("Expires after")).toHaveValue("24");
   expect(
-    await details.evaluate(
+    await dialog.evaluate(
       (element) => element.getBoundingClientRect().right <= window.innerWidth,
     ),
   ).toBe(true);
-
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
 });
+
+for (const outcome of ["success", "error"] as const) {
+  test(`keeps mobile Advanced isolated after delayed upload ${outcome}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    let releaseUpload!: () => void;
+    const uploadGate = new Promise<void>((resolve) => {
+      releaseUpload = resolve;
+    });
+    await page.route("**/api/upload", async (route) => {
+      await uploadGate;
+      if (outcome === "error") {
+        await route.fulfill({ status: 500, body: "Upload failed" });
+      } else {
+        await route.continue();
+      }
+    });
+    await page.goto("/");
+    await page.locator("#file-picker").setInputFiles({
+      buffer: Buffer.from("modal"),
+      mimeType: "text/plain",
+      name: "modal.txt",
+    });
+    await expect(page.locator(".state-card")).toBeVisible();
+    const trigger = page.getByRole("button", { name: /Advanced options/ });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: "Advanced options" });
+    await expect(dialog).toBeVisible();
+    releaseUpload();
+    const replacement = page.locator(
+      outcome === "success" ? ".result-card" : ".drop-zone",
+    );
+    await expect(replacement).toBeVisible();
+    const isolation = expect.configure({ soft: true });
+    await isolation(replacement).toHaveJSProperty("inert", true);
+    await isolation
+      .poll(() =>
+        dialog.evaluate((element) => element.contains(document.activeElement)),
+      )
+      .toBe(true);
+    // Even an explicit background focus attempt must not leave the modal.
+    await replacement
+      .locator("button")
+      .first()
+      .evaluate((element) => element.focus());
+    await expect
+      .poll(() =>
+        dialog.evaluate((element) => element.contains(document.activeElement)),
+      )
+      .toBe(true);
+    for (const key of ["Tab", "Shift+Tab", "Tab"]) {
+      await page.keyboard.press(key);
+      await expect
+        .poll(() =>
+          dialog.evaluate((element) =>
+            element.contains(document.activeElement),
+          ),
+        )
+        .toBe(true);
+    }
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await expect(replacement).toHaveJSProperty("inert", false);
+    await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+    if (outcome === "success") {
+      await page.getByRole("button", { name: "Upload another file" }).click();
+      await expect(page.locator("#file-picker")).toBeFocused();
+    } else {
+      await page.getByRole("button", { name: "Try again" }).click();
+    }
+    await expect(page.locator(".drop-zone")).toBeVisible();
+  });
+}
 
 test("rejects ambiguous drops and oversized files before upload", async ({
   page,
@@ -494,7 +565,7 @@ test("uses short feedback motion and honors reduced-motion preferences", async (
     "drop-feedback-in",
   );
 
-  await page.getByText("Advanced options").click();
+  await page.getByRole("button", { name: /Advanced options/ }).click();
   await expect(page.locator(".advanced-options-content")).toHaveCSS(
     "animation-name",
     "disclosure-feedback-in",
@@ -517,7 +588,7 @@ test("uses short feedback motion and honors reduced-motion preferences", async (
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.getByRole("button", { name: "Upload another file" }).click();
-  await page.getByText("Advanced options").click();
+  await page.getByRole("button", { name: /Advanced options/ }).click();
   const reducedDuration = await page
     .locator(".advanced-options-content")
     .evaluate((element) =>
@@ -551,7 +622,7 @@ test("shows upload percentage in the title and supports mobile text upload", asy
     });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Text" }).click();
+  await page.getByRole("tab", { name: "Text" }).click();
 
   await expect(page.getByLabel("Or upload text")).toBeVisible();
   await page.getByLabel("Or upload text").fill("mobile text");
@@ -591,7 +662,7 @@ test("shows upload percentage in the title and supports mobile text upload", asy
   await expect(page).toHaveTitle("Request a file | Up - Remastered");
 });
 
-test("persists history across page restarts and keeps local removal separate", async ({
+test("disabled history stays empty across page restarts", async ({
   context,
   page,
 }) => {
@@ -601,131 +672,57 @@ test("persists history across page restarts and keeps local removal separate", a
     mimeType: "text/plain",
     name: "history.txt",
   });
-  const shareUrl = await page.locator(".result-url").inputValue();
-  const stored = await page.evaluate(() =>
-    localStorage.getItem("up-remastered:upload-history:v1"),
-  );
-  expect(stored).toContain('"accessToken"');
-
-  const reopenedPage = await context.newPage();
-  await page.close();
-  page = reopenedPage;
-  await page.goto("/");
-  await expect(
-    page.getByRole("heading", { name: "Your uploads" }),
-  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "history.txt" }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: shareUrl })).toBeVisible();
-  await expect(
-    page.locator(".history-card").getByRole("link", { name: "Download" }),
-  ).toHaveAttribute("href", `${shareUrl}?download=1`);
-  expect(await page.locator("body").innerText()).not.toContain("accessToken");
-
-  await page
-    .getByRole("button", { name: "Remove history.txt from history" })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "Your uploads" }),
-  ).toBeHidden();
-  expect((await page.request.get(shareUrl)).ok()).toBe(true);
+  const shareUrl = await page.locator(".result-url").inputValue();
   expect(
     await page.evaluate(() =>
       localStorage.getItem("up-remastered:upload-history:v1"),
     ),
-  ).toBe("[]");
-
-  await page.evaluate((value) => {
-    if (value) localStorage.setItem("up-remastered:upload-history:v1", value);
-  }, stored);
-  await page.reload();
-
-  const [deleted] = await Promise.all([
-    page.waitForResponse(
-      (response) =>
-        response.request().method() === "DELETE" &&
-        response.url().includes("/api/u/"),
-    ),
-    page.getByRole("button", { name: "Delete history.txt" }).click(),
-  ]);
-  expect(deleted.status()).toBe(200);
-  expect(deleted.request().postDataJSON()).toMatchObject({
-    accessToken: expect.any(String),
-  });
-  await expect(
-    page.getByRole("heading", { name: "Your uploads" }),
-  ).toBeHidden();
-  expect(
-    await page.evaluate(() =>
-      localStorage.getItem("up-remastered:upload-history:v1"),
-    ),
-  ).toBe("[]");
-
-  await page.evaluate((value) => {
-    if (value) {
-      localStorage.setItem("up-remastered:upload-history:v1", value);
-    }
-  }, stored);
-  await page.reload();
-  const [missing] = await Promise.all([
-    page.waitForResponse(
-      (response) =>
-        response.request().method() === "DELETE" &&
-        response.url().includes("/api/u/"),
-    ),
-    page.getByRole("button", { name: "Delete history.txt" }).click(),
-  ]);
-  expect(missing.status()).toBe(404);
-  await expect(
-    page.getByRole("heading", { name: "Your uploads" }),
-  ).toBeHidden();
+  ).toBeNull();
+  const reopenedPage = await context.newPage();
+  await page.close();
+  await reopenedPage.goto("/");
+  await expect(reopenedPage.locator(".history-card")).toBeHidden();
+  expect((await reopenedPage.request.get(shareUrl)).ok()).toBe(true);
 });
 
-test("synchronizes upload history across open tabs", async ({
+test("storage events cannot activate disabled history across tabs", async ({
   context,
   page,
 }) => {
   await page.goto("/");
   const otherPage = await context.newPage();
   await otherPage.goto("/");
-  const textMode = otherPage.getByRole("button", {
-    name: "Text",
-    exact: true,
-  });
-  await textMode.click();
-  await expect(textMode).toHaveAttribute("aria-pressed", "true");
-
   await page.evaluate(() => {
+    localStorage.setItem("up-remastered:history-consent", "true");
     localStorage.setItem(
       "up-remastered:upload-history:v1",
       JSON.stringify([
         {
           accessToken: "not-rendered",
-          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          expiresAt: "2099-01-01T00:00:00Z",
           id: "AAAAA",
           originalName: "synced.txt",
-          savedAt: new Date().toISOString(),
+          savedAt: "2026-01-01T00:00:00Z",
           shareUrl: `${location.origin}/AAAAA`,
           size: 6,
         },
       ]),
     );
   });
-
+  await otherPage.getByRole("button", { name: /Advanced options/ }).click();
   await expect(
-    otherPage.getByRole("heading", { name: "synced.txt" }),
-  ).toBeVisible();
+    otherPage.getByRole("switch", { name: "Save history" }),
+  ).not.toBeChecked();
+  await expect(
+    otherPage.getByRole("switch", { name: "Save history" }),
+  ).toBeDisabled();
+  await expect(otherPage.locator(".history-card")).toBeHidden();
   expect(await otherPage.locator("body").innerText()).not.toContain(
     "not-rendered",
   );
-
-  await page.evaluate(() =>
-    localStorage.removeItem("up-remastered:upload-history:v1"),
-  );
-  await expect(
-    otherPage.getByRole("heading", { name: "synced.txt" }),
-  ).toBeHidden();
 });
 
 test("announces offline status and clears it after reconnection", async ({

@@ -115,12 +115,12 @@ describe("upload history", () => {
     );
     saveUploadHistoryEntry(legacy, upload("BBBBB"), NOW + 1);
 
-    expect(restoreUploadHistory(persistent, legacy, NOW)).toMatchObject([
+    expect(restoreUploadHistory(persistent, legacy, NOW, true)).toMatchObject([
       { id: "AAAAA", originalName: "newer.txt" },
       { id: "BBBBB" },
     ]);
     expect(legacy.values.size).toBe(0);
-    expect(restoreUploadHistory(persistent, legacy, NOW)).toHaveLength(2);
+    expect(restoreUploadHistory(persistent, legacy, NOW, true)).toHaveLength(2);
   });
 
   it("retains legacy history when persistent migration storage fails", () => {
@@ -134,7 +134,7 @@ describe("upload history", () => {
       },
     };
 
-    expect(restoreUploadHistory(unavailable, legacy, NOW)).toMatchObject([
+    expect(restoreUploadHistory(unavailable, legacy, NOW, true)).toMatchObject([
       { id: "AAAAA" },
     ]);
     expect(legacy.values.size).toBe(1);

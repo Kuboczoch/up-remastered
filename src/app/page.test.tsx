@@ -34,9 +34,15 @@ describe("Home", () => {
     const footer = getByRole("contentinfo");
 
     expect(footer).toBeTruthy();
-    expect(footer.querySelector('a[href="/request/new"]')?.textContent).toBe(
-      "Request a file",
+    expect(footer.querySelector('a[href="/sharex"]')?.textContent).toBe(
+      "ShareX config",
     );
+    expect(footer.querySelector('a[href="/sh"]')?.textContent).toBe(
+      "Shell helper",
+    );
+    expect(
+      getByRole("link", { name: "Request a file ↗" }).getAttribute("href"),
+    ).toBe("/request/new");
     const repositoryLink = getByRole("link", {
       name: "GitHub repository (opens in a new tab)",
     });
@@ -53,7 +59,7 @@ describe("Home", () => {
       expect(getByLabelText("Choose file")).toBeTruthy();
       expect(getByText("1 KiB max")).toBeTruthy();
     });
-    fireEvent.click(getByRole("button", { name: "Text" }));
+    fireEvent.click(getByRole("tab", { name: "Text" }));
     expect(getByLabelText("Or upload text")).toBeTruthy();
     const structuredData = JSON.parse(script?.textContent ?? "null") as {
       url: string;

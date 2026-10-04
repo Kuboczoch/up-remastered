@@ -75,6 +75,11 @@ function normalizeEntries(
   const seen = new Set<string>();
   return values
     .filter(isEntry)
+    .map((entry) => {
+      const url = new URL(entry.shareUrl);
+      url.hash = "";
+      return { ...entry, shareUrl: url.toString() };
+    })
     .filter((entry) => Date.parse(entry.expiresAt) > now)
     .sort((left, right) => Date.parse(right.savedAt) - Date.parse(left.savedAt))
     .filter((entry) => {
@@ -122,7 +127,14 @@ export function restoreUploadHistory(
   persistentStorage: Pick<Storage, "getItem" | "removeItem" | "setItem">,
   legacyStorage: Pick<Storage, "getItem" | "removeItem" | "setItem">,
   now = Date.now(),
+  consent = false,
 ): UploadHistoryEntry[] {
+  // Scrub fragment secrets even when persistence has not been authorized.
+  if (!consent) {
+    readUploadHistory(persistentStorage, now);
+    readUploadHistory(legacyStorage, now);
+    return [];
+  }
   const persisted = readUploadHistory(persistentStorage, now);
   const legacy = readUploadHistory(legacyStorage, now);
   if (legacy.length === 0) return persisted;
