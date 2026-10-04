@@ -54,13 +54,15 @@ function toLocalInputValue(date: Date): string {
   return local.toISOString().slice(0, 16);
 }
 
-export function CreateRequestForm({
-  maxExpirationMs,
-  maxUploadBytes,
-}: {
-  maxExpirationMs: number;
-  maxUploadBytes: number;
-}) {
+export function CreateRequestForm() {
+  const [limits, setLimits] = useState<{
+    maxExpirationMs: number;
+    maxUploadBytes: number;
+  } | null>(null);
+  const [limitsError, setLimitsError] = useState(false);
+  const [limitsAttempt, setLimitsAttempt] = useState(0);
+  const maxExpirationMs = limits?.maxExpirationMs ?? 0;
+  const maxUploadBytes = limits?.maxUploadBytes ?? 0;
   const expirationPresets = useMemo(() => {
     const allowed = EXPIRATION_PRESETS.filter(
       ({ value }) => value <= maxExpirationMs,
@@ -101,6 +103,42 @@ export function CreateRequestForm({
   const [customSize, setCustomSize] = useState(String(maxUploadBytes));
   const [customSizeUnit, setCustomSizeUnit] = useState<ByteUnit>("B");
   const [now, setNow] = useState<number>();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function loadLimits() {
+      try {
+        const response = await fetch("/api/configuration", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("Configuration unavailable.");
+        const configuration = await response.json();
+        if (
+          !Number.isFinite(configuration.maxFileLifetime) ||
+          configuration.maxFileLifetime <= 0 ||
+          !Number.isSafeInteger(configuration.maxTemporaryFileSize) ||
+          configuration.maxTemporaryFileSize <= 0
+        ) {
+          throw new Error("Invalid server limits.");
+        }
+        if (controller.signal.aborted) return;
+        setLimits({
+          maxExpirationMs: configuration.maxFileLifetime,
+          maxUploadBytes: configuration.maxTemporaryFileSize,
+        });
+        setExpirationChoice(
+          String(Math.min(HOUR, configuration.maxFileLifetime)),
+        );
+        setSizeChoice(String(configuration.maxTemporaryFileSize));
+        setCustomSize(String(configuration.maxTemporaryFileSize));
+      } catch {
+        if (!controller.signal.aborted) setLimitsError(true);
+      }
+    }
+    void loadLimits();
+    return () => controller.abort();
+  }, [limitsAttempt]);
   const { connection, request: liveRequest } = useUploadRequestStatus(
     created?.managementToken,
     created,
@@ -126,6 +164,7 @@ export function CreateRequestForm({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!limits || busy) return;
     setBusy(true);
     setError("");
 
@@ -290,19 +329,42 @@ export function CreateRequestForm({
 
   return (
     <form className={styles.card} onSubmit={submit}>
+      {!limits && (
+        <div>
+          <p role={limitsError ? "alert" : "status"}>
+            {limitsError
+              ? "Could not load server limits. Please retry."
+              : "Loading server limits…"}
+          </p>
+          {limitsError && (
+            <button
+              className="outline-button"
+              onClick={() => {
+                setLimitsError(false);
+                setLimitsAttempt((attempt) => attempt + 1);
+              }}
+              type="button"
+            >
+              Retry loading limits
+            </button>
+          )}
+        </div>
+      )}
       <label className={styles.field}>
         Request expires
         <select
-          disabled={!hydrated}
+          disabled={!hydrated || !limits}
           name="expirationPreset"
           onChange={(event) => selectExpiration(event.target.value)}
           value={expirationChoice}
         >
-          {expirationPresets.map(({ label, value }) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
+          {!limits && <option value="0">Loading server limits…</option>}
+          {limits &&
+            expirationPresets.map(({ label, value }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           <option value="custom">Custom date and time</option>
         </select>
       </label>
@@ -322,17 +384,19 @@ export function CreateRequestForm({
       <label className={styles.field}>
         Maximum upload size
         <select
-          disabled={!hydrated}
+          disabled={!hydrated || !limits}
           name="sizePreset"
           onChange={(event) => setSizeChoice(event.target.value)}
           value={sizeChoice}
         >
-          {sizePresets.map((bytes) => (
-            <option key={bytes} value={bytes}>
-              {bytes === maxUploadBytes ? "Server maximum: " : ""}
-              {formatBytes(bytes)}
-            </option>
-          ))}
+          {!limits && <option value="0">Loading server limits…</option>}
+          {limits &&
+            sizePresets.map((bytes) => (
+              <option key={bytes} value={bytes}>
+                {bytes === maxUploadBytes ? "Server maximum: " : ""}
+                {formatBytes(bytes)}
+              </option>
+            ))}
           <option value="custom">Custom size</option>
         </select>
       </label>
@@ -370,12 +434,12 @@ export function CreateRequestForm({
         </div>
       ) : null}
       <p className={styles.muted}>
-        The link accepts one successful upload. Server maximum:{" "}
-        {formatBytes(maxUploadBytes)}.
+        The link accepts one successful upload.
+        {limits && <> Server maximum: {formatBytes(maxUploadBytes)}.</>}
       </p>
       <button
         className={styles.button}
-        disabled={!hydrated || busy}
+        disabled={!hydrated || !limits || busy}
         type="submit"
       >
         {busy ? "Creating…" : "Create upload request"}

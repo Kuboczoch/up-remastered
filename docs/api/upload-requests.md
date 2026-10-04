@@ -2,6 +2,15 @@
 
 Requested-upload links let one person invite one anonymous upload without creating accounts.
 
+## Request form rendering
+
+`/request/new` is prerendered at build time, including inherited URL metadata
+from `UP_PUBLIC_ORIGIN`; rebuild when changing that origin. Other routes retain
+their existing rendering behavior. The form loads current size and lifetime
+limits from `/api/configuration` at runtime, with a localized loading/error/retry
+state and submission disabled until valid limits are available. The API remains
+authoritative for request validation.
+
 ## Capability model
 
 `POST /api/upload-requests` accepts only:
