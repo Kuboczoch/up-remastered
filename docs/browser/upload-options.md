@@ -42,6 +42,21 @@ original complete link separately. Protected history entries disable Copy link
 and omit Download actions rather than offering unusable unkeyed links.
 
 Manual Clear history and Remove actions forget local records only while enabled.
-Delete file is a separate server action. No automatic pruning or migration
+Delete file is a separate server action. An empty HTTP 200 response confirms
+deletion; the management API's structured `File not found.` HTTP 404 confirms
+already-unavailable, not that this attempt deleted bytes. Raw/proxy 404s,
+unexpected success responses, authentication errors, network errors and server
+failures retain live actions and ownership metadata for retry.
+
+Confirmed statuses update history and the currently displayed result by upload
+ID. The result becomes Deleted or Unavailable with Upload another file, without
+copy, open, download or QR actions. An unrelated result stays unchanged. While
+history remains enabled, the retained local row saves `serverStatus` (`deleted`
+or `unavailable`) and restores that explanation on reload; copy/download/re-delete
+are disabled only for confirmed rows (protected-key restrictions still apply).
+Remove and Clear history remain local forgetting actions, not server deletion
+or Undo. Failed persistence is announced; the confirmed state remains visible
+for the current page, with instructions to remove the local record before reload.
+Deletion cannot restore already-deleted bytes. No automatic pruning or migration
 occurs. Same-origin scripts can read saved metadata; clear site data on shared
 devices, including dormant legacy session records.
