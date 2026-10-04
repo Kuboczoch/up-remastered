@@ -26,6 +26,9 @@ test.each([
           ? /already in progress/
           : new RegExp(status),
     );
+    expect(
+      screen.getByRole("link", { name: "← Home" }).getAttribute("href"),
+    ).toBe("/");
     if (status === "in_progress") {
       expect(
         screen.getByRole("link", { name: "Refresh request status" }),
@@ -33,7 +36,9 @@ test.each([
       expect(screen.getByText(/Wait for the current upload/)).toBeDefined();
     } else {
       expect(screen.getByText(/new request/)).toBeDefined();
-      expect(screen.queryByRole("link")).toBeNull();
+      expect(
+        screen.queryByRole("link", { name: "Refresh request status" }),
+      ).toBeNull();
     }
   },
 );

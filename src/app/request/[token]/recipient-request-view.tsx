@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatLocalDateTime, formatRelativeExpiry } from "@/lib/format";
 import type { RecipientRequestedUpload } from "@/server/upload-requests/requested-upload";
 import styles from "../request.module.css";
@@ -38,25 +39,33 @@ export function RecipientRequestView({
   if (!("maxBytes" in request)) {
     const [title, guidance] = unavailable[request.status];
     return (
-      <main className={styles.page}>
-        <h1>{title}</h1>
-        <p>{guidance}</p>
-        {request.status === "in_progress" ? (
-          <a href={`/request/${token}`}>Refresh request status</a>
-        ) : null}
+      <main className={styles.shell}>
+        <header className={styles.header}>
+          <Link href="/">← Home</Link>
+          <h1>{title}</h1>
+        </header>
+        <section className={styles.card}>
+          <p>{guidance}</p>
+          {request.status === "in_progress" ? (
+            <a href={`/request/${token}`}>Refresh request status</a>
+          ) : null}
+        </section>
       </main>
     );
   }
   return (
-    <main className={styles.page}>
-      <h1>Send a requested file</h1>
-      <p>
-        Expires {formatRelativeExpiry(request.expiresAt, now, "en")} (
-        <time dateTime={request.expiresAt}>
-          {formatLocalDateTime(request.expiresAt, "en-GB", "UTC")} UTC
-        </time>
-        ).
-      </p>
+    <main className={styles.shell}>
+      <header className={styles.header}>
+        <Link href="/">← Home</Link>
+        <h1>Send a requested file</h1>
+        <p>
+          Expires {formatRelativeExpiry(request.expiresAt, now, "en")} (
+          <time dateTime={request.expiresAt}>
+            {formatLocalDateTime(request.expiresAt, "en-GB", "UTC")} UTC
+          </time>
+          ).
+        </p>
+      </header>
       {request.status === "retry" ? (
         <p>
           The previous upload did not complete. You can choose a file and try
