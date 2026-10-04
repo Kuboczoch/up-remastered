@@ -8,6 +8,19 @@ Current coverage:
 - Jest for server utility, SQLite metadata, and upload persistence/quota tests under `src/server/**` in a Node environment.
 - Playwright for browser-level homepage and upload endpoint smoke checks, plus future share and download flows, including `@axe-core/playwright` accessibility scans. Homepage coverage records browser `layout-shift` entries and heading/upload-control geometry across mobile and desktop refreshes with restored history, delayed or failed configuration, and offline initialization.
 
+Current-result deletion coverage:
+
+- `current-result-deletion.test.tsx` verifies no-history capability deletion,
+  cancellation and focus containment, duplicate submission suppression, exact
+  management confirmation, and retry after HTTP, proxy, network and abort failures.
+- `browser-options.test.tsx` verifies the real uploader exposes deletion with
+  history off and removes every sharing action after confirmation.
+- `current-result-deletion.spec.ts` uses real disposable plain and key-protected
+  uploads, cancellation, failure interception followed by real deletion, terminal
+  focus, no history writes, and validated cleanup. Traces, screenshots and video
+  are disabled to avoid capturing owner capabilities or fragment keys. Browser
+  execution requires an approved runtime/production build; discovery is not a pass.
+
 Useful commands:
 
 - `pnpm run check` verifies formatting and JVM absence, then runs ESLint, TypeScript, and unit tests.

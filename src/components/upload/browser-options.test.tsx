@@ -103,6 +103,59 @@ it.each(["button", "panel", "window"])(
     expect(bytes).toEqual([65, 195, 169]);
   },
 );
+it("offers current upload deletion while history remains off", async () => {
+  const view = mount();
+  const writes = jest.spyOn(Storage.prototype, "setItem");
+  fireEvent.paste(window, {
+    clipboardData: { files: [], getData: () => "disposable" },
+  });
+  await waitFor(() =>
+    expect(view.getByRole("button", { name: "Copy URL" })).toBeTruthy(),
+  );
+  expect(view.getByRole("button", { name: "Delete file" })).toBeTruthy();
+  expect(writes).not.toHaveBeenCalled();
+});
+it("history-off current result becomes terminal only after confirmed server deletion", async () => {
+  const view = mount();
+  const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+  fetchMock.mockImplementation(async (input, init) => {
+    if (init?.method === "DELETE")
+      return { status: 200, text: async () => "" } as Response;
+    return {
+      ok: true,
+      json: async () =>
+        input === "/api/configuration"
+          ? {
+              maxUploadSize: 1000000,
+              expirationOptions: [1, 3, 6, 12, 24],
+              maxExpirationHours: 24,
+              minimumExpirationHours: 1,
+            }
+          : { upload: result },
+    } as Response;
+  });
+  fireEvent.paste(window, {
+    clipboardData: { files: [], getData: () => "disposable" },
+  });
+  await waitFor(() =>
+    expect(view.getByRole("button", { name: "Delete file" })).toBeTruthy(),
+  );
+  fireEvent.click(view.getByRole("button", { name: "Delete file" }));
+  fireEvent.click(
+    view.getByRole("button", { name: "Permanently delete file" }),
+  );
+  await waitFor(() =>
+    expect(view.getByText("Deleted", { exact: true })).toBeTruthy(),
+  );
+  expect(view.queryByText("Upload complete")).toBeNull();
+  expect(view.queryByRole("button", { name: "Copy URL" })).toBeNull();
+  expect(view.queryByRole("link", { name: "Open file" })).toBeNull();
+  expect(view.queryByRole("link", { name: "Download file" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Show QR code" })).toBeNull();
+  expect(localStorage.getItem(historyKey)).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Upload another file" }));
+  expect(view.queryByText("Deleted", { exact: true })).toBeNull();
+});
 const preferenceKey = "up-remastered:history-enabled";
 const historyKey = "up-remastered:upload-history:v1";
 const saved = [{ ...result, savedAt: "2026-01-01T00:00:00Z" }];
