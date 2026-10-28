@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { readdir, stat } from "node:fs/promises";
+import { mkdir, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 async function createRequest(page: import("@playwright/test").Page) {
@@ -36,6 +36,8 @@ test("slow upload measures progress, blocks double submit, cancels and releases 
   const created = await createRequest(page);
   await selectFile(page);
   const uploadDir = process.env.UPLOAD_DIR!;
+  // Production creates this directory lazily on the first upload.
+  await mkdir(uploadDir, { recursive: true });
   const before = new Set(await readdir(uploadDir));
   const newFiles = async () =>
     (await readdir(uploadDir)).filter((name) => !before.has(name));
