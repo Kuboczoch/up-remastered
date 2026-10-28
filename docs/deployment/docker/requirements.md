@@ -42,3 +42,31 @@ and database-backed routes remain Node server routes. Runtime API configuration
 and validation remain authoritative, including when rejecting requests from an
 older browser page with stale baked limits. The request form still validates
 the runtime limits before allowing submission.
+
+## Application-owned final-response layer
+
+Production starts through `scripts/start.mjs`, not the generated `server.js`
+directly. The launcher starts the unchanged Next standalone server on a private
+loopback port and exposes a streaming HTTP proxy on `HOSTNAME` (default
+`0.0.0.0`) and `PORT` (default `3000`). It waits for `/api/health` before opening
+the public listener and terminates the child on shutdown or startup failure.
+
+- From the repository: `pnpm build && pnpm start`.
+- From a copied `.next/standalone` directory: `node scripts/start.mjs`.
+- Docker/Compose: the image command already uses `node scripts/start.mjs`.
+  Do not override it with `node server.js` or `next start`; those bypass the
+  final-response contract.
+
+The proxy augments final HTML and React Server Component responses with the
+case-insensitive union of the framework's `Vary` tokens, `Accept-Language`, and
+`Cookie`. It preserves `Vary: *`. It does not replace framework headers or
+depend on `no-store` to hide a missing cache key. Locale selection and SSR
+translations are a separate application concern; these headers alone do not
+constitute localization acceptance.
+
+API and raw transfer responses retain their status, body, range/HEAD behavior,
+content encoding, validators, capability headers, and cache policy. Bodies are
+piped with backpressure, without decoding, buffering or automatic retries.
+Client cancellation aborts the upstream stream. This is an HTTP application
+proxy, not a WebSocket server. Keep the existing public-origin build/runtime
+parity; the private backend address is never a public origin.

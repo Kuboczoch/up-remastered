@@ -94,3 +94,37 @@ test("does not grant wildcard cross-origin access", async ({ request }) => {
     expect(response.headers()["access-control-allow-origin"]).not.toBe("*");
   }
 });
+
+test("final HTML and RSC Vary preserves framework tokens and locale inputs", async ({
+  request,
+}) => {
+  for (const path of ["/", "/request/new", "/request/manage"]) {
+    for (const rsc of [false, true]) {
+      const response = await request.get(path, {
+        headers: {
+          ...(rsc ? { RSC: "1" } : {}),
+          "Accept-Language": "pl-PL,pl;q=0.9,en;q=0.8",
+          Cookie: "up_locale=pl",
+        },
+      });
+      expect(response.status()).toBe(200);
+      expect(response.headers()["content-type"]).toContain(
+        rsc ? "text/x-component" : "text/html",
+      );
+      const vary = response
+        .headers()
+        .vary.toLowerCase()
+        .split(/\s*,\s*/);
+      for (const token of [
+        "rsc",
+        "next-router-state-tree",
+        "next-router-prefetch",
+        "next-router-segment-prefetch",
+        "accept-language",
+        "cookie",
+      ]) {
+        expect(vary).toContain(token);
+      }
+    }
+  }
+});
