@@ -51,7 +51,15 @@ All copy actions use the shared clipboard utility. On LAN HTTP without Clipboard
 
 The server atomically claims the request before reading the upload. Concurrent reuse fails with the same non-disclosing `404 upload_request_unavailable` response used for invalid, expired, revoked, consumed, and in-progress links. A failed validation/upload releases the claim for retry. A successful upload consumes the request and uses the ID/share URL reserved when the request was created. If consumption loses a revocation race, the newly created upload is deleted before an unavailable response is returned.
 
+The recipient form shows the selected filename and byte size, measurable XHR request-body progress, and a polite live status. File replacement and duplicate submission are disabled during transmission. Once the browser finishes sending bytes it reports **Finalizing**, not completion; only a successful server response completes the flow. Recoverable validation/network failures preserve the selection for retry.
+
+Cancel aborts the transport (including when leaving the form). The server binds raw and multipart readers to the request abort signal, removes incomplete bytes before releasing the claim, and deletes a persisted upload if cancellation is observed before consumption. Cancellation does not introduce a public status or cleanup endpoint. The UI explicitly reports **local** cancellation: cleanup is asynchronous, and cancellation after the atomic consume point cannot undo a successful single-use upload. Immediate retry can temporarily return unavailable while cleanup is still running; uncertain network failures can likewise hide a completed upload. If deletion of a persisted, unconsumed upload fails, the server retains the claim instead of advertising a safe retry over remaining bytes.
+
 The uploader receives the ordinary upload access token for managing the uploaded file, but never receives the owner management token.
+
+### Recipient browser regressions
+
+After a production build, `pnpm run test:e2e:recipient` runs the large-file Chromium regression suite with one worker, its own `.playwright-recipient-data` store, and port 3346 by default (`PORT` overrides it). It checks real throttled upload progress and cancellation/claim retry, network failure/retry, duplicate-submit prevention, oversize correction, and response-stage finalizing. `test:e2e:ci` includes this suite after the normal browser suite; large-file limits are isolated from the normal 4 KiB fixtures.
 
 ## Owner
 
