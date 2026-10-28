@@ -102,13 +102,26 @@ function forcedDownloadUrl(shareUrl: string): string {
 
 export function UploadExperience({
   initialMaxBytes,
+  initialExpirationHours = 24,
+  maxExpirationHours = 24,
 }: {
   initialMaxBytes: number;
+  initialExpirationHours?: number;
+  maxExpirationHours?: number;
 }) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [downloadLimit, setDownloadLimit] = useState(11);
-  const [expirationHours, setExpirationHours] = useState(24);
+  const [expirationHours, setExpirationHours] = useState(
+    initialExpirationHours,
+  );
+  const expirationChoices = Array.from(
+    new Set([
+      ...[1, 3, 6, 12, 24].filter((hours) => hours <= maxExpirationHours),
+      initialExpirationHours,
+      maxExpirationHours,
+    ]),
+  ).sort((left, right) => left - right);
   const [saveHistory, setSaveHistory] = useState(false);
   const [protection, setProtection] = useState(false);
   const saveHistoryRef = useRef(false);
@@ -1226,7 +1239,7 @@ export function UploadExperience({
                 setExpirationHours(Number(event.target.value))
               }
             >
-              {[1, 3, 6, 12, 24].map((hours) => (
+              {expirationChoices.map((hours) => (
                 <option value={hours} key={hours}>
                   {hours} {hours === 1 ? "hour" : "hours"}
                 </option>

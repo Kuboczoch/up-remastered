@@ -55,3 +55,22 @@ it("enables only implemented Advanced settings without accessing history before 
   expect(write).not.toHaveBeenCalled();
   expect(remove).not.toHaveBeenCalled();
 });
+
+it("uses baked fractional expiration defaults without offering values above the deployment maximum", () => {
+  global.fetch = jest.fn<typeof fetch>(() => new Promise(() => {}));
+  const { getByRole, getByLabelText } = render(
+    <UploadExperience
+      initialMaxBytes={8192}
+      initialExpirationHours={0.5}
+      maxExpirationHours={2}
+    />,
+  );
+  fireEvent.click(getByRole("button", { name: /Advanced options/ }));
+  const expiry = getByLabelText("Expires after") as HTMLSelectElement;
+  expect(expiry.value).toBe("0.5");
+  expect(Array.from(expiry.options, (option) => option.value)).toEqual([
+    "0.5",
+    "1",
+    "2",
+  ]);
+});
