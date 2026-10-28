@@ -1483,3 +1483,55 @@ html {
 .decrypt-experience [role="status"] {
   margin-top: 16px;
 }
+
+/* Real mobile hit boxes, not overlapping pseudo-element extensions. */
+@media (max-width: 760px) {
+  .upload-rail a,
+  .site-footer a,
+  .site-header > .outline-button,
+  .site-brand {
+    display: inline-flex;
+    min-height: 44px;
+    min-width: 44px;
+    align-items: center;
+  }
+  .upload-rail a,
+  .site-footer a {
+    padding: 0 8px;
+  }
+  .upload-rail {
+    gap: 8px;
+  }
+  .site-header {
+    width: calc(
+      100% - max(17px, env(safe-area-inset-left)) -
+        max(17px, env(safe-area-inset-right))
+    );
+    gap: 8px;
+  }
+  .site-brand {
+    flex-shrink: 1;
+  }
+  .site-brand strong {
+    min-width: 0;
+  }
+  .site-header > .outline-button {
+    flex-shrink: 0;
+  }
+  .upload-shell {
+    width: calc(
+      100% - max(20px, env(safe-area-inset-left)) -
+        max(20px, env(safe-area-inset-right))
+    );
+  }
+  .site-footer-inner {
+    width: calc(
+      100% - max(17px, env(safe-area-inset-left)) -
+        max(17px, env(safe-area-inset-right))
+    );
+    padding-bottom: calc(27px + env(safe-area-inset-bottom));
+  }
+  .site-footer nav {
+    gap: 8px;
+  }
+}
