@@ -5,14 +5,13 @@ import { formatBytes } from "@/lib/format";
 
 import styles from "../request.module.css";
 
+import {
+  RequestedUploadSuccess,
+  type RequestedUploadReceipt,
+} from "./requested-upload-success";
+
 type UploadResponse = {
-  accessToken: string;
-  upload: {
-    expiresAt: string;
-    originalName: string;
-    shareUrl: string;
-    size: number;
-  };
+  upload: RequestedUploadReceipt;
 };
 
 export function RequestedUploadForm({
@@ -22,7 +21,7 @@ export function RequestedUploadForm({
   maxBytes: number;
   token: string;
 }) {
-  const [result, setResult] = useState<UploadResponse>();
+  const [result, setResult] = useState<RequestedUploadReceipt>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
@@ -101,7 +100,8 @@ export function RequestedUploadForm({
           reject(new DOMException("Upload cancelled.", "AbortError"));
         xhr.send(upload);
       });
-      setResult(body);
+      const { id, originalName, size, expiresAt } = body.upload;
+      setResult({ id, originalName, size, expiresAt });
     } catch (caught) {
       if (caught instanceof DOMException && caught.name === "AbortError") {
         setStatus(
@@ -116,21 +116,9 @@ export function RequestedUploadForm({
     }
   }
 
-  if (result)
-    return (
-      <section className={styles.card} aria-labelledby="upload-complete">
-        <h2 id="upload-complete">Upload complete</h2>
-        <p className={styles.result}>
-          Share link:{" "}
-          <a href={result.upload.shareUrl}>{result.upload.shareUrl}</a>
-        </p>
-        <p className={styles.result}>
-          <strong>Upload access token:</strong>{" "}
-          <code>{result.accessToken}</code>
-        </p>
-        <p>No owner management token is shared with the uploader.</p>
-      </section>
-    );
+  if (result) {
+    return <RequestedUploadSuccess receipt={result} />;
+  }
 
   return (
     <form className={styles.card} onSubmit={submit}>
