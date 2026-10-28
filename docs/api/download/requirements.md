@@ -16,6 +16,12 @@ DELETE /api/u/[id]
 
 Both public download aliases accept `?download=1` on `GET` and `HEAD`. This keeps the verified content type but forces `Content-Disposition: attachment`; other `download` values do not change the normal safe-inline policy.
 
+## Unavailable browser documents
+
+Only public GET errors negotiate a static branded HTML document: the request must have `Sec-Fetch-Mode: navigate`, `Sec-Fetch-Dest: document`, and explicitly accept `text/html` at positive quality without a stronger competing representation. Wildcards alone, HTML exclusions (`q=0`), malformed/duplicate preferences, fetch/API requests, HEAD and `?download=1` keep the existing raw contract. Both aliases use the same presentation boundary after the shared lifecycle decision; successful bytes, ranges, API JSON and download admission are untouched.
+
+The page explains possible expiration, deletion, exhausted limits or an incorrect link without identifying the actual cause or disclosing filenames, identifiers, metadata or capabilities. It offers a keyboard-accessible Home/Upload another file action, a mobile viewport and responsive styling without JavaScript or external assets. Existing 404 (or future 410) status, `Cache-Control: no-store` and `X-Content-Type-Options: nosniff` are retained. HTML adds a restrictive CSP with a hash-pinned stylesheet, no-referrer and frame denial. Public unavailable GET responses merge `Accept`, `Sec-Fetch-Mode` and `Sec-Fetch-Dest` into `Vary` for both raw and HTML variants. All current lifecycle failures intentionally remain indistinguishable 404s; presentation does not introduce cause-specific 410s or consume admissions.
+
 Before sending bytes, the route must:
 
 - Validate the public ID shape.
