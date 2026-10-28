@@ -67,6 +67,56 @@ for (const locale of ["en", "pl"] as const) {
           );
         }
         expect(uploads).toBe(0);
+        if (environment !== "localhost") {
+          await page
+            .getByRole("button", {
+              name: pl
+                ? "Zamknij opcje zaawansowane"
+                : "Close advanced options",
+            })
+            .click();
+          const bytes = Buffer.from(
+            `Plain upload remains available: ${locale}`,
+          );
+          await page.locator("#file-picker").setInputFiles({
+            name: "plain-availability.txt",
+            mimeType: "text/plain",
+            buffer: bytes,
+          });
+          await expect(page.locator("#share-url")).toBeVisible();
+          const share = new URL(await page.locator("#share-url").inputValue());
+          expect(share.hash).toBe("");
+          expect(share.pathname).not.toContain("/decrypt/");
+          const response = await context.request.get(
+            new URL(share.pathname, baseURL!).href,
+          );
+          expect(response.status()).toBe(200);
+          expect(await response.body()).toEqual(bytes);
+          expect(uploads).toBe(1);
+
+          let ciphertextRequests = 0;
+          page.on("request", (request) => {
+            if (new URL(request.url()).pathname === "/A7K2Q")
+              ciphertextRequests++;
+          });
+          // A syntactically valid key must not trigger even a counted fetch
+          // when the recipient cannot decrypt in this browser environment.
+          await page.goto(
+            new URL(`/decrypt/A7K2Q#key=${"A".repeat(43)}`, origin).href,
+          );
+          const decrypt = page.getByRole("button", {
+            name: pl ? "Odszyfruj plik" : "Decrypt file",
+            exact: true,
+          });
+          await expect(decrypt).toBeEnabled();
+          expect(ciphertextRequests).toBe(0);
+          await decrypt.click();
+          await expect(
+            page.locator(".decrypt-experience").getByRole("alert"),
+          ).toContainText("HTTPS");
+          await expect(decrypt).toBeEnabled();
+          expect(ciphertextRequests).toBe(0);
+        }
       } finally {
         await context.close();
         await isolated?.close();
