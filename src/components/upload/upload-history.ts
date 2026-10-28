@@ -1,6 +1,10 @@
 import type { UploadResult } from "./client-upload";
 export const UPLOAD_HISTORY_STORAGE_KEY = "up-remastered:upload-history:v1";
-export type UploadHistoryEntry = UploadResult & { savedAt: string };
+export type ConfirmedServerStatus = "deleted" | "unavailable";
+export type UploadHistoryEntry = UploadResult & {
+  savedAt: string;
+  serverStatus?: ConfirmedServerStatus;
+};
 function isUrl(value: unknown): value is string {
   if (typeof value !== "string") return false;
   try {
@@ -49,6 +53,9 @@ function publicHistoryEntry(entry: UploadHistoryEntry): UploadHistoryEntry {
     expiresAt: entry.expiresAt,
     shareUrl: entry.shareUrl.split("#", 1)[0],
     savedAt: entry.savedAt,
+    ...(entry.serverStatus === "deleted" || entry.serverStatus === "unavailable"
+      ? { serverStatus: entry.serverStatus }
+      : {}),
   };
 }
 // Ordinary reads are read-only. Enabled history strips legacy fragment keys and
@@ -106,6 +113,31 @@ export function saveUploadHistoryEntry(
   safeSet(storage, entries);
   return entries;
 }
+export function confirmUploadHistoryStatus(
+  storage: Pick<Storage, "getItem" | "setItem">,
+  id: string,
+  serverStatus: ConfirmedServerStatus,
+  current: UploadHistoryEntry[],
+): { entries: UploadHistoryEntry[]; persisted: boolean } {
+  const entries = current.map((entry) =>
+    entry.id === id ? { ...entry, serverStatus } : entry,
+  );
+  try {
+    // Never resurrect a locally removed row.
+    const raw = storage.getItem(UPLOAD_HISTORY_STORAGE_KEY);
+    if (raw !== null && !Array.isArray(JSON.parse(raw))) {
+      return { entries, persisted: false };
+    }
+    const stored = readUploadHistory({ getItem: () => raw }).map((entry) =>
+      entry.id === id ? { ...entry, serverStatus } : entry,
+    );
+    storage.setItem(UPLOAD_HISTORY_STORAGE_KEY, JSON.stringify(stored));
+    return { entries, persisted: true };
+  } catch {
+    return { entries, persisted: false };
+  }
+}
+
 export function removeUploadHistoryEntry(
   storage: Pick<Storage, "getItem" | "setItem">,
   id: string,

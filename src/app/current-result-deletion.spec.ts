@@ -101,7 +101,9 @@ for (const protectedUpload of [false, true]) {
       expect(confirmed.status()).toBe(200);
       expect(await confirmed.text()).toBe("");
       deleted = true;
-      await expect(page.getByText("Deleted", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText("File deleted", { exact: true }),
+      ).toBeVisible();
       await expect(
         page.getByText("Upload complete", { exact: true }),
       ).toHaveCount(0);
@@ -113,7 +115,9 @@ for (const protectedUpload of [false, true]) {
       for (const label of ["Open file", "Download file"]) {
         await expect(page.getByRole("link", { name: label })).toHaveCount(0);
       }
-      await expect(page.locator(".result-card")).toBeFocused();
+      await expect(
+        page.getByRole("heading", { name: "File deleted" }),
+      ).toBeFocused();
       expect(deletes).toBe(2);
       const disabledStorageIntact = await page.evaluate(
         () =>
@@ -126,7 +130,9 @@ for (const protectedUpload of [false, true]) {
       const unavailable = await request.get(`/api/u/${owner.id}/details`);
       expect(unavailable.status() === 404).toBe(true);
       await page.getByRole("button", { name: "Upload another file" }).click();
-      await expect(page.getByText("Deleted", { exact: true })).toHaveCount(0);
+      await expect(page.getByText("File deleted", { exact: true })).toHaveCount(
+        0,
+      );
     } finally {
       if (owner && !deleted) {
         const cleanup = await request.delete(`/api/u/${owner.id}`, {

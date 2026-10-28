@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { DestructiveConfirmation } from "@/components/destructive-confirmation";
+import type { ConfirmedServerStatus } from "./upload-history";
 
 type Props = {
   id: string;
@@ -9,6 +10,7 @@ type Props = {
   name: string;
   children: ReactNode;
   onStartAnother: () => void;
+  onConfirmed?: (status: ConfirmedServerStatus) => void;
 };
 
 /** Ephemeral lifecycle only: never reads or writes browser history. Key by upload ID. */
@@ -18,8 +20,9 @@ export function CurrentResultDeletion({
   name,
   children,
   onStartAnother,
+  onConfirmed,
 }: Props) {
-  const [deleted, setDeleted] = useState(false);
+  const [deleted, setDeleted] = useState<ConfirmedServerStatus | null>(null);
   const pending = useRef(false);
 
   async function deleteCurrent() {
@@ -31,14 +34,27 @@ export function CurrentResultDeletion({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ accessToken }),
       });
-      // This route confirms deletion with exactly 200 and an empty body.
-      // Raw 404, auth errors and proxy/unexpected success bodies are not confirmation.
-      if (response.status !== 200 || (await response.text()) !== "") {
-        throw new Error(
-          "Deletion was not confirmed. Your file link is retained; please retry.",
-        );
+      let status: ConfirmedServerStatus;
+      if (response.status === 200 && (await response.text()) === "") {
+        status = "deleted";
+      } else if (response.status === 404) {
+        const body: unknown = await response.json();
+        if (
+          !body ||
+          typeof body !== "object" ||
+          !("success" in body) ||
+          body.success !== false ||
+          !("message" in body) ||
+          body.message !== "File not found."
+        ) {
+          throw new Error("Unconfirmed deletion.");
+        }
+        status = "unavailable";
+      } else {
+        throw new Error("Unconfirmed deletion.");
       }
-      setDeleted(true);
+      setDeleted(status);
+      onConfirmed?.(status);
     } catch {
       // Do not surface transport messages that could contain private capabilities.
       throw new Error(
@@ -53,12 +69,13 @@ export function CurrentResultDeletion({
     return (
       <>
         <p className="complete-label" role="status">
-          Deleted
+          {deleted === "deleted" ? "Deleted" : "File unavailable"}
         </p>
         <h2>{name}</h2>
         <p>
-          The file was deleted from the server. Existing sharing links no longer
-          work. This cannot be undone.
+          {deleted === "deleted"
+            ? "The file was deleted from the server. Existing sharing links no longer work. This cannot be undone."
+            : "The server confirmed this file is already unavailable. Existing sharing links no longer work."}
         </p>
         <button
           className="start-over-button"

@@ -21,7 +21,7 @@ never saved in upload history. See `docs/pages/download/encryption.md`.
 
 Every successful current result offers secondary **Delete file**, even with Save
 history off. It uses only that upload's in-memory access token, not its password
-or fragment key, and never reads or writes history. The accessible confirmation
+or fragment key, with no history reads or writes while history is off. The accessible confirmation
 warns that existing sharing links break and deletion cannot be undone. Cancel
 and Escape send no deletion request; Cancel receives initial focus and keyboard
 focus remains inside the dialog while it is open. Pending confirmation cannot
@@ -29,11 +29,14 @@ be dismissed or submitted twice.
 
 Only the management route's exact empty HTTP 200 confirms deletion. Authentication,
 network, raw 404 and unexpected success responses retain the complete current
-result and retry capability. Confirmation replaces the complete result with
-**Deleted** and Upload another file; Copy, Open, Download and QR are removed.
-The terminal state is page-local, not a new persisted-history status. With history
-enabled, existing history behavior is unchanged by this independent current-result
-lifecycle; persistent status reconciliation is a separate change.
+result and retry capability. A structured management API 404 confirms only that
+the file is already unavailable, not successful deletion. Confirmation replaces
+the complete result with **File deleted** or **File unavailable** and Upload
+another file; Copy, Open, Download and QR are removed. With history off, terminal
+state remains page-local and deletion does not read or write history storage. With
+history enabled, the matching record is reconciled to its durable terminal state
+without restoring removed rows or saving fragment keys. Storage failure never
+undoes server confirmation and is announced separately.
 
 ## Opt-in upload history
 
@@ -59,7 +62,34 @@ History cannot reconstruct protected unlocking links or recover keys: keep the
 original complete link separately. Protected history entries disable Copy link
 and omit Download actions rather than offering unusable unkeyed links.
 
-Manual Clear history and Remove actions forget local records only while enabled.
-Delete file is a separate server action. No automatic pruning or migration
+Manual Clear history and Remove from history actions forget local records only while enabled.
+Delete server file is a separate server action. An empty HTTP 200 response confirms
+deletion; the management API's structured `File not found.` HTTP 404 confirms
+already-unavailable, not that this attempt deleted bytes. Raw/proxy 404s,
+unexpected success responses, authentication errors, network errors and server
+failures retain live actions and ownership metadata for retry.
+
+Confirmed statuses update history and the currently displayed result by upload
+ID. The result becomes Deleted or Unavailable with Upload another file, without
+copy, open, download or QR actions. An unrelated result stays unchanged. While
+history remains enabled, the retained local row saves `serverStatus` (`deleted`
+or `unavailable`) and restores that explanation on reload; copy/download/re-delete
+are disabled only for confirmed rows (protected-key restrictions still apply).
+Remove and Clear history remain local forgetting actions, not server deletion
+or Undo. Failed persistence is announced; the confirmed state remains visible
+for the current page, with instructions to remove the local record before reload.
+Deletion cannot restore already-deleted bytes. **Delete server file** opens
+an accessible confirmation naming the file and warning that all shared download
+links will stop working. Cancel receives initial focus, Tab stays in the dialog,
+and Escape cancels before submission. The history popover closes before the
+confirmation opens; cancellation returns focus to More actions. Successful deletion
+returns focus to the history region if its original action was removed.
+
+Confirmation uses a synchronous duplicate-submission guard. Pending deletion
+cannot be dismissed as though it was cancelled. Failure keeps the record and
+confirmation available for retry and announces an error; success or an authoritative
+structured 404 retains a confirmed terminal browser record and announces the result.
+There is no fake Undo. Delete server file is separate from the lower-risk browser-history
+actions. No automatic pruning or migration
 occurs. Same-origin scripts can read saved metadata; clear site data on shared
 devices, including dormant legacy session records.

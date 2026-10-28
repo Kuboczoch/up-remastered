@@ -1,12 +1,8 @@
-import Link from "next/link";
 import type { Metadata } from "next";
-
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { createPageTitle } from "@/config/site";
-import { getActiveRequestedUpload } from "@/server/upload-requests/requested-upload";
-
-import styles from "../request.module.css";
-import { RequestedUploadForm } from "./requested-upload-form";
+import { getRecipientRequestedUpload } from "@/server/upload-requests/requested-upload";
+import { RecipientRequestView } from "./recipient-request-view";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -19,28 +15,12 @@ export default async function RequestedUploadPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const request = getActiveRequestedUpload(token);
-
+  const now = new Date();
+  const request = getRecipientRequestedUpload(token, now);
   return (
     <>
       <SiteHeader />
-      <main className={styles.shell}>
-        <header className={styles.header}>
-          <Link href="/">← Home</Link>
-          <h1>Upload a requested file.</h1>
-        </header>
-        {request ? (
-          <RequestedUploadForm maxBytes={request.maxBytes} token={token} />
-        ) : (
-          <section className={styles.card}>
-            <h2>Upload request unavailable</h2>
-            <p>
-              This link is invalid, expired, revoked, already used, or currently
-              in use.
-            </p>
-          </section>
-        )}
-      </main>
+      <RecipientRequestView request={request} token={token} now={now} />
       <SiteFooter />
     </>
   );
