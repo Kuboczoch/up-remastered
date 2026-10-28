@@ -217,11 +217,13 @@ it.each(["HTTP", "aborted"])(
     expect(JSON.parse(localStorage.getItem(historyKey)!)).toEqual(saved);
     expect(view.getByRole("dialog")).toBeTruthy();
     global.fetch = jest.fn<typeof fetch>(
-      async () => ({ ok: true, status: 200 }) as Response,
+      async () => ({ ok: true, status: 200, text: async () => "" }) as Response,
     );
     fireEvent.click(view.getByRole("button", { name: "Delete server file" }));
     await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-    expect(JSON.parse(localStorage.getItem(historyKey)!)).toEqual([]);
+    expect(JSON.parse(localStorage.getItem(historyKey)!)).toEqual([
+      { ...saved[0], serverStatus: "deleted" },
+    ]);
   },
 );
 

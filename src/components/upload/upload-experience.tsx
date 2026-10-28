@@ -26,6 +26,8 @@ import {
 } from "@/components/upload/text-encoding";
 import {
   removeUploadHistoryEntry,
+  confirmUploadHistoryStatus,
+  type ConfirmedServerStatus,
   saveUploadHistoryEntry,
   readUploadHistory,
   clearUploadHistory,
@@ -115,7 +117,9 @@ export function UploadExperience({
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<UploadResult | null>(null);
+  const [result, setResult] = useState<
+    (UploadResult & { serverStatus?: ConfirmedServerStatus }) | null
+  >(null);
   const [maxBytes, setMaxBytes] = useState<number | null>(initialMaxBytes);
   const [configurationWarning, setConfigurationWarning] = useState("");
   const [text, setText] = useState("");
@@ -273,10 +277,10 @@ export function UploadExperience({
     if (phase === "success") {
       resultHeadingRef.current?.focus();
     }
-  }, [phase, mobile, optionsOpen]);
+  }, [phase, mobile, optionsOpen, result?.serverStatus]);
 
   useEffect(() => {
-    if (!qrOpen || !result || qrSvg) {
+    if (!qrOpen || !result || result.serverStatus || qrSvg) {
       return;
     }
 
@@ -581,7 +585,8 @@ export function UploadExperience({
   }
 
   async function deleteHistoryEntry(entry: UploadHistoryEntry) {
-    if (!saveHistoryRef.current) return;
+    if (!saveHistoryRef.current || entry.serverStatus || deletingHistoryId)
+      return;
     setDeletingHistoryId(entry.id);
     setHistoryStatus("");
     try {
@@ -590,17 +595,57 @@ export function UploadExperience({
         headers: { "content-type": "application/json" },
         method: "DELETE",
       });
-      if (!response.ok && response.status !== 404) {
+      let serverStatus: ConfirmedServerStatus;
+      if (response.status === 200 && (await response.text()) === "") {
+        serverStatus = "deleted";
+      } else if (response.status === 404) {
+        const body: unknown = await response.json();
+        if (
+          !body ||
+          typeof body !== "object" ||
+          !("success" in body) ||
+          body.success !== false ||
+          !("message" in body) ||
+          body.message !== "File not found."
+        ) {
+          throw new Error("Unconfirmed deletion.");
+        }
+        serverStatus = "unavailable";
+      } else {
         throw new Error("Delete failed.");
       }
-
+      // Identity matching preserves a different result uploaded during deletion.
+      setResult((current) =>
+        current?.id === entry.id ? { ...current, serverStatus } : current,
+      );
+      historyCopySequence.current += 1;
+      setHistoryCopyUrl("");
+      let persisted = true;
       if (saveHistoryRef.current) {
-        setHistory(removeUploadHistoryEntry(window.localStorage, entry.id));
+        try {
+          const confirmed = confirmUploadHistoryStatus(
+            window.localStorage,
+            entry.id,
+            serverStatus,
+            history,
+          );
+          persisted = confirmed.persisted;
+        } catch {
+          persisted = false;
+        }
+        setHistory((current) =>
+          current.map((item) =>
+            item.id === entry.id ? { ...item, serverStatus } : item,
+          ),
+        );
       }
       setHistoryStatus(
-        response.status === 404
-          ? `${entry.originalName} was already unavailable and has been forgotten.`
-          : `${entry.originalName} was deleted.`,
+        (serverStatus === "unavailable"
+          ? `${entry.originalName} was already unavailable.`
+          : `${entry.originalName} was deleted.`) +
+          (persisted
+            ? ""
+            : " Status could not be saved in this browser. Remove the local record before reloading."),
       );
     } catch {
       setHistoryStatus(
@@ -935,7 +980,25 @@ export function UploadExperience({
             </button>
           </section>
         )}
-        {phase === "success" && result && (
+        {phase === "success" && result?.serverStatus && (
+          <section className="upload-card result-card" aria-live="polite">
+            <h2 ref={resultHeadingRef} tabIndex={-1}>
+              {result.serverStatus === "deleted"
+                ? "File deleted"
+                : "File unavailable"}
+            </h2>
+            <p>{result.originalName}</p>
+            <p>Saved links no longer work. Server deletion cannot be undone.</p>
+            <button
+              type="button"
+              className="start-over-button"
+              onClick={startAnotherUpload}
+            >
+              Upload another file
+            </button>
+          </section>
+        )}
+        {phase === "success" && result && !result.serverStatus && (
           <section className="upload-card result-card" aria-live="polite">
             <div className="scene" aria-hidden="true" />
             <p className="complete-label">
@@ -1249,13 +1312,21 @@ export function UploadExperience({
                         {fileType(entry.originalName)}
                       </span>
                       <div className="history-file">
+                        {entry.serverStatus && (
+                          <p>
+                            {entry.serverStatus === "deleted"
+                              ? "Deleted on server. Saved links no longer work."
+                              : "Already unavailable on server. Saved links no longer work."}
+                          </p>
+                        )}
                         {phase === "success" ? (
                           <p className="history-name">{entry.originalName}</p>
                         ) : (
                           <h3>{entry.originalName}</h3>
                         )}
                         <p>
-                          {formatBytes(entry.size)} · Expires{" "}
+                          {formatBytes(entry.size)} ·{" "}
+                          {entry.serverStatus ? "Original expiry" : "Expires"}{" "}
                           <time
                             dateTime={entry.expiresAt}
                             title={formatLocalDateTime(entry.expiresAt)}
@@ -1270,9 +1341,12 @@ export function UploadExperience({
                         ) && <span>Key not saved</span>}
                         <button
                           className="history-copy-link"
-                          disabled={new URL(entry.shareUrl).pathname.startsWith(
-                            "/decrypt/",
-                          )}
+                          disabled={
+                            !!entry.serverStatus ||
+                            new URL(entry.shareUrl).pathname.startsWith(
+                              "/decrypt/",
+                            )
+                          }
                           title={
                             new URL(entry.shareUrl).pathname.startsWith(
                               "/decrypt/",
@@ -1310,13 +1384,14 @@ export function UploadExperience({
                             className="history-menu"
                             popover="auto"
                           >
-                            {!new URL(entry.shareUrl).pathname.startsWith(
-                              "/decrypt/",
-                            ) && (
-                              <a href={forcedDownloadUrl(entry.shareUrl)}>
-                                Download
-                              </a>
-                            )}
+                            {!entry.serverStatus &&
+                              !new URL(entry.shareUrl).pathname.startsWith(
+                                "/decrypt/",
+                              ) && (
+                                <a href={forcedDownloadUrl(entry.shareUrl)}>
+                                  Download
+                                </a>
+                              )}
                             <button
                               aria-label={`Remove ${entry.originalName} from history`}
                               onClick={() => removeHistoryEntry(entry)}
@@ -1326,7 +1401,10 @@ export function UploadExperience({
                             </button>
                             <DestructiveConfirmation
                               ariaLabel={`Delete server file ${entry.originalName}`}
-                              disabled={deletingHistoryId !== null}
+                              disabled={
+                                !!entry.serverStatus ||
+                                deletingHistoryId !== null
+                              }
                               onConfirm={() => deleteHistoryEntry(entry)}
                               label="Delete server file"
                               title={`Delete ${entry.originalName}?`}

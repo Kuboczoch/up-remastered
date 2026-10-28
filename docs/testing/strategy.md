@@ -8,6 +8,15 @@ Current coverage:
 - Jest for server utility, SQLite metadata, and upload persistence/quota tests under `src/server/**` in a Node environment.
 - Playwright for browser-level homepage and upload endpoint smoke checks, plus future share and download flows, including `@axe-core/playwright` accessibility scans. Homepage coverage records browser `layout-shift` entries and heading/upload-control geometry across mobile and desktop refreshes with restored history, delayed or failed configuration, and offline initialization.
 
+Server-deletion regression coverage lives in
+`src/components/upload/server-deletion.test.tsx` and
+`src/app/server-deletion.spec.ts`. The browser suite uses real disposable uploads
+for deletion, raw download 404, reload restoration, already-unavailable and
+unrelated-result/URL-selection checks; transport/API failure interception checks
+retained retryable metadata. It disposes remaining test uploads and disables
+traces for owner deletion requests. Run it against production output with
+`pnpm run test:e2e:ci -- src/app/server-deletion.spec.ts` after an approved build.
+
 Useful commands:
 
 - `pnpm run check` verifies formatting and JVM absence, then runs ESLint, TypeScript, and unit tests.
