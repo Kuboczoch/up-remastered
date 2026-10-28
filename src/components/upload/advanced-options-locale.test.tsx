@@ -37,7 +37,11 @@ it("localizes Polish options, fractional hours and accessible download plurals w
       .checked,
   ).toBe(false);
   expect(view.getByRole("switch", { name: "Chroń kluczem" })).toBeTruthy();
-  expect(view.getByText(/AES-256-GCM w Twojej przeglądarce/)).toBeTruthy();
+  expect(
+    view.getByText(
+      /Ochrona kluczem wymaga HTTPS \(lub localhost\) i Web Crypto/,
+    ),
+  ).toBeTruthy();
   const slider = view.getByRole("slider", { name: "Limit pobrań" });
   expect(slider.getAttribute("aria-valuetext")).toBe("Bez limitu");
   for (const [value, text] of [

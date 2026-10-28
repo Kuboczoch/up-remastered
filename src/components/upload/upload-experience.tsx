@@ -7,6 +7,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ChangeEvent,
   type ClipboardEvent as ReactClipboardEvent,
   type DragEvent,
@@ -100,6 +101,15 @@ function forcedDownloadUrl(shareUrl: string): string {
   return url.toString();
 }
 
+// Secure-context and Web Crypto availability are fixed for this document.
+function subscribeToCryptoAvailability() {
+  return () => {};
+}
+
+function canProtectFiles() {
+  return globalThis.isSecureContext === true && !!globalThis.crypto?.subtle;
+}
+
 export function UploadExperience({
   initialMaxBytes,
   initialExpirationHours = 24,
@@ -143,6 +153,11 @@ export function UploadExperience({
   ).sort((left, right) => left - right);
   const [saveHistory, setSaveHistory] = useState(false);
   const [protection, setProtection] = useState(false);
+  const protectionAvailable = useSyncExternalStore(
+    subscribeToCryptoAvailability,
+    canProtectFiles,
+    () => false,
+  );
   const saveHistoryRef = useRef(false);
   const [historyPreferenceWarning, setHistoryPreferenceWarning] = useState("");
   const optionsRef = useRef<HTMLElement>(null);
@@ -1327,9 +1342,11 @@ export function UploadExperience({
           <div className="option-setting switch-setting" style={{ opacity: 1 }}>
             <div>
               <label htmlFor="key-protect">{t("Key protect")}</label>
-              <small>
+              <small id="key-protect-help">
                 {t(
-                  "AES-256-GCM in your browser, up to 32 MiB. Keep the complete link: history cannot recover keys.",
+                  protectionAvailable
+                    ? "AES-256-GCM in your browser, up to 32 MiB. Keep the complete link: history cannot recover keys."
+                    : "Key protection requires HTTPS (or localhost) and Web Crypto. Plain uploads remain available.",
                 )}
               </small>
             </div>
@@ -1338,6 +1355,8 @@ export function UploadExperience({
               type="checkbox"
               role="switch"
               checked={protection}
+              disabled={!protectionAvailable}
+              aria-describedby="key-protect-help"
               onChange={(event) => setProtection(event.target.checked)}
             />
           </div>

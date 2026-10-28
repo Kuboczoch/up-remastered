@@ -23,14 +23,10 @@ it("enables only implemented Advanced settings without accessing history before 
     HTMLInputElement | HTMLSelectElement
   >("#advanced-options input, #advanced-options select");
   expect(controls).toHaveLength(5);
+  // JSDOM lacks a secure Web Crypto environment; protection must be unavailable.
   controls.forEach((control) =>
     expect(control.disabled).toBe(
-      ![
-        "save-history",
-        "key-protect",
-        "expiry-hours",
-        "download-limit",
-      ].includes(control.id),
+      !["save-history", "expiry-hours", "download-limit"].includes(control.id),
     ),
   );
   const history = getByRole("switch", {
