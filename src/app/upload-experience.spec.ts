@@ -572,7 +572,11 @@ test("uses short feedback motion and honors reduced-motion preferences", async (
   await page.getByRole("button", { name: /Advanced options/ }).click();
   await expect(page.locator(".advanced-options-content")).toHaveCSS(
     "animation-name",
-    "disclosure-feedback-in",
+    "options-panel-in",
+  );
+  await expect(page.locator(".advanced-options-content")).toHaveCSS(
+    "opacity",
+    "1",
   );
 
   await page.locator("#file-picker").setInputFiles({
