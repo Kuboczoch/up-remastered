@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { formatBytes } from "@/lib/format";
 
 import styles from "../request.module.css";
 
@@ -24,6 +25,7 @@ export function RequestedUploadForm({
   const [result, setResult] = useState<UploadResponse>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   const [phase, setPhase] = useState("Uploading…");
   const [progress, setProgress] = useState<number>();
   const [selection, setSelection] = useState<File>();
@@ -34,7 +36,7 @@ export function RequestedUploadForm({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting.current) return;
+    if (submitting.current || unavailable) return;
     submitting.current = true;
     setBusy(true);
     setError("");
@@ -46,8 +48,11 @@ export function RequestedUploadForm({
       const file = form.get("file");
       if (!(file instanceof File) || file.size === 0)
         throw new Error("Choose a non-empty file.");
-      if (file.size > maxBytes)
-        throw new Error(`The file must be no larger than ${maxBytes} bytes.`);
+      if (file.size > maxBytes) {
+        throw new Error(
+          `The file must be no larger than ${formatBytes(maxBytes, "en")}.`,
+        );
+      }
       const upload = new FormData();
       upload.set("file", file);
       const body = await new Promise<UploadResponse>((resolve, reject) => {
@@ -64,6 +69,15 @@ export function RequestedUploadForm({
           setPhase("Finalizing…");
         };
         xhr.onload = () => {
+          if (xhr.status === 404) {
+            setUnavailable(true);
+            reject(
+              new Error(
+                "This request is no longer available for upload. Do not retry: check its status to see whether it is busy, used, revoked or expired.",
+              ),
+            );
+            return;
+          }
           const response = xhr.response as UploadResponse & {
             error?: { message?: string };
           };
@@ -126,12 +140,12 @@ export function RequestedUploadForm({
           name="file"
           required
           type="file"
-          disabled={busy}
+          disabled={busy || unavailable}
           onChange={(event) => setSelection(event.target.files?.[0])}
         />
       </label>
       <p className={styles.muted}>
-        Maximum {maxBytes} bytes. This link is single-use.
+        Maximum {formatBytes(maxBytes, "en")}. This link is single-use.
       </p>
       {selection ? (
         <p>
@@ -155,13 +169,20 @@ export function RequestedUploadForm({
           </button>
         </>
       ) : null}
-      <button className={styles.button} disabled={busy} type="submit">
+      <button
+        className={styles.button}
+        disabled={busy || unavailable}
+        type="submit"
+      >
         {busy ? phase : "Upload file"}
       </button>
       {error ? (
         <p className={styles.error} role="alert">
           {error}
         </p>
+      ) : null}
+      {unavailable ? (
+        <a href={`/request/${token}`}>Check request status</a>
       ) : null}
     </form>
   );

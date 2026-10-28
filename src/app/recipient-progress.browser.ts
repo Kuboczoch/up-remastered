@@ -107,7 +107,9 @@ test("slow upload measures progress, blocks double submit, cancels and releases 
   expect(attempts).toBe(2);
   await page.goto(created.uploadUrl);
   await expect(
-    page.getByRole("heading", { name: "Upload request unavailable" }),
+    page.getByRole("heading", {
+      name: "This upload request has already been used",
+    }),
   ).toBeVisible();
 });
 
