@@ -47,6 +47,15 @@ function mount() {
   localStorage.setItem("up-remastered:history-enabled", "true");
   return render(<UploadExperience initialMaxBytes={1000000} />);
 }
+function deleteEntry(view: ReturnType<typeof mount>, name: string) {
+  fireEvent.click(
+    view.getByRole("button", {
+      name: `Delete server file ${name}`,
+      hidden: true,
+    }),
+  );
+  fireEvent.click(view.getByRole("button", { name: "Delete server file" }));
+}
 async function showResult(view: ReturnType<typeof mount>) {
   fireEvent.change(view.getByLabelText("Choose file"), {
     target: { files: [new File(["test"], upload.originalName)] },
@@ -68,9 +77,7 @@ it("retains confirmed deletion across remount and invalidates the current result
   );
   const view = mount();
   await showResult(view);
-  fireEvent.click(
-    view.getByRole("button", { name: "Delete current.txt", hidden: true }),
-  );
+  deleteEntry(view, "current.txt");
   await waitFor(() =>
     expect(view.queryByRole("button", { name: "Copy URL" })).toBeNull(),
   );
@@ -92,7 +99,7 @@ it("retains confirmed deletion across remount and invalidates the current result
   expect(
     (
       restored.getByRole("button", {
-        name: "Delete current.txt",
+        name: "Delete server file current.txt",
         hidden: true,
       }) as HTMLButtonElement
     ).disabled,
@@ -114,12 +121,10 @@ it.each([403, 500, 404, 204])(
     );
     const view = mount();
     await showResult(view);
-    fireEvent.click(
-      view.getByRole("button", { name: "Delete current.txt", hidden: true }),
-    );
+    deleteEntry(view, "current.txt");
     await waitFor(() =>
       expect(
-        view.getByText("current.txt could not be deleted. Try again."),
+        view.getAllByText("current.txt could not be deleted. Try again.")[0],
       ).toBeTruthy(),
     );
     expect(view.getByRole("button", { name: "Copy URL" })).toBeTruthy();
@@ -142,9 +147,7 @@ it("distinguishes API-confirmed unavailability from successful deletion", async 
   );
   const view = mount();
   await showResult(view);
-  fireEvent.click(
-    view.getByRole("button", { name: "Delete current.txt", hidden: true }),
-  );
+  deleteEntry(view, "current.txt");
   await waitFor(() => expect(view.getByText("File unavailable")).toBeTruthy());
   expect(JSON.parse(localStorage.getItem(historyKey)!)[0].serverStatus).toBe(
     "unavailable",
@@ -167,9 +170,7 @@ it("deleting another history entry preserves the unrelated current result", asyn
   );
   const view = mount();
   await showResult(view);
-  fireEvent.click(
-    view.getByRole("button", { name: "Delete other.txt", hidden: true }),
-  );
+  deleteEntry(view, "other.txt");
   await waitFor(() =>
     expect(view.getByText("other.txt was deleted.")).toBeTruthy(),
   );
@@ -185,12 +186,10 @@ it("keeps network failures retryable without discarding ownership", async () => 
   });
   const view = mount();
   await showResult(view);
-  fireEvent.click(
-    view.getByRole("button", { name: "Delete current.txt", hidden: true }),
-  );
+  deleteEntry(view, "current.txt");
   await waitFor(() =>
     expect(
-      view.getByText("current.txt could not be deleted. Try again."),
+      view.getAllByText("current.txt could not be deleted. Try again.")[0],
     ).toBeTruthy(),
   );
   expect(view.getByRole("button", { name: "Copy URL" })).toBeTruthy();
@@ -212,9 +211,7 @@ it("announces failed persistence without undoing confirmed deletion", async () =
     if (key === historyKey) throw new Error("quota");
     setItem.call(this, key, value);
   });
-  fireEvent.click(
-    view.getByRole("button", { name: "Delete current.txt", hidden: true }),
-  );
+  deleteEntry(view, "current.txt");
   await waitFor(() =>
     expect(
       view.getByText(/Status could not be saved in this browser/),
@@ -238,9 +235,7 @@ it("does not resurrect a locally removed row when deletion finishes", async () =
   );
   const view = mount();
   await showResult(view);
-  fireEvent.click(
-    view.getByRole("button", { name: "Delete current.txt", hidden: true }),
-  );
+  deleteEntry(view, "current.txt");
   fireEvent.click(
     view.getByRole("button", {
       name: "Remove current.txt from history",

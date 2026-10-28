@@ -41,8 +41,8 @@ History cannot reconstruct protected unlocking links or recover keys: keep the
 original complete link separately. Protected history entries disable Copy link
 and omit Download actions rather than offering unusable unkeyed links.
 
-Manual Clear history and Remove actions forget local records only while enabled.
-Delete file is a separate server action. An empty HTTP 200 response confirms
+Manual Clear history and Remove from history actions forget local records only while enabled.
+Delete server file is a separate server action. An empty HTTP 200 response confirms
 deletion; the management API's structured `File not found.` HTTP 404 confirms
 already-unavailable, not that this attempt deleted bytes. Raw/proxy 404s,
 unexpected success responses, authentication errors, network errors and server
@@ -57,6 +57,18 @@ are disabled only for confirmed rows (protected-key restrictions still apply).
 Remove and Clear history remain local forgetting actions, not server deletion
 or Undo. Failed persistence is announced; the confirmed state remains visible
 for the current page, with instructions to remove the local record before reload.
-Deletion cannot restore already-deleted bytes. No automatic pruning or migration
+Deletion cannot restore already-deleted bytes. **Delete server file** opens
+an accessible confirmation naming the file and warning that all shared download
+links will stop working. Cancel receives initial focus, Tab stays in the dialog,
+and Escape cancels before submission. The history popover closes before the
+confirmation opens; cancellation returns focus to More actions. Successful deletion
+returns focus to the history region if its original action was removed.
+
+Confirmation uses a synchronous duplicate-submission guard. Pending deletion
+cannot be dismissed as though it was cancelled. Failure keeps the record and
+confirmation available for retry and announces an error; success or an authoritative
+structured 404 retains a confirmed terminal browser record and announces the result.
+There is no fake Undo. Delete server file is separate from the lower-risk browser-history
+actions. No automatic pruning or migration
 occurs. Same-origin scripts can read saved metadata; clear site data on shared
 devices, including dormant legacy session records.

@@ -20,7 +20,11 @@ async function upload(page: Page, name: string) {
 async function deleteFromHistory(page: Page, name: string) {
   await page.getByRole("button", { name: `More actions for ${name}` }).click();
   await page
-    .getByRole("button", { name: `Delete ${name}`, exact: true })
+    .getByRole("button", { name: `Delete server file ${name}`, exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: `Delete ${name}?`, exact: true })
+    .getByRole("button", { name: "Delete server file", exact: true })
     .click();
 }
 const records = (page: Page) =>
@@ -83,7 +87,7 @@ test("confirmed deletion persists, invalidates the current result, and leaves a 
     .click();
   await expect(
     page.getByRole("button", {
-      name: "Delete deleted-current.txt",
+      name: "Delete server file deleted-current.txt",
       exact: true,
     }),
   ).toBeDisabled();
@@ -143,8 +147,13 @@ for (const failure of ["forbidden", "server", "raw404", "network"] as const) {
     );
     await deleteFromHistory(page, "retryable.txt");
     await expect(
-      page.getByText("retryable.txt could not be deleted. Try again."),
+      page
+        .getByRole("alert")
+        .filter({ hasText: "retryable.txt could not be deleted. Try again." }),
     ).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: "Delete retryable.txt?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "Copy URL", exact: true }),
     ).toBeEnabled();
@@ -159,6 +168,9 @@ for (const failure of ["forbidden", "server", "raw404", "network"] as const) {
     await expect(
       page.getByRole("button", { name: "Copy link", exact: true }),
     ).toBeEnabled();
+    await deleteFromHistory(page, "retryable.txt");
+    await expect(page.getByText("retryable.txt was deleted.")).toBeVisible();
+    expect((await records(page))[0].serverStatus).toBe("deleted");
   });
 }
 

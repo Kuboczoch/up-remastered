@@ -1,4 +1,6 @@
 "use client";
+
+import { DestructiveConfirmation } from "@/components/destructive-confirmation";
 import { ManualCopyLink } from "@/components/manual-copy-link";
 import { copyLink as copyCompleteLink } from "@/lib/copy-link";
 
@@ -19,6 +21,10 @@ import {
   type ByteUnit,
 } from "@/lib/format";
 
+import {
+  isTerminalRequest,
+  OwnerRequestLifecycle,
+} from "../owner-request-lifecycle";
 import styles from "../request.module.css";
 import {
   statusConnectionMessage,
@@ -229,7 +235,12 @@ export function CreateRequestForm() {
   }
 
   async function revoke() {
-    if (!created) return;
+    if (
+      !created ||
+      busy ||
+      !["active", "retry"].includes((liveRequest ?? created).status)
+    )
+      return;
     setBusy(true);
     setError("");
     try {
@@ -242,6 +253,7 @@ export function CreateRequestForm() {
       setCreated({ ...created, ...body.request });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Request failed.");
+      throw caught;
     } finally {
       setBusy(false);
     }
@@ -305,23 +317,21 @@ export function CreateRequestForm() {
         <p className={styles.muted} aria-live="polite">
           {statusConnectionMessage(connection)}
         </p>
-        {displayedRequest.uploadId ? (
-          <p>
-            Uploaded file:{" "}
-            <a href={`/${displayedRequest.uploadId}`}>Open file</a>
-          </p>
-        ) : null}
+        <OwnerRequestLifecycle request={displayedRequest} />
         <div className={styles.actions}>
-          <button
-            className={styles.button}
-            disabled={
-              busy || !["active", "retry"].includes(displayedRequest.status)
-            }
-            onClick={revoke}
-            type="button"
-          >
-            Revoke request
-          </button>
+          {!isTerminalRequest(displayedRequest.status) && (
+            <DestructiveConfirmation
+              className={styles.linkButton}
+              disabled={
+                busy || !["active", "retry"].includes(displayedRequest.status)
+              }
+              onConfirm={revoke}
+              label="Revoke request"
+              title="Revoke upload request?"
+              description={`Revoke the upload request expiring ${formatLocalDateTime(displayedRequest.expiresAt)} (${formatBytes(displayedRequest.maxBytes)} limit)? Its shared upload link will stop working. This cannot be undone; create a new request instead.`}
+              confirmLabel="Confirm revoke request"
+            />
+          )}
           <button
             className={styles.button}
             onClick={() => {

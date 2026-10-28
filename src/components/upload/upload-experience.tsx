@@ -1,5 +1,7 @@
 "use client";
 
+import { DestructiveConfirmation } from "@/components/destructive-confirmation";
+
 import Link from "next/link";
 
 import {
@@ -649,6 +651,7 @@ export function UploadExperience({
       setHistoryStatus(
         `${entry.originalName} could not be deleted. Try again.`,
       );
+      throw new Error(`${entry.originalName} could not be deleted. Try again.`);
     } finally {
       setDeletingHistoryId(null);
     }
@@ -1394,21 +1397,20 @@ export function UploadExperience({
                               onClick={() => removeHistoryEntry(entry)}
                               type="button"
                             >
-                              Remove
+                              Remove from history
                             </button>
-                            <button
-                              aria-label={`Delete ${entry.originalName}`}
+                            <DestructiveConfirmation
+                              ariaLabel={`Delete server file ${entry.originalName}`}
                               disabled={
                                 !!entry.serverStatus ||
                                 deletingHistoryId !== null
                               }
-                              onClick={() => void deleteHistoryEntry(entry)}
-                              type="button"
-                            >
-                              {deletingHistoryId === entry.id
-                                ? "Deleting…"
-                                : "Delete file"}
-                            </button>
+                              onConfirm={() => deleteHistoryEntry(entry)}
+                              label="Delete server file"
+                              title={`Delete ${entry.originalName}?`}
+                              description={`Permanently delete ${entry.originalName} from the server. All shared download links for this file will stop working. This cannot be undone. Remove from history only forgets the record in this browser.`}
+                              confirmLabel="Delete server file"
+                            />
                           </div>
                         </div>
                       </div>
