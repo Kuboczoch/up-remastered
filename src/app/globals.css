@@ -665,6 +665,12 @@ textarea::placeholder {
   }
 }
 
+@keyframes options-panel-in {
+  from {
+    transform: translateY(-4px);
+  }
+}
+
 @keyframes copy-confirm {
   50% {
     transform: scale(1.035);
@@ -1081,7 +1087,8 @@ html {
   gap: 0;
   text-align: left;
   box-shadow: 12px 20px 40px #12121940;
-  animation: disclosure-feedback-in 180ms ease-out;
+  /* Keep small option labels readable throughout entry, not only at rest. */
+  animation: options-panel-in 180ms ease-out;
 }
 .options-panel[hidden] {
   display: none;
