@@ -38,6 +38,7 @@ import { CurrentResultDeletion } from "@/components/upload/current-result-deleti
 import { siteName } from "@/config/site";
 import { ManualCopyLink } from "@/components/manual-copy-link";
 import { copyLink } from "@/lib/copy-link";
+import { NativeShare } from "./native-share";
 import {
   formatBytes,
   formatLocalDateTime,
@@ -1089,6 +1090,7 @@ export function UploadExperience({
                 className="result-actions"
                 role="group"
               >
+                <NativeShare url={result.shareUrl} />
                 <a href={result.shareUrl} rel="noreferrer" target="_blank">
                   Open file
                 </a>
@@ -1416,6 +1418,10 @@ export function UploadExperience({
                             className="history-menu"
                             popover="auto"
                           >
+                            {!entry.serverStatus &&
+                              !new URL(entry.shareUrl).pathname.startsWith(
+                                "/decrypt/",
+                              ) && <NativeShare url={entry.shareUrl} />}
                             {!entry.serverStatus &&
                               !new URL(entry.shareUrl).pathname.startsWith(
                                 "/decrypt/",
