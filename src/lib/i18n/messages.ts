@@ -107,6 +107,8 @@ export const polish = {
     "Przesyłany plik nie może być pusty.",
   "Key protection is unavailable in this browser.":
     "Ochrona kluczem jest niedostępna w tej przeglądarce.",
+  "Key protection requires HTTPS (or localhost) and Web Crypto. Plain uploads remain available.":
+    "Ochrona kluczem wymaga HTTPS (lub localhost) i Web Crypto. Zwykłe przesyłanie pozostaje dostępne.",
   "Key-protected files are limited to 32 MiB in this version.":
     "W tej wersji pliki chronione kluczem mogą mieć maksymalnie 32 MiB.",
   "Share temporary files and text.": "Udostępniaj tymczasowe pliki i tekst.",
