@@ -224,6 +224,38 @@ export function createRequestedUpload(
   throw new Error("Could not generate unique upload request capabilities.");
 }
 
+export type RecipientRequestedUpload =
+  | { status: "active" | "retry"; maxBytes: number; expiresAt: string }
+  | { status: "invalid" | "in_progress" | "consumed" | "revoked" | "expired" };
+
+/** Public capability lookup: never serialize owner/private request metadata. */
+export function getRecipientRequestedUpload(
+  publicToken: string,
+  now = new Date(),
+): RecipientRequestedUpload {
+  if (!isCapabilityToken(publicToken)) return { status: "invalid" };
+  ensureDatabaseMigrated();
+  const connection = createSqliteConnection();
+  try {
+    const row = getUploadRequestByPublicHash(
+      createDbClient(connection),
+      hashCapabilityToken(publicToken),
+    );
+    if (!row) return { status: "invalid" };
+    const status = statusOf(row, now);
+    // Use the same classification as owner management, but never toDetails:
+    // recipient snapshots must not expose reserved IDs or revision metadata.
+    if (status !== "active" && status !== "retry") return { status };
+    return {
+      status,
+      maxBytes: row.maxBytes,
+      expiresAt: row.expiresAt.toISOString(),
+    };
+  } finally {
+    connection.close();
+  }
+}
+
 export function getActiveRequestedUpload(
   publicToken: string,
   now = new Date(),
@@ -305,11 +337,16 @@ export async function fulfillRequestedUpload(
 
   if (!claimed) throw unavailableRequestError();
 
+  let unconsumedUpload: CreatedUpload | undefined;
   try {
     const upload = await createUpload(request, undefined, undefined, {
       maxUploadBytes: claimed.maxBytes,
       ...(claimed.uploadId ? { reservedUploadId: claimed.uploadId } : {}),
     });
+    unconsumedUpload = upload;
+    if (request.signal.aborted) {
+      throw new DOMException("Upload cancelled.", "AbortError");
+    }
     const consumeConnection = createSqliteConnection();
     let consumed: boolean;
 
@@ -326,12 +363,23 @@ export async function fulfillRequestedUpload(
     }
 
     if (!consumed) {
-      await deleteUploadWithAccessToken(upload.id, upload.accessToken);
       throw unavailableRequestError();
     }
 
+    unconsumedUpload = undefined;
     return upload;
   } catch (error) {
+    // Never release the reserved ID for retry while persisted bytes remain.
+    // A cleanup failure deliberately retains the claim rather than permitting reuse.
+    if (unconsumedUpload) {
+      const disposal = await deleteUploadWithAccessToken(
+        unconsumedUpload.id,
+        unconsumedUpload.accessToken,
+      );
+      if (disposal !== "valid") {
+        throw new Error("Could not confirm disposal of the unconsumed upload.");
+      }
+    }
     const releaseConnection = createSqliteConnection();
     try {
       releaseUploadRequestClaim(

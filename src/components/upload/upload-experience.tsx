@@ -1,5 +1,7 @@
 "use client";
 
+import { DestructiveConfirmation } from "@/components/destructive-confirmation";
+
 import Link from "next/link";
 
 import {
@@ -24,12 +26,15 @@ import {
 } from "@/components/upload/text-encoding";
 import {
   removeUploadHistoryEntry,
+  confirmUploadHistoryStatus,
+  type ConfirmedServerStatus,
   saveUploadHistoryEntry,
   readUploadHistory,
   clearUploadHistory,
   type UploadHistoryEntry,
 } from "@/components/upload/upload-history";
 import { QrDialog } from "@/components/upload/qr-dialog";
+import { CurrentResultDeletion } from "@/components/upload/current-result-deletion";
 import { siteName } from "@/config/site";
 import { ManualCopyLink } from "@/components/manual-copy-link";
 import { copyLink } from "@/lib/copy-link";
@@ -113,7 +118,9 @@ export function UploadExperience({
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<UploadResult | null>(null);
+  const [result, setResult] = useState<
+    (UploadResult & { serverStatus?: ConfirmedServerStatus }) | null
+  >(null);
   const [maxBytes, setMaxBytes] = useState<number | null>(initialMaxBytes);
   const [configurationWarning, setConfigurationWarning] = useState("");
   const [text, setText] = useState("");
@@ -271,10 +278,10 @@ export function UploadExperience({
     if (phase === "success") {
       resultHeadingRef.current?.focus();
     }
-  }, [phase, mobile, optionsOpen]);
+  }, [phase, mobile, optionsOpen, result?.serverStatus]);
 
   useEffect(() => {
-    if (!qrOpen || !result || qrSvg) {
+    if (!qrOpen || !result || result.serverStatus || qrSvg) {
       return;
     }
 
@@ -579,7 +586,8 @@ export function UploadExperience({
   }
 
   async function deleteHistoryEntry(entry: UploadHistoryEntry) {
-    if (!saveHistoryRef.current) return;
+    if (!saveHistoryRef.current || entry.serverStatus || deletingHistoryId)
+      return;
     setDeletingHistoryId(entry.id);
     setHistoryStatus("");
     try {
@@ -588,25 +596,73 @@ export function UploadExperience({
         headers: { "content-type": "application/json" },
         method: "DELETE",
       });
-      if (!response.ok && response.status !== 404) {
+      let serverStatus: ConfirmedServerStatus;
+      if (response.status === 200 && (await response.text()) === "") {
+        serverStatus = "deleted";
+      } else if (response.status === 404) {
+        const body: unknown = await response.json();
+        if (
+          !body ||
+          typeof body !== "object" ||
+          !("success" in body) ||
+          body.success !== false ||
+          !("message" in body) ||
+          body.message !== "File not found."
+        ) {
+          throw new Error("Unconfirmed deletion.");
+        }
+        serverStatus = "unavailable";
+      } else {
         throw new Error("Delete failed.");
       }
-
-      if (saveHistoryRef.current) {
-        setHistory(removeUploadHistoryEntry(window.localStorage, entry.id));
-      }
-      setHistoryStatus(
-        response.status === 404
-          ? `${entry.originalName} was already unavailable and has been forgotten.`
-          : `${entry.originalName} was deleted.`,
-      );
+      reconcileServerStatus(entry, serverStatus);
     } catch {
       setHistoryStatus(
         `${entry.originalName} could not be deleted. Try again.`,
       );
+      throw new Error(`${entry.originalName} could not be deleted. Try again.`);
     } finally {
       setDeletingHistoryId(null);
     }
+  }
+
+  function reconcileServerStatus(
+    entry: Pick<UploadResult, "id" | "originalName">,
+    serverStatus: ConfirmedServerStatus,
+  ) {
+    // Identity matching preserves a different result uploaded during deletion.
+    setResult((current) =>
+      current?.id === entry.id ? { ...current, serverStatus } : current,
+    );
+    historyCopySequence.current += 1;
+    setHistoryCopyUrl("");
+    let persisted = true;
+    if (saveHistoryRef.current) {
+      try {
+        const confirmed = confirmUploadHistoryStatus(
+          window.localStorage,
+          entry.id,
+          serverStatus,
+          history,
+        );
+        persisted = confirmed.persisted;
+      } catch {
+        persisted = false;
+      }
+      setHistory((current) =>
+        current.map((item) =>
+          item.id === entry.id ? { ...item, serverStatus } : item,
+        ),
+      );
+    }
+    setHistoryStatus(
+      (serverStatus === "unavailable"
+        ? `${entry.originalName} was already unavailable.`
+        : `${entry.originalName} was deleted.`) +
+        (persisted
+          ? ""
+          : " Status could not be saved in this browser. Remove the local record before reloading."),
+    );
   }
 
   function removeHistoryEntry(entry: UploadHistoryEntry) {
@@ -932,149 +988,178 @@ export function UploadExperience({
             </button>
           </section>
         )}
-        {phase === "success" && result && (
+        {phase === "success" && result?.serverStatus && (
           <section className="upload-card result-card" aria-live="polite">
-            <div className="scene" aria-hidden="true" />
-            <p className="complete-label">
-              ✓ <span>Upload complete</span>
-            </p>
-            <div className="result-file">
-              <span className="file-type">{fileType(result.originalName)}</span>
-              <div>
-                <h2 ref={resultHeadingRef} tabIndex={-1}>
-                  {result.originalName}
-                </h2>
-                <p>
-                  {formatBytes(result.size)} · Expires{" "}
-                  {formatRelativeExpiry(result.expiresAt, now)} ·{" "}
-                  <time
-                    dateTime={result.expiresAt}
-                    title={formatLocalDateTime(result.expiresAt)}
-                  >
-                    {formatLocalDateTime(result.expiresAt)}
-                  </time>
-                </p>
-              </div>
-            </div>
-            <div className="share-row">
-              <input
-                id="share-url"
-                aria-label="Share URL"
-                className="result-url"
-                onDoubleClick={() => void copyUrl()}
-                readOnly
-                title="Double-click to copy"
-                value={result.shareUrl}
-              />
-              <button
-                aria-live="polite"
-                className={`primary-action copy-action${copied ? " is-confirmed" : ""}`}
-                onClick={() => void copyUrl()}
-                type="button"
-              >
-                {copied ? (
-                  <>
-                    Copied <span aria-hidden="true">✓</span>
-                  </>
-                ) : (
-                  "Copy URL"
-                )}
-              </button>
-            </div>
-            {manualCopyUrl && <ManualCopyLink value={manualCopyUrl} />}
-            <p className="share-note">
-              {result.shareUrl.includes("#key=")
-                ? "Only the full link unlocks the file. Keep it safe: keys are not saved in this app’s upload history and cannot be recovered."
-                : "Anyone with the link can download."}
-            </p>
-            <div
-              aria-label="Uploaded file actions"
-              className="result-actions"
-              role="group"
+            <h2 ref={resultHeadingRef} tabIndex={-1}>
+              {result.serverStatus === "deleted"
+                ? "File deleted"
+                : "File unavailable"}
+            </h2>
+            <p>{result.originalName}</p>
+            <p>Saved links no longer work. Server deletion cannot be undone.</p>
+            <button
+              type="button"
+              className="start-over-button"
+              onClick={startAnotherUpload}
             >
-              <a href={result.shareUrl} rel="noreferrer" target="_blank">
-                Open file
-              </a>
-              <a
-                href={
-                  result.shareUrl.includes("#key=")
-                    ? result.shareUrl
-                    : forcedDownloadUrl(result.shareUrl)
-                }
-              >
-                Download file
-              </a>
-              <button
-                className="outline-button"
-                ref={qrTriggerRef}
-                onClick={() => {
-                  setQrError("");
-                  setQrOpen(true);
-                }}
-                type="button"
-              >
-                Show QR code
-              </button>
-              <button
-                className="start-over-button"
-                onClick={startAnotherUpload}
-                type="button"
-              >
-                Upload another file
-              </button>
-            </div>
-            {qrOpen && (
-              <QrDialog
-                triggerRef={qrTriggerRef}
-                onClose={() => setQrOpen(false)}
-              >
+              Upload another file
+            </button>
+          </section>
+        )}
+        {phase === "success" && result && !result.serverStatus && (
+          <section className="upload-card result-card" aria-live="polite">
+            <CurrentResultDeletion
+              key={result.id}
+              id={result.id}
+              accessToken={result.accessToken}
+              name={result.originalName}
+              onStartAnother={startAnotherUpload}
+              onConfirmed={(status) => reconcileServerStatus(result, status)}
+            >
+              <div className="scene" aria-hidden="true" />
+              <p className="complete-label">
+                ✓ <span>Upload complete</span>
+              </p>
+              <div className="result-file">
+                <span className="file-type">
+                  {fileType(result.originalName)}
+                </span>
+                <div>
+                  <h2 ref={resultHeadingRef} tabIndex={-1}>
+                    {result.originalName}
+                  </h2>
+                  <p>
+                    {formatBytes(result.size)} · Expires{" "}
+                    {formatRelativeExpiry(result.expiresAt, now)} ·{" "}
+                    <time
+                      dateTime={result.expiresAt}
+                      title={formatLocalDateTime(result.expiresAt)}
+                    >
+                      {formatLocalDateTime(result.expiresAt)}
+                    </time>
+                  </p>
+                </div>
+              </div>
+              <div className="share-row">
+                <input
+                  id="share-url"
+                  aria-label="Share URL"
+                  className="result-url"
+                  onDoubleClick={() => void copyUrl()}
+                  readOnly
+                  title="Double-click to copy"
+                  value={result.shareUrl}
+                />
                 <button
-                  aria-label="Close QR code"
-                  className="qr-close"
-                  onClick={() => setQrOpen(false)}
+                  aria-live="polite"
+                  className={`primary-action copy-action${copied ? " is-confirmed" : ""}`}
+                  onClick={() => void copyUrl()}
                   type="button"
                 >
-                  ×
+                  {copied ? (
+                    <>
+                      Copied <span aria-hidden="true">✓</span>
+                    </>
+                  ) : (
+                    "Copy URL"
+                  )}
                 </button>
-                <h2 id="qr-title">Scan to download</h2>
-                {qrSvg ? (
-                  <>
-                    <div
-                      aria-label="QR code for uploaded file"
-                      className="qr-code"
-                      data-testid="qr-code"
-                      dangerouslySetInnerHTML={{ __html: qrSvg }}
-                      role="img"
-                    />
-                    <a
-                      className="outline-button"
-                      download={`${result.id}-qr.svg`}
-                      href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
-                    >
-                      Download QR code
-                    </a>
-                  </>
-                ) : qrError ? (
-                  <div aria-live="polite" role="status">
-                    <p>{qrError}</p>
-                    <button
-                      className="outline-button"
-                      onClick={() => {
-                        setQrError("");
-                        setQrGenerationAttempt((attempt) => attempt + 1);
-                      }}
-                      type="button"
-                    >
-                      Retry QR code
-                    </button>
-                  </div>
-                ) : (
-                  <p aria-live="polite" role="status">
-                    Generating QR code…
-                  </p>
-                )}
-              </QrDialog>
-            )}
+              </div>
+              {manualCopyUrl && <ManualCopyLink value={manualCopyUrl} />}
+              <p className="share-note">
+                {result.shareUrl.includes("#key=")
+                  ? "Only the full link unlocks the file. Keep it safe: keys are not saved in this app’s upload history and cannot be recovered."
+                  : "Anyone with the link can download."}
+              </p>
+              <div
+                aria-label="Uploaded file actions"
+                className="result-actions"
+                role="group"
+              >
+                <a href={result.shareUrl} rel="noreferrer" target="_blank">
+                  Open file
+                </a>
+                <a
+                  href={
+                    result.shareUrl.includes("#key=")
+                      ? result.shareUrl
+                      : forcedDownloadUrl(result.shareUrl)
+                  }
+                >
+                  Download file
+                </a>
+                <button
+                  className="outline-button"
+                  ref={qrTriggerRef}
+                  onClick={() => {
+                    setQrError("");
+                    setQrOpen(true);
+                  }}
+                  type="button"
+                >
+                  Show QR code
+                </button>
+                <button
+                  className="start-over-button"
+                  onClick={startAnotherUpload}
+                  type="button"
+                >
+                  Upload another file
+                </button>
+              </div>
+              {qrOpen && (
+                <QrDialog
+                  triggerRef={qrTriggerRef}
+                  onClose={() => setQrOpen(false)}
+                >
+                  <button
+                    aria-label="Close QR code"
+                    className="qr-close"
+                    onClick={() => setQrOpen(false)}
+                    type="button"
+                  >
+                    ×
+                  </button>
+                  <h2 id="qr-title">Scan to download</h2>
+                  {qrSvg ? (
+                    <>
+                      <div
+                        aria-label="QR code for uploaded file"
+                        className="qr-code"
+                        data-testid="qr-code"
+                        dangerouslySetInnerHTML={{ __html: qrSvg }}
+                        role="img"
+                      />
+                      <a
+                        className="outline-button"
+                        download={`${result.id}-qr.svg`}
+                        href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
+                      >
+                        Download QR code
+                      </a>
+                    </>
+                  ) : qrError ? (
+                    <div aria-live="polite" role="status">
+                      <p>{qrError}</p>
+                      <button
+                        className="outline-button"
+                        onClick={() => {
+                          setQrError("");
+                          setQrGenerationAttempt((attempt) => attempt + 1);
+                        }}
+                        type="button"
+                      >
+                        Retry QR code
+                      </button>
+                    </div>
+                  ) : (
+                    <p aria-live="polite" role="status">
+                      Generating QR code…
+                    </p>
+                  )}
+                </QrDialog>
+              )}
+            </CurrentResultDeletion>
           </section>
         )}
         {optionsOpen && mobile && (
@@ -1246,13 +1331,21 @@ export function UploadExperience({
                         {fileType(entry.originalName)}
                       </span>
                       <div className="history-file">
+                        {entry.serverStatus && (
+                          <p>
+                            {entry.serverStatus === "deleted"
+                              ? "Deleted on server. Saved links no longer work."
+                              : "Already unavailable on server. Saved links no longer work."}
+                          </p>
+                        )}
                         {phase === "success" ? (
                           <p className="history-name">{entry.originalName}</p>
                         ) : (
                           <h3>{entry.originalName}</h3>
                         )}
                         <p>
-                          {formatBytes(entry.size)} · Expires{" "}
+                          {formatBytes(entry.size)} ·{" "}
+                          {entry.serverStatus ? "Original expiry" : "Expires"}{" "}
                           <time
                             dateTime={entry.expiresAt}
                             title={formatLocalDateTime(entry.expiresAt)}
@@ -1267,9 +1360,12 @@ export function UploadExperience({
                         ) && <span>Key not saved</span>}
                         <button
                           className="history-copy-link"
-                          disabled={new URL(entry.shareUrl).pathname.startsWith(
-                            "/decrypt/",
-                          )}
+                          disabled={
+                            !!entry.serverStatus ||
+                            new URL(entry.shareUrl).pathname.startsWith(
+                              "/decrypt/",
+                            )
+                          }
                           title={
                             new URL(entry.shareUrl).pathname.startsWith(
                               "/decrypt/",
@@ -1307,30 +1403,33 @@ export function UploadExperience({
                             className="history-menu"
                             popover="auto"
                           >
-                            {!new URL(entry.shareUrl).pathname.startsWith(
-                              "/decrypt/",
-                            ) && (
-                              <a href={forcedDownloadUrl(entry.shareUrl)}>
-                                Download
-                              </a>
-                            )}
+                            {!entry.serverStatus &&
+                              !new URL(entry.shareUrl).pathname.startsWith(
+                                "/decrypt/",
+                              ) && (
+                                <a href={forcedDownloadUrl(entry.shareUrl)}>
+                                  Download
+                                </a>
+                              )}
                             <button
                               aria-label={`Remove ${entry.originalName} from history`}
                               onClick={() => removeHistoryEntry(entry)}
                               type="button"
                             >
-                              Remove
+                              Remove from history
                             </button>
-                            <button
-                              aria-label={`Delete ${entry.originalName}`}
-                              disabled={deletingHistoryId === entry.id}
-                              onClick={() => void deleteHistoryEntry(entry)}
-                              type="button"
-                            >
-                              {deletingHistoryId === entry.id
-                                ? "Deleting…"
-                                : "Delete file"}
-                            </button>
+                            <DestructiveConfirmation
+                              ariaLabel={`Delete server file ${entry.originalName}`}
+                              disabled={
+                                !!entry.serverStatus ||
+                                deletingHistoryId !== null
+                              }
+                              onConfirm={() => deleteHistoryEntry(entry)}
+                              label="Delete server file"
+                              title={`Delete ${entry.originalName}?`}
+                              description={`Permanently delete ${entry.originalName} from the server. All shared download links for this file will stop working. This cannot be undone. Remove from history only forgets the record in this browser.`}
+                              confirmLabel="Delete server file"
+                            />
                           </div>
                         </div>
                       </div>

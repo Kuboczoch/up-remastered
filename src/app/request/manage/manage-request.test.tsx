@@ -82,6 +82,13 @@ describe("ManageRequest", () => {
     const { getByRole } = render(<ManageRequest />);
     await waitFor(() => expect(getByRole("status").textContent).toBe("active"));
     fireEvent.click(getByRole("button", { name: "Revoke request" }));
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE"),
+    ).toHaveLength(0);
+    expect(
+      getByRole("dialog", { name: "Revoke upload request?" }),
+    ).toBeTruthy();
+    fireEvent.click(getByRole("button", { name: "Confirm revoke request" }));
 
     await waitFor(() =>
       expect(getByRole("status").textContent).toBe("revoked"),
@@ -183,7 +190,7 @@ describe("ManageRequest", () => {
         : response(active),
     );
 
-    const { getByRole } = render(<ManageRequest />);
+    const { getByRole, queryByRole } = render(<ManageRequest />);
 
     await waitFor(() =>
       expect(getByRole("status").textContent).toBe("consumed"),
@@ -191,9 +198,6 @@ describe("ManageRequest", () => {
     expect(getByRole("link", { name: "Open file" }).getAttribute("href")).toBe(
       "/A1B2C",
     );
-    expect(
-      (getByRole("button", { name: "Revoke request" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    expect(queryByRole("button", { name: "Revoke request" })).toBeNull();
   });
 });
