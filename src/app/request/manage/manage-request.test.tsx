@@ -82,6 +82,13 @@ describe("ManageRequest", () => {
     const { getByRole } = render(<ManageRequest />);
     await waitFor(() => expect(getByRole("status").textContent).toBe("active"));
     fireEvent.click(getByRole("button", { name: "Revoke request" }));
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === "DELETE"),
+    ).toHaveLength(0);
+    expect(
+      getByRole("dialog", { name: "Revoke upload request?" }),
+    ).toBeTruthy();
+    fireEvent.click(getByRole("button", { name: "Confirm revoke request" }));
 
     await waitFor(() =>
       expect(getByRole("status").textContent).toBe("revoked"),
