@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { copyLink } from "@/lib/copy-link";
 import { formatBytes, formatLocalDateTime } from "@/lib/format";
+import { useTranslation } from "@/lib/i18n/provider";
 
 import styles from "../request.module.css";
 
@@ -20,6 +21,7 @@ export function RequestedUploadSuccess({
 }: {
   receipt: RequestedUploadReceipt;
 }) {
+  const { locale, t } = useTranslation();
   const [feedback, setFeedback] = useState<"idle" | "copied" | "failed">(
     "idle",
   );
@@ -60,37 +62,38 @@ export function RequestedUploadSuccess({
   return (
     <section className={styles.card} aria-labelledby="upload-complete">
       <h2 id="upload-complete" ref={heading} tabIndex={-1}>
-        Upload complete
+        {t("Upload complete")}
       </h2>
-      <p role="status">The requester can now retrieve your file.</p>
+      <p role="status">{t("The requester can now retrieve your file.")}</p>
       <dl className={`${styles.details} ${styles.receipt}`}>
         <div>
-          <dt>Filename</dt>
+          <dt>{t("Filename")}</dt>
           <dd>{receipt.originalName}</dd>
         </div>
         <div>
-          <dt>Size</dt>
-          <dd>{formatBytes(receipt.size)}</dd>
+          <dt>{t("Size")}</dt>
+          <dd>{formatBytes(receipt.size, locale)}</dd>
         </div>
         <div>
-          <dt>File expires</dt>
+          <dt>{t("File expires")}</dt>
           <dd>
             <time dateTime={receipt.expiresAt}>
-              {formatLocalDateTime(receipt.expiresAt)}
+              {formatLocalDateTime(receipt.expiresAt, locale)}
             </time>
           </dd>
         </div>
       </dl>
       <p>
-        This request link has been used and cannot accept another upload.
-        Reloading it will show that the request is unavailable. Ask the
-        requester for a new request link if you need to send another file.
+        {t(
+          "This request link has been used and cannot accept another upload. Reloading it will show that the request is unavailable. Ask the requester for a new request link if you need to send another file.",
+        )}
       </p>
       {shareUrl ? (
         <>
           <p className={styles.muted}>
-            Anyone with the file link can access it until it expires. It is
-            separate from this single-use request link.
+            {t(
+              "Anyone with the file link can access it until it expires. It is separate from this single-use request link.",
+            )}
           </p>
           <div className={styles.actions}>
             <button
@@ -98,13 +101,21 @@ export function RequestedUploadSuccess({
               className={styles.button}
               onClick={() => void copy()}
             >
-              {feedback === "copied" ? "Copied" : "Copy link"}
+              {feedback === "copied" ? t("Copied") : t("Copy link")}
             </button>
-            <a className={styles.linkButton} href={shareUrl}>
-              Open file
+            <a
+              className={styles.linkButton}
+              href={shareUrl}
+              referrerPolicy="no-referrer"
+            >
+              {t("Open file")}
             </a>
-            <a className={styles.linkButton} href={`${shareUrl}?download=1`}>
-              Download file
+            <a
+              className={styles.linkButton}
+              href={`${shareUrl}?download=1`}
+              referrerPolicy="no-referrer"
+            >
+              {t("Download file")}
             </a>
           </div>
           <p
@@ -113,14 +124,16 @@ export function RequestedUploadSuccess({
             role={feedback === "idle" ? undefined : "status"}
           >
             {feedback === "copied"
-              ? "Link copied."
+              ? t("Link copied.")
               : feedback === "failed"
-                ? "Could not copy automatically. Select and copy the file link manually."
+                ? t(
+                    "Could not copy automatically. Select and copy the file link manually.",
+                  )
                 : ""}
           </p>
           {feedback === "failed" ? (
             <label className={styles.field}>
-              File link for manual copying
+              {t("File link for manual copying")}
               <input
                 readOnly
                 value={shareUrl}
@@ -131,8 +144,9 @@ export function RequestedUploadSuccess({
         </>
       ) : (
         <p>
-          The file link is unavailable. Ask the requester to retrieve the file
-          from their request management page.
+          {t(
+            "The file link is unavailable. Ask the requester to retrieve the file from their request management page.",
+          )}
         </p>
       )}
     </section>

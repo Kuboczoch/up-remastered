@@ -2,7 +2,10 @@ import { expect, test } from "@playwright/test";
 import { mkdir, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
-async function createRequest(page: import("@playwright/test").Page) {
+async function createRequest(
+  page: import("@playwright/test").Page,
+  locale = "en",
+) {
   const response = await page.request.post("/api/upload-requests", {
     data: {
       maxBytes: 4 * 1024 * 1024,
@@ -11,107 +14,134 @@ async function createRequest(page: import("@playwright/test").Page) {
   });
   expect(response.status()).toBe(201);
   const body = await response.json();
-  await page.goto(body.uploadUrl);
+  await page.goto(`${body.uploadUrl}?lang=${locale}`);
   return body as { uploadUrl: string; managementToken: string };
 }
 
 async function selectFile(
   page: import("@playwright/test").Page,
   size = 3 * 1024 * 1024,
+  locale = "en",
 ) {
-  await page.getByLabel("Choose file").setInputFiles({
-    buffer: Buffer.alloc(size, 65),
-    mimeType: "text/plain",
-    name: "disposable-progress.txt",
-  });
+  await page
+    .getByLabel(locale === "pl" ? "Wybierz plik" : "Choose file")
+    .setInputFiles({
+      buffer: Buffer.alloc(size, 65),
+      mimeType: "text/plain",
+      name: "disposable-progress.txt",
+    });
   await expect(
-    page.getByText(`disposable-progress.txt — ${size} bytes`),
+    page.getByText(
+      `disposable-progress.txt — ${size} ${locale === "pl" ? "bajtów" : "bytes"}`,
+    ),
   ).toBeVisible();
 }
 
-test("slow upload measures progress, blocks double submit, cancels and releases the real claim for retry", async ({
-  page,
-}) => {
-  test.setTimeout(90_000);
-  const created = await createRequest(page);
-  await selectFile(page);
-  const uploadDir = process.env.UPLOAD_DIR!;
-  // Production creates this directory lazily on the first upload.
-  await mkdir(uploadDir, { recursive: true });
-  const before = new Set(await readdir(uploadDir));
-  const newFiles = async () =>
-    (await readdir(uploadDir)).filter((name) => !before.has(name));
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Network.enable");
-  await cdp.send("Network.emulateNetworkConditions", {
-    offline: false,
-    latency: 100,
-    downloadThroughput: 1024 * 1024,
-    uploadThroughput: 128 * 1024,
-  });
-  let attempts = 0;
-  page.on("request", (request) => {
-    if (request.method() === "POST" && request.url().endsWith("/upload"))
-      attempts++;
-  });
-  await page.getByRole("button", { name: "Upload file" }).click();
-  await expect(page.getByLabel("Choose file")).toBeDisabled();
-  await page.locator("form").evaluate((form) => {
-    form.dispatchEvent(
-      new Event("submit", { bubbles: true, cancelable: true }),
-    );
-  });
-  await expect
-    .poll(
-      async () =>
-        Number(await page.getByRole("progressbar").getAttribute("value")),
-      { timeout: 15000 },
-    )
-    .toBeGreaterThan(0);
-  expect(
-    Number(await page.getByRole("progressbar").getAttribute("value")),
-  ).toBeLessThan(100);
-  expect(attempts).toBe(1);
-  await expect
-    .poll(async () => {
-      const sizes = await Promise.all(
-        (await newFiles()).map(
-          async (name) => (await stat(join(uploadDir, name))).size,
-        ),
+for (const locale of ["en", "pl"] as const) {
+  test(`${locale} slow upload measures progress, blocks double submit, cancels and releases the real claim for retry`, async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const created = await createRequest(page, locale);
+    await selectFile(page, 3 * 1024 * 1024, locale);
+    const choose = locale === "pl" ? "Wybierz plik" : "Choose file";
+    const upload = locale === "pl" ? "Prześlij plik" : "Upload file";
+    const uploadDir = process.env.UPLOAD_DIR!;
+    // Production creates this directory lazily on the first upload.
+    await mkdir(uploadDir, { recursive: true });
+    const before = new Set(await readdir(uploadDir));
+    const newFiles = async () =>
+      (await readdir(uploadDir)).filter((name) => !before.has(name));
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Network.enable");
+    await cdp.send("Network.emulateNetworkConditions", {
+      offline: false,
+      latency: 100,
+      downloadThroughput: 1024 * 1024,
+      uploadThroughput: 128 * 1024,
+    });
+    let attempts = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().endsWith("/upload"))
+        attempts++;
+    });
+    await page.getByRole("button", { name: upload }).click();
+    await expect(page.getByLabel(choose)).toBeDisabled();
+    await page.locator("form").evaluate((form) => {
+      form.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
       );
-      return sizes.reduce((sum, size) => sum + size, 0);
-    })
-    .toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Cancel upload" }).click();
-  await expect(page.getByRole("status")).toContainText("cancelled locally");
-  await expect(page.getByLabel("Choose file")).toBeEnabled();
-  await cdp.send("Network.emulateNetworkConditions", {
-    offline: false,
-    latency: 0,
-    downloadThroughput: -1,
-    uploadThroughput: -1,
+    });
+    await expect
+      .poll(
+        async () =>
+          Number(await page.getByRole("progressbar").getAttribute("value")),
+        { timeout: 15000 },
+      )
+      .toBeGreaterThan(0);
+    expect(
+      Number(await page.getByRole("progressbar").getAttribute("value")),
+    ).toBeLessThan(100);
+    expect(attempts).toBe(1);
+    await expect
+      .poll(async () => {
+        const sizes = await Promise.all(
+          (await newFiles()).map(
+            async (name) => (await stat(join(uploadDir, name))).size,
+          ),
+        );
+        return sizes.reduce((sum, size) => sum + size, 0);
+      })
+      .toBeGreaterThan(0);
+    await expect(page.getByRole("status")).toContainText(
+      locale === "pl" ? "Przesyłanie…" : "Uploading…",
+    );
+    await expect(page.getByRole("progressbar")).toHaveAttribute(
+      "aria-label",
+      locale === "pl" ? "Postęp przesyłania" : "Upload progress",
+    );
+    await page
+      .getByRole("button", {
+        name: locale === "pl" ? "Anuluj przesyłanie" : "Cancel upload",
+      })
+      .click();
+    await expect(page.getByRole("status")).toContainText(
+      locale === "pl" ? "anulowano lokalnie" : "cancelled locally",
+    );
+    await expect(page.getByLabel(choose)).toBeEnabled();
+    await cdp.send("Network.emulateNetworkConditions", {
+      offline: false,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+    });
+    await expect
+      .poll(async () => {
+        const response = await page.request.get("/api/upload-requests/manage", {
+          headers: { authorization: `Bearer ${created.managementToken}` },
+        });
+        return (await response.json()).request.status;
+      })
+      .toBe("retry");
+    await expect.poll(newFiles).toEqual([]);
+    await page.getByRole("button", { name: upload }).click();
+    await expect(
+      page.getByRole("heading", {
+        name: locale === "pl" ? "Przesyłanie ukończone" : "Upload complete",
+      }),
+    ).toBeVisible();
+    expect(attempts).toBe(2);
+    await page.goto(`${created.uploadUrl}?lang=${locale}`);
+    await expect(
+      page.getByRole("heading", {
+        name:
+          locale === "pl"
+            ? "Ta prośba o plik została już wykorzystana"
+            : "This upload request has already been used",
+      }),
+    ).toBeVisible();
   });
-  await expect
-    .poll(async () => {
-      const response = await page.request.get("/api/upload-requests/manage", {
-        headers: { authorization: `Bearer ${created.managementToken}` },
-      });
-      return (await response.json()).request.status;
-    })
-    .toBe("retry");
-  await expect.poll(newFiles).toEqual([]);
-  await page.getByRole("button", { name: "Upload file" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Upload complete" }),
-  ).toBeVisible();
-  expect(attempts).toBe(2);
-  await page.goto(created.uploadUrl);
-  await expect(
-    page.getByRole("heading", {
-      name: "This upload request has already been used",
-    }),
-  ).toBeVisible();
-});
+}
 
 test("network failure preserves selection and retries successfully", async ({
   page,

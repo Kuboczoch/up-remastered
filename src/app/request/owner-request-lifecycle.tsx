@@ -1,3 +1,5 @@
+import { useTranslation } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type {
   RequestDetails,
   RequestStatus,
@@ -7,7 +9,7 @@ export function isTerminalRequest(status: RequestStatus): boolean {
   return ["consumed", "expired", "revoked"].includes(status);
 }
 
-const lifecycleMessages: Record<RequestStatus, string> = {
+const lifecycleMessages: Record<RequestStatus, MessageKey> = {
   active: "Waiting for upload.",
   retry:
     "Waiting for upload. The previous attempt failed; the recipient can try the same upload link again.",
@@ -25,12 +27,14 @@ export function OwnerRequestLifecycle({
 }: {
   request: RequestDetails;
 }) {
+  const { t } = useTranslation();
   return (
     <>
-      <p aria-live="polite">{lifecycleMessages[request.status]}</p>
+      <p aria-live="polite">{t(lifecycleMessages[request.status])}</p>
       {request.status === "consumed" && request.uploadId ? (
         <p>
-          Uploaded file: <a href={`/${request.uploadId}`}>Open file</a>
+          {t("Uploaded file:")}{" "}
+          <a href={`/${request.uploadId}`}>{t("Open file")}</a>
         </p>
       ) : null}
     </>

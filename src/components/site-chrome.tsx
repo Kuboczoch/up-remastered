@@ -1,13 +1,25 @@
+"use client";
+
+/* eslint-disable @next/next/no-html-link-for-pages -- Header navigation must load locale-negotiated documents; client routing restores stale metadata on history traversal. */
+
 import Image from "next/image";
-import Link from "next/link";
 
 import { siteName } from "@/config/site";
+import { useTranslation } from "@/lib/i18n/provider";
 import packageMetadata from "../../package.json";
 
 export function SiteHeader() {
+  const { t } = useTranslation();
   return (
     <header className="site-header">
-      <Link className="site-brand" href="/" aria-label={`${siteName} home`}>
+      {/* Locale negotiation and metadata belong to the destination document.
+          Native navigation also restores that document's head on Back/Forward,
+          rather than reusing Next's rewritten-route metadata cache. */}
+      <a
+        className="site-brand"
+        href="/"
+        aria-label={t("{siteName} home", { siteName })}
+      >
         <Image
           alt=""
           aria-hidden="true"
@@ -18,28 +30,29 @@ export function SiteHeader() {
           width={34}
         />
         <strong>{siteName}</strong>
-      </Link>
-      <Link className="outline-button" href="/request/new">
-        Request a file
-      </Link>
+      </a>
+      <a className="outline-button" href="/request/new">
+        {t("Request a file")}
+      </a>
     </header>
   );
 }
 
 export function SiteFooter() {
+  const { t } = useTranslation();
   return (
     <footer className="site-footer">
       <div className="site-footer-inner">
-        <p>Temporary by design.</p>
-        <nav aria-label="Footer">
+        <p>{t("Temporary by design.")}</p>
+        <nav aria-label={t("Footer")}>
           <a href="/sharex" download>
-            ShareX config
+            {t("ShareX config")}
           </a>
           <a href="/sh" download>
-            Shell helper
+            {t("Shell helper")}
           </a>
           <a
-            aria-label="GitHub repository (opens in a new tab)"
+            aria-label={t("GitHub repository (opens in a new tab)")}
             href="https://github.com/Kuboczoch/up-remastered"
             rel="noreferrer"
             target="_blank"
@@ -54,7 +67,7 @@ export function SiteFooter() {
             rel="noreferrer"
             target="_blank"
           >
-            Artwork
+            {t("Artwork")}
           </a>
         </nav>
       </div>

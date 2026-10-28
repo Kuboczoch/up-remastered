@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { formatLocalDateTime, formatRelativeExpiry } from "@/lib/format";
+import { defaultLocale, type Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
 import type { RecipientRequestedUpload } from "@/server/upload-requests/requested-upload";
 import styles from "../request.module.css";
 import { RequestedUploadForm } from "./requested-upload-form";
@@ -31,23 +32,28 @@ export function RecipientRequestView({
   request,
   token,
   now,
+  locale = defaultLocale,
 }: {
   request: RecipientRequestedUpload;
   token: string;
   now: Date;
+  locale?: Locale;
 }) {
+  const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
   if (!("maxBytes" in request)) {
     const [title, guidance] = unavailable[request.status];
     return (
       <main className={styles.shell}>
         <header className={styles.header}>
-          <Link href="/">← Home</Link>
-          <h1>{title}</h1>
+          {/* Reload the public URL so history restores localized metadata. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/">{t("← Home")}</a>
+          <h1>{t(title)}</h1>
         </header>
         <section className={styles.card}>
-          <p>{guidance}</p>
+          <p>{t(guidance)}</p>
           {request.status === "in_progress" ? (
-            <a href={`/request/${token}`}>Refresh request status</a>
+            <a href={`/request/${token}`}>{t("Refresh request status")}</a>
           ) : null}
         </section>
       </main>
@@ -56,20 +62,31 @@ export function RecipientRequestView({
   return (
     <main className={styles.shell}>
       <header className={styles.header}>
-        <Link href="/">← Home</Link>
-        <h1>Send a requested file</h1>
+        {/* Reload the public URL so history restores localized metadata. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        <a href="/">{t("← Home")}</a>
+        <h1>{t("Send a requested file")}</h1>
         <p>
-          Expires {formatRelativeExpiry(request.expiresAt, now, "en")} (
+          {translate(locale, "Expires {expiry}", {
+            expiry: formatRelativeExpiry(request.expiresAt, now, locale),
+          })}{" "}
+          (
           <time dateTime={request.expiresAt}>
-            {formatLocalDateTime(request.expiresAt, "en-GB", "UTC")} UTC
+            {formatLocalDateTime(
+              request.expiresAt,
+              locale === "en" ? "en-GB" : locale,
+              "UTC",
+            )}{" "}
+            UTC
           </time>
           ).
         </p>
       </header>
       {request.status === "retry" ? (
         <p>
-          The previous upload did not complete. You can choose a file and try
-          again before this request expires.
+          {t(
+            "The previous upload did not complete. You can choose a file and try again before this request expires.",
+          )}
         </p>
       ) : null}
       <RequestedUploadForm maxBytes={request.maxBytes} token={token} />

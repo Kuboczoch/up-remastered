@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { formatBytes } from "@/lib/format";
+import { useTranslation } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 import styles from "../request.module.css";
 
@@ -21,11 +23,12 @@ export function RequestedUploadForm({
   maxBytes: number;
   token: string;
 }) {
+  const { locale, t } = useTranslation();
   const [result, setResult] = useState<RequestedUploadReceipt>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
-  const [phase, setPhase] = useState("Uploading…");
+  const [phase, setPhase] = useState<MessageKey>("Uploading…");
   const [progress, setProgress] = useState<number>();
   const [selection, setSelection] = useState<File>();
   const [status, setStatus] = useState("");
@@ -46,10 +49,12 @@ export function RequestedUploadForm({
       const form = new FormData(event.currentTarget);
       const file = form.get("file");
       if (!(file instanceof File) || file.size === 0)
-        throw new Error("Choose a non-empty file.");
+        throw new Error(t("Choose a non-empty file."));
       if (file.size > maxBytes) {
         throw new Error(
-          `The file must be no larger than ${formatBytes(maxBytes, "en")}.`,
+          t("The file must be no larger than {size}.", {
+            size: formatBytes(maxBytes, locale),
+          }),
         );
       }
       const upload = new FormData();
@@ -72,28 +77,34 @@ export function RequestedUploadForm({
             setUnavailable(true);
             reject(
               new Error(
-                "This request is no longer available for upload. Do not retry: check its status to see whether it is busy, used, revoked or expired.",
+                t(
+                  "This request is no longer available for upload. Do not retry: check its status to see whether it is busy, used, revoked or expired.",
+                ),
               ),
             );
             return;
           }
-          const response = xhr.response as UploadResponse & {
-            error?: { message?: string };
-          };
+          const response = xhr.response as UploadResponse | null;
           if (xhr.status >= 200 && xhr.status < 300 && response?.upload)
             resolve(response);
           else
             reject(
               new Error(
-                response?.error?.message ??
-                  "Upload failed. You can retry with the selected file.",
+                // Do not expose arbitrary server text or capability-bearing details.
+                xhr.status === 413
+                  ? t("The file must be no larger than {size}.", {
+                      size: formatBytes(maxBytes, locale),
+                    })
+                  : t("Upload failed. You can retry with the selected file."),
               ),
             );
         };
         xhr.onerror = () =>
           reject(
             new Error(
-              "Network error. You can retry with the selected file. If the server completed the upload, this single-use link may already be consumed.",
+              t(
+                "Network error. You can retry with the selected file. If the server completed the upload, this single-use link may already be consumed.",
+              ),
             ),
           );
         xhr.onabort = () =>
@@ -105,10 +116,16 @@ export function RequestedUploadForm({
     } catch (caught) {
       if (caught instanceof DOMException && caught.name === "AbortError") {
         setStatus(
-          "Upload cancelled locally. The server releases incomplete uploads after disconnect cleanup; retry shortly. If finalization already completed, this single-use link may be consumed.",
+          t(
+            "Upload cancelled locally. The server releases incomplete uploads after disconnect cleanup; retry shortly. If finalization already completed, this single-use link may be consumed.",
+          ),
         );
       } else
-        setError(caught instanceof Error ? caught.message : "Upload failed.");
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : t("Upload failed. You can retry with the selected file."),
+        );
     } finally {
       transport.current = null;
       submitting.current = false;
@@ -123,7 +140,7 @@ export function RequestedUploadForm({
   return (
     <form className={styles.card} onSubmit={submit}>
       <label className={styles.field}>
-        Choose file
+        {t("Choose file")}
         <input
           name="file"
           required
@@ -133,27 +150,38 @@ export function RequestedUploadForm({
         />
       </label>
       <p className={styles.muted}>
-        Maximum {formatBytes(maxBytes, "en")}. This link is single-use.
+        {t("Maximum {size}. This link is single-use.", {
+          size: formatBytes(maxBytes, locale),
+        })}
       </p>
       {selection ? (
         <p>
-          {selection.name} — {selection.size} bytes
+          {t("{name} — {bytes} bytes", {
+            name: selection.name,
+            bytes: new Intl.NumberFormat(locale, { useGrouping: false }).format(
+              selection.size,
+            ),
+          })}
         </p>
       ) : null}
       <p role="status" aria-live="polite">
         {busy
-          ? `${phase}${progress === undefined ? "" : ` ${progress}%`}`
+          ? `${t(phase)}${progress === undefined ? "" : ` ${new Intl.NumberFormat(locale).format(progress)}%`}`
           : status}
       </p>
       {busy ? (
         <>
-          <progress aria-label="Upload progress" max={100} value={progress} />
+          <progress
+            aria-label={t("Upload progress")}
+            max={100}
+            value={progress}
+          />
           <button
             className={styles.button}
             type="button"
             onClick={() => transport.current?.abort()}
           >
-            Cancel upload
+            {t("Cancel upload")}
           </button>
         </>
       ) : null}
@@ -162,7 +190,7 @@ export function RequestedUploadForm({
         disabled={busy || unavailable}
         type="submit"
       >
-        {busy ? phase : "Upload file"}
+        {busy ? t(phase) : t("Upload file")}
       </button>
       {error ? (
         <p className={styles.error} role="alert">
@@ -170,7 +198,7 @@ export function RequestedUploadForm({
         </p>
       ) : null}
       {unavailable ? (
-        <a href={`/request/${token}`}>Check request status</a>
+        <a href={`/request/${token}`}>{t("Check request status")}</a>
       ) : null}
     </form>
   );

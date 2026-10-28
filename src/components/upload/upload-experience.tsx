@@ -2,8 +2,6 @@
 
 import { DestructiveConfirmation } from "@/components/destructive-confirmation";
 
-import Link from "next/link";
-
 import {
   useCallback,
   useEffect,
@@ -39,6 +37,7 @@ import { siteName } from "@/config/site";
 import { ManualCopyLink } from "@/components/manual-copy-link";
 import { copyLink } from "@/lib/copy-link";
 import { NativeShare } from "./native-share";
+import { useTranslation } from "@/lib/i18n/provider";
 import {
   formatBytes,
   formatLocalDateTime,
@@ -110,9 +109,28 @@ export function UploadExperience({
   initialExpirationHours?: number;
   maxExpirationHours?: number;
 }) {
+  const { locale, t, message } = useTranslation();
+  const hoursFormatter = new Intl.NumberFormat(locale, {
+    style: "unit",
+    unit: "hour",
+    unitDisplay: "long",
+    maximumFractionDigits: 20,
+  });
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [downloadLimit, setDownloadLimit] = useState(11);
+  const downloadPlural = new Intl.PluralRules(locale).select(downloadLimit);
+  const downloadLimitLabel =
+    downloadLimit === 11
+      ? t("Unlimited")
+      : t(
+          downloadPlural === "one"
+            ? "{count} download"
+            : downloadPlural === "few"
+              ? "{count} downloads (few)"
+              : "{count} downloads",
+          { count: new Intl.NumberFormat(locale).format(downloadLimit) },
+        );
   const [expirationHours, setExpirationHours] = useState(
     initialExpirationHours,
   );
@@ -280,9 +298,9 @@ export function UploadExperience({
   useEffect(() => {
     document.title =
       phase === "uploading"
-        ? `${progress < 0 ? "Encrypting" : `${progress}%`} · ${siteName}`
+        ? `${progress < 0 ? t("Encrypting") : `${progress}%`} · ${siteName}`
         : originalTitle.current;
-  }, [phase, progress]);
+  }, [phase, progress, t]);
 
   useEffect(() => {
     if (mobile && optionsOpen) return;
@@ -341,7 +359,11 @@ export function UploadExperience({
       }
       if (maxBytes !== null && file.size > maxBytes) {
         setError(
-          `“${file.name}” is ${formatBytes(file.size)}. Maximum size is ${formatBytes(maxBytes)}.`,
+          t("“{name}” is {size}. Maximum size is {max}.", {
+            name: file.name,
+            size: formatBytes(file.size, locale),
+            max: formatBytes(maxBytes, locale),
+          }),
         );
         setPhase("error");
         return;
@@ -394,9 +416,10 @@ export function UploadExperience({
           return;
         }
         setError(
-          uploadError instanceof Error
-            ? uploadError.message
-            : "Upload failed. Try again.",
+          message(
+            uploadError instanceof Error ? uploadError.message : "",
+            "Upload failed. Try again.",
+          ),
         );
         setPhase("error");
       } finally {
@@ -405,7 +428,16 @@ export function UploadExperience({
         }
       }
     },
-    [maxBytes, phase, protection, expirationHours, downloadLimit],
+    [
+      maxBytes,
+      phase,
+      protection,
+      expirationHours,
+      downloadLimit,
+      locale,
+      t,
+      message,
+    ],
   );
 
   useEffect(() => {
@@ -422,7 +454,7 @@ export function UploadExperience({
         return;
       const files = Array.from(event.clipboardData?.files ?? []);
       if (files.length > 1) {
-        setError("Paste one file at a time.");
+        setError(t("Paste one file at a time."));
         setPhase("error");
         return;
       }
@@ -443,9 +475,10 @@ export function UploadExperience({
 
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
-  }, [beginUpload, phase, textEncoding, optionsOpen]);
+  }, [beginUpload, phase, textEncoding, optionsOpen, t]);
 
   function reset() {
+    if (phase === "uploading") restorePickerFocusRef.current = true;
     requestSequence.current += 1;
     abortRef.current?.();
     abortRef.current = null;
@@ -488,7 +521,9 @@ export function UploadExperience({
     const files = Array.from(event.dataTransfer.files);
     if (isDirectoryDrop(event.dataTransfer) || files.length !== 1) {
       setError(
-        "Drop exactly one file. Folders and multiple files are not supported.",
+        t(
+          "Drop exactly one file. Folders and multiple files are not supported.",
+        ),
       );
       setPhase("error");
       return;
@@ -511,7 +546,7 @@ export function UploadExperience({
     const files = Array.from(event.clipboardData.files);
     if (files.length > 1) {
       event.preventDefault();
-      setError("Paste one file at a time.");
+      setError(t("Paste one file at a time."));
       setPhase("error");
       return;
     }
@@ -531,7 +566,7 @@ export function UploadExperience({
 
   function uploadText() {
     if (!text) {
-      setError("Enter or paste text before uploading.");
+      setError(t("Enter or paste text before uploading."));
       setPhase("error");
       return;
     }
@@ -632,9 +667,15 @@ export function UploadExperience({
       reconcileServerStatus(entry, serverStatus);
     } catch {
       setHistoryStatus(
-        `${entry.originalName} could not be deleted. Try again.`,
+        t("{name} could not be deleted. Try again.", {
+          name: entry.originalName,
+        }),
       );
-      throw new Error(`${entry.originalName} could not be deleted. Try again.`);
+      throw new Error(
+        t("{name} could not be deleted. Try again.", {
+          name: entry.originalName,
+        }),
+      );
     } finally {
       setDeletingHistoryId(null);
     }
@@ -671,18 +712,20 @@ export function UploadExperience({
     }
     setHistoryStatus(
       (serverStatus === "unavailable"
-        ? `${entry.originalName} was already unavailable.`
-        : `${entry.originalName} was deleted.`) +
+        ? t("{name} was already unavailable.", { name: entry.originalName })
+        : t("{name} was deleted.", { name: entry.originalName })) +
         (persisted
           ? ""
-          : " Status could not be saved in this browser. Remove the local record before reloading."),
+          : ` ${t("Status could not be saved in this browser. Remove the local record before reloading.")}`),
     );
   }
 
   function removeHistoryEntry(entry: UploadHistoryEntry) {
     if (!saveHistoryRef.current) return;
     setHistory(removeUploadHistoryEntry(window.localStorage, entry.id));
-    setHistoryStatus(`${entry.originalName} was removed from this browser.`);
+    setHistoryStatus(
+      t("{name} was removed from this browser.", { name: entry.originalName }),
+    );
   }
 
   function closeOptions() {
@@ -805,19 +848,19 @@ export function UploadExperience({
     >
       {!isOnline && (
         <p className="connection-warning" role="status">
-          You are offline. Reconnect before uploading.
+          {t("You are offline. Reconnect before uploading.")}
         </p>
       )}
       <div className="workspace-heading">
         <div className="workspace-copy">
-          <h1>Share temporary files and text.</h1>
-          <p>Everything expires automatically.</p>
+          <h1>{t("Share temporary files and text.")}</h1>
+          <p>{t("Everything expires automatically.")}</p>
         </div>
         {(phase === "idle" || phase === "error") && (
           <div
             className="mode-switch"
             role="tablist"
-            aria-label="Upload type"
+            aria-label={t("Upload type")}
             onKeyDown={(event) => {
               if (
                 !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
@@ -845,7 +888,7 @@ export function UploadExperience({
               onClick={() => setMode("file")}
               type="button"
             >
-              File
+              {t("File")}
             </button>
             <button
               role="tab"
@@ -856,7 +899,7 @@ export function UploadExperience({
               onClick={() => setMode("text")}
               type="button"
             >
-              Text
+              {t("Text")}
             </button>
           </div>
         )}
@@ -864,7 +907,10 @@ export function UploadExperience({
       <div className="upload-stage">
         <div className="upload-back">
           <div className="upload-rail">
-            <Link href="/request/new">Request a file ↗</Link>
+            {/* Load the negotiated document: rewritten client navigation can
+                retain the upload page's metadata, including on history travel. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Preserve locale-negotiated document metadata. */}
+            <a href="/request/new">{t("Request a file ↗")}</a>
             <button
               type="button"
               ref={optionsTriggerRef}
@@ -874,7 +920,7 @@ export function UploadExperience({
                 optionsOpen ? closeOptions() : setOptionsOpen(true)
               }
             >
-              Advanced options{" "}
+              {t("Advanced options")}{" "}
               <span className="advanced-symbol" aria-hidden="true">
                 {optionsOpen ? "−" : "+"}
               </span>
@@ -892,20 +938,20 @@ export function UploadExperience({
                 <span className="drop-overlay-icon" aria-hidden="true">
                   ↓
                 </span>
-                <strong>Drop file to upload</strong>
+                <strong>{t("Drop file to upload")}</strong>
               </div>
             )}
             <h2 className="visually-hidden" id="upload-heading">
-              Upload a file
+              {t("Upload a file")}
             </h2>
             {phase === "error" && (
               <div className="inline-error" role="alert">
                 <h2 ref={errorHeadingRef} tabIndex={-1}>
-                  Something went wrong
+                  {t("Something went wrong")}
                 </h2>
                 <p>{error}</p>
                 <button onClick={reset} type="button">
-                  Try again
+                  {t("Try again")}
                 </button>
               </div>
             )}
@@ -919,7 +965,7 @@ export function UploadExperience({
                 inert={mode !== "file"}
               >
                 <input
-                  aria-label="Choose file"
+                  aria-label={t("Choose file")}
                   className="visually-hidden"
                   id="file-picker"
                   onChange={chooseFile}
@@ -927,9 +973,9 @@ export function UploadExperience({
                   type="file"
                 />
                 <label className="primary-action" htmlFor="file-picker">
-                  Choose file <span aria-hidden="true">⇧</span>
+                  {t("Choose file")} <span aria-hidden="true">⇧</span>
                 </label>
-                <p className="drop-hint">or drop one file here</p>
+                <p className="drop-hint">{t("or drop one file here")}</p>
               </div>
               <div
                 role="tabpanel"
@@ -939,11 +985,11 @@ export function UploadExperience({
                 className={`text-upload${mode !== "text" ? " is-hidden" : ""}`}
                 inert={mode !== "text"}
               >
-                <label htmlFor="text-upload">Or upload text</label>
+                <label htmlFor="text-upload">{t("Or upload text")}</label>
                 <textarea
                   id="text-upload"
                   onChange={(event) => setText(event.target.value)}
-                  placeholder="Paste or type text"
+                  placeholder={t("Paste or type text")}
                   rows={6}
                   value={text}
                 />
@@ -952,20 +998,24 @@ export function UploadExperience({
                   onClick={uploadText}
                   type="button"
                 >
-                  Upload text
+                  {t("Upload text")}
                 </button>
               </div>
             </div>
             <div className="upload-meta">
               <span>
                 {maxBytes === null
-                  ? "Checking limit…"
-                  : `${formatBytes(maxBytes)} max`}
+                  ? t("Checking limit…")
+                  : t("{size} max", { size: formatBytes(maxBytes, locale) })}
               </span>
-              <span>Temporary storage</span>
+              <span>{t("Temporary storage")}</span>
             </div>
             {configurationWarning && (
-              <p className="warning-note">{configurationWarning}</p>
+              <p className="warning-note">
+                {t(
+                  "Upload limit could not be loaded; the server will still validate your file.",
+                )}
+              </p>
             )}
           </section>
         )}
@@ -977,28 +1027,28 @@ export function UploadExperience({
           >
             <div className="scene" aria-hidden="true" />
             <p className="state-label">
-              {progress < 0 ? "Encrypting in your browser" : "Uploading"}
+              {progress < 0 ? t("Encrypting in your browser") : t("Uploading")}
             </p>
             <h2>
-              {progress < 0 ? "Preparing protected file…" : `${progress}%`}
+              {progress < 0 ? t("Preparing protected file…") : `${progress}%`}
             </h2>
             <div
               className="progress-track"
               role="progressbar"
-              aria-label="Upload progress"
+              aria-label={t("Upload progress")}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={progress < 0 ? undefined : progress}
               aria-valuetext={
                 progress < 0
-                  ? "Encrypting; network upload has not started"
+                  ? t("Encrypting; network upload has not started")
                   : undefined
               }
             >
               <span style={{ width: `${Math.max(0, progress)}%` }} />
             </div>
             <button className="outline-button" onClick={reset} type="button">
-              Cancel
+              {t("Cancel")}
             </button>
           </section>
         )}
@@ -1006,17 +1056,21 @@ export function UploadExperience({
           <section className="upload-card result-card" aria-live="polite">
             <h2 ref={resultHeadingRef} tabIndex={-1}>
               {result.serverStatus === "deleted"
-                ? "File deleted"
-                : "File unavailable"}
+                ? t("File deleted")
+                : t("File unavailable")}
             </h2>
             <p>{result.originalName}</p>
-            <p>Saved links no longer work. Server deletion cannot be undone.</p>
+            <p>
+              {t(
+                "Saved links no longer work. Server deletion cannot be undone.",
+              )}
+            </p>
             <button
               type="button"
               className="start-over-button"
               onClick={startAnotherUpload}
             >
-              Upload another file
+              {t("Upload another file")}
             </button>
           </section>
         )}
@@ -1032,7 +1086,7 @@ export function UploadExperience({
             >
               <div className="scene" aria-hidden="true" />
               <p className="complete-label">
-                ✓ <span>Upload complete</span>
+                ✓ <span>{t("Upload complete")}</span>
               </p>
               <div className="result-file">
                 <span className="file-type">
@@ -1043,13 +1097,13 @@ export function UploadExperience({
                     {result.originalName}
                   </h2>
                   <p>
-                    {formatBytes(result.size)} · Expires{" "}
-                    {formatRelativeExpiry(result.expiresAt, now)} ·{" "}
+                    {formatBytes(result.size, locale)} · {t("Expires")}{" "}
+                    {formatRelativeExpiry(result.expiresAt, now, locale)} ·{" "}
                     <time
                       dateTime={result.expiresAt}
-                      title={formatLocalDateTime(result.expiresAt)}
+                      title={formatLocalDateTime(result.expiresAt, locale)}
                     >
-                      {formatLocalDateTime(result.expiresAt)}
+                      {formatLocalDateTime(result.expiresAt, locale)}
                     </time>
                   </p>
                 </div>
@@ -1057,11 +1111,11 @@ export function UploadExperience({
               <div className="share-row">
                 <input
                   id="share-url"
-                  aria-label="Share URL"
+                  aria-label={t("Share URL")}
                   className="result-url"
                   onDoubleClick={() => void copyUrl()}
                   readOnly
-                  title="Double-click to copy"
+                  title={t("Double-click to copy")}
                   value={result.shareUrl}
                 />
                 <button
@@ -1072,27 +1126,29 @@ export function UploadExperience({
                 >
                   {copied ? (
                     <>
-                      Copied <span aria-hidden="true">✓</span>
+                      {t("Copied")} <span aria-hidden="true">✓</span>
                     </>
                   ) : (
-                    "Copy URL"
+                    t("Copy URL")
                   )}
                 </button>
               </div>
               {manualCopyUrl && <ManualCopyLink value={manualCopyUrl} />}
               <p className="share-note">
                 {result.shareUrl.includes("#key=")
-                  ? "Only the full link unlocks the file. Keep it safe: keys are not saved in this app’s upload history and cannot be recovered."
-                  : "Anyone with the link can download."}
+                  ? t(
+                      "Only the full link unlocks the file. Keep it safe: keys are not saved in this app’s upload history and cannot be recovered.",
+                    )
+                  : t("Anyone with the link can download.")}
               </p>
               <div
-                aria-label="Uploaded file actions"
+                aria-label={t("Uploaded file actions")}
                 className="result-actions"
                 role="group"
               >
                 <NativeShare url={result.shareUrl} />
                 <a href={result.shareUrl} rel="noreferrer" target="_blank">
-                  Open file
+                  {t("Open file")}
                 </a>
                 <a
                   href={
@@ -1101,7 +1157,7 @@ export function UploadExperience({
                       : forcedDownloadUrl(result.shareUrl)
                   }
                 >
-                  Download file
+                  {t("Download file")}
                 </a>
                 <button
                   className="outline-button"
@@ -1112,14 +1168,14 @@ export function UploadExperience({
                   }}
                   type="button"
                 >
-                  Show QR code
+                  {t("Show QR code")}
                 </button>
                 <button
                   className="start-over-button"
                   onClick={startAnotherUpload}
                   type="button"
                 >
-                  Upload another file
+                  {t("Upload another file")}
                 </button>
               </div>
               {qrOpen && (
@@ -1128,18 +1184,18 @@ export function UploadExperience({
                   onClose={() => setQrOpen(false)}
                 >
                   <button
-                    aria-label="Close QR code"
+                    aria-label={t("Close QR code")}
                     className="qr-close"
                     onClick={() => setQrOpen(false)}
                     type="button"
                   >
                     ×
                   </button>
-                  <h2 id="qr-title">Scan to download</h2>
+                  <h2 id="qr-title">{t("Scan to download")}</h2>
                   {qrSvg ? (
                     <>
                       <div
-                        aria-label="QR code for uploaded file"
+                        aria-label={t("QR code for uploaded file")}
                         className="qr-code"
                         data-testid="qr-code"
                         dangerouslySetInnerHTML={{ __html: qrSvg }}
@@ -1150,12 +1206,12 @@ export function UploadExperience({
                         download={`${result.id}-qr.svg`}
                         href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
                       >
-                        Download QR code
+                        {t("Download QR code")}
                       </a>
                     </>
                   ) : qrError ? (
                     <div aria-live="polite" role="status">
-                      <p>{qrError}</p>
+                      <p>{t("QR code could not be generated. Try again.")}</p>
                       <button
                         className="outline-button"
                         onClick={() => {
@@ -1164,12 +1220,12 @@ export function UploadExperience({
                         }}
                         type="button"
                       >
-                        Retry QR code
+                        {t("Retry QR code")}
                       </button>
                     </div>
                   ) : (
                     <p aria-live="polite" role="status">
-                      Generating QR code…
+                      {t("Generating QR code…")}
                     </p>
                   )}
                 </QrDialog>
@@ -1180,7 +1236,7 @@ export function UploadExperience({
         {optionsOpen && mobile && (
           <button
             className="options-scrim"
-            aria-label="Dismiss advanced options"
+            aria-label={t("Dismiss advanced options")}
             tabIndex={-1}
             onClick={closeOptions}
             type="button"
@@ -1197,10 +1253,10 @@ export function UploadExperience({
         >
           <div className="sheet-handle" aria-hidden="true" />
           <div className="options-heading">
-            <h2 id="options-title">Advanced options</h2>
+            <h2 id="options-title">{t("Advanced options")}</h2>
             <button
               type="button"
-              aria-label="Close advanced options"
+              aria-label={t("Close advanced options")}
               onClick={closeOptions}
             >
               ×
@@ -1208,7 +1264,7 @@ export function UploadExperience({
           </div>
           <div className="option-setting switch-setting" style={{ opacity: 1 }}>
             <div>
-              <label htmlFor="save-history">Save history</label>
+              <label htmlFor="save-history">{t("Save history")}</label>
             </div>
             <input
               id="save-history"
@@ -1229,11 +1285,11 @@ export function UploadExperience({
               className="connection-warning"
               role="status"
             >
-              {historyPreferenceWarning}
+              {t(HISTORY_PREFERENCE_WARNING)}
             </p>
           )}
           <div className="option-setting" style={{ opacity: 1 }}>
-            <label htmlFor="expiry-hours">Expires after</label>
+            <label htmlFor="expiry-hours">{t("Expires after")}</label>
             <select
               id="expiry-hours"
               value={expirationHours}
@@ -1243,13 +1299,13 @@ export function UploadExperience({
             >
               {expirationChoices.map((hours) => (
                 <option value={hours} key={hours}>
-                  {hours} {hours === 1 ? "hour" : "hours"}
+                  {hoursFormatter.format(hours)}
                 </option>
               ))}
             </select>
           </div>
           <div className="option-setting" style={{ opacity: 1 }}>
-            <label htmlFor="download-limit">Download limit</label>
+            <label htmlFor="download-limit">{t("Download limit")}</label>
             <input
               type="range"
               id="download-limit"
@@ -1258,17 +1314,9 @@ export function UploadExperience({
               step={1}
               value={downloadLimit}
               onChange={(event) => setDownloadLimit(Number(event.target.value))}
-              aria-valuetext={
-                downloadLimit === 11
-                  ? "Unlimited"
-                  : `${downloadLimit} ${downloadLimit === 1 ? "download" : "downloads"}`
-              }
+              aria-valuetext={downloadLimitLabel}
             />
-            <output htmlFor="download-limit">
-              {downloadLimit === 11
-                ? "Unlimited"
-                : `${downloadLimit} ${downloadLimit === 1 ? "download" : "downloads"}`}
-            </output>
+            <output htmlFor="download-limit">{downloadLimitLabel}</output>
             <div className="limit-ticks" aria-hidden="true">
               <span>1</span>
               <span>5</span>
@@ -1278,10 +1326,11 @@ export function UploadExperience({
           </div>
           <div className="option-setting switch-setting" style={{ opacity: 1 }}>
             <div>
-              <label htmlFor="key-protect">Key protect</label>
+              <label htmlFor="key-protect">{t("Key protect")}</label>
               <small>
-                AES-256-GCM in your browser, up to 32 MiB. Keep the complete
-                link: history cannot recover keys.
+                {t(
+                  "AES-256-GCM in your browser, up to 32 MiB. Keep the complete link: history cannot recover keys.",
+                )}
               </small>
             </div>
             <input
@@ -1294,7 +1343,7 @@ export function UploadExperience({
           </div>
           {mode === "text" && (
             <div className="option-setting" aria-disabled="true">
-              <label htmlFor="text-encoding">Text encoding</label>
+              <label htmlFor="text-encoding">{t("Text encoding")}</label>
               <select id="text-encoding" disabled value={textEncoding}>
                 {TEXT_ENCODINGS.map((encoding) => (
                   <option key={encoding.value} value={encoding.value}>
@@ -1309,7 +1358,7 @@ export function UploadExperience({
             onClick={closeOptions}
             type="button"
           >
-            Done
+            {t("Done")}
           </button>
         </section>
       </div>
@@ -1319,23 +1368,27 @@ export function UploadExperience({
           (phase === "idle" || phase === "success" || phase === "error") && (
             <section className="history-card" aria-labelledby="history-heading">
               <div className="history-header">
-                <h2 id="history-heading" aria-label="Your uploads">
-                  Recent uploads
+                <h2 id="history-heading" aria-label={t("Your uploads")}>
+                  {t("Recent uploads")}
                 </h2>
                 <button
                   type="button"
                   className="clear-history"
-                  title="Remove browser records only, not server files"
+                  title={t("Remove browser records only, not server files")}
                   onClick={() => {
                     const cleared = clearBrowserHistory();
                     setHistoryStatus(
                       cleared
-                        ? "History cleared in this browser. Server files are unchanged."
-                        : "Visible history cleared, but browser storage could not be cleared. Clear site data before leaving a shared device.",
+                        ? t(
+                            "History cleared in this browser. Server files are unchanged.",
+                          )
+                        : t(
+                            "Visible history cleared, but browser storage could not be cleared. Clear site data before leaving a shared device.",
+                          ),
                     );
                   }}
                 >
-                  Clear history
+                  {t("Clear history")}
                 </button>
               </div>
               <div className="history-content">
@@ -1349,8 +1402,12 @@ export function UploadExperience({
                         {entry.serverStatus && (
                           <p>
                             {entry.serverStatus === "deleted"
-                              ? "Deleted on server. Saved links no longer work."
-                              : "Already unavailable on server. Saved links no longer work."}
+                              ? t(
+                                  "Deleted on server. Saved links no longer work.",
+                                )
+                              : t(
+                                  "Already unavailable on server. Saved links no longer work.",
+                                )}
                           </p>
                         )}
                         {phase === "success" ? (
@@ -1359,20 +1416,22 @@ export function UploadExperience({
                           <h3>{entry.originalName}</h3>
                         )}
                         <p>
-                          {formatBytes(entry.size)} ·{" "}
-                          {entry.serverStatus ? "Original expiry" : "Expires"}{" "}
+                          {formatBytes(entry.size, locale)} ·{" "}
+                          {entry.serverStatus
+                            ? t("Original expiry")
+                            : t("Expires")}{" "}
                           <time
                             dateTime={entry.expiresAt}
-                            title={formatLocalDateTime(entry.expiresAt)}
+                            title={formatLocalDateTime(entry.expiresAt, locale)}
                           >
-                            {formatRelativeExpiry(entry.expiresAt, now)}
+                            {formatRelativeExpiry(entry.expiresAt, now, locale)}
                           </time>
                         </p>
                       </div>
                       <div className="history-actions">
                         {new URL(entry.shareUrl).pathname.startsWith(
                           "/decrypt/",
-                        ) && <span>Key not saved</span>}
+                        ) && <span>{t("Key not saved")}</span>}
                         <button
                           className="history-copy-link"
                           disabled={
@@ -1385,7 +1444,9 @@ export function UploadExperience({
                             new URL(entry.shareUrl).pathname.startsWith(
                               "/decrypt/",
                             )
-                              ? "Keep the complete link: history cannot recover the key"
+                              ? t(
+                                  "Keep the complete link: history cannot recover the key",
+                                )
                               : undefined
                           }
                           type="button"
@@ -1397,19 +1458,21 @@ export function UploadExperience({
                             if (sequence !== historyCopySequence.current)
                               return;
                             if (success) {
-                              setHistoryStatus("Link copied.");
+                              setHistoryStatus(t("Link copied."));
                             } else {
                               setHistoryCopyUrl(entry.shareUrl);
                             }
                           }}
                         >
-                          Copy link
+                          {t("Copy link")}
                         </button>
                         <div className="history-more">
                           <button
                             type="button"
                             popoverTarget={`history-menu-${entry.id}`}
-                            aria-label={`More actions for ${entry.originalName}`}
+                            aria-label={t("More actions for {name}", {
+                              name: entry.originalName,
+                            })}
                           >
                             ···
                           </button>
@@ -1427,27 +1490,36 @@ export function UploadExperience({
                                 "/decrypt/",
                               ) && (
                                 <a href={forcedDownloadUrl(entry.shareUrl)}>
-                                  Download
+                                  {t("Download")}
                                 </a>
                               )}
                             <button
-                              aria-label={`Remove ${entry.originalName} from history`}
+                              aria-label={t("Remove {name} from history", {
+                                name: entry.originalName,
+                              })}
                               onClick={() => removeHistoryEntry(entry)}
                               type="button"
                             >
-                              Remove from history
+                              {t("Remove from history")}
                             </button>
                             <DestructiveConfirmation
-                              ariaLabel={`Delete server file ${entry.originalName}`}
+                              ariaLabel={t("Delete server file {name}", {
+                                name: entry.originalName,
+                              })}
                               disabled={
                                 !!entry.serverStatus ||
                                 deletingHistoryId !== null
                               }
                               onConfirm={() => deleteHistoryEntry(entry)}
-                              label="Delete server file"
-                              title={`Delete ${entry.originalName}?`}
-                              description={`Permanently delete ${entry.originalName} from the server. All shared download links for this file will stop working. This cannot be undone. Remove from history only forgets the record in this browser.`}
-                              confirmLabel="Delete server file"
+                              label={t("Delete server file")}
+                              title={t("Delete {name}?", {
+                                name: entry.originalName,
+                              })}
+                              description={t(
+                                "Permanently delete {name} from the server. All shared download links for this file will stop working. This cannot be undone. Remove from history only forgets the record in this browser.",
+                                { name: entry.originalName },
+                              )}
+                              confirmLabel={t("Delete server file")}
                             />
                           </div>
                         </div>

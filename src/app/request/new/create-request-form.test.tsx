@@ -8,6 +8,7 @@ import {
 } from "@jest/globals";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
+import { LocaleProvider } from "@/lib/i18n/provider";
 
 import { CreateRequestForm } from "./create-request-form";
 
@@ -20,6 +21,69 @@ const limitsResponse = {
 } as Response;
 
 describe("CreateRequestForm", () => {
+  it("renders Polish input labels on the server and after hydration", async () => {
+    const form = (
+      <LocaleProvider locale="pl">
+        <CreateRequestForm />
+      </LocaleProvider>
+    );
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    container.innerHTML = renderToString(form);
+    expect(container.textContent).toContain("Wczytywanie limitów serwera…");
+    expect(container.textContent).not.toContain("Loading server limits");
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { getByLabelText, getByRole, getByText } = render(form, {
+      container,
+      hydrate: true,
+    });
+    await waitFor(() =>
+      expect(
+        (getByLabelText("Maksymalny rozmiar pliku") as HTMLSelectElement)
+          .disabled,
+      ).toBe(false),
+    );
+    expect(getByRole("option", { name: "1 godzina" })).toBeTruthy();
+    expect(
+      getByRole("option", { name: "Maksimum serwera: 1 GiB" }),
+    ).toBeTruthy();
+    fireEvent.change(getByLabelText("Maksymalny rozmiar pliku"), {
+      target: { value: "custom" },
+    });
+    fireEvent.change(getByLabelText("Rozmiar"), { target: { value: "0.1" } });
+    fireEvent.click(getByRole("button", { name: "Utwórz prośbę o plik" }));
+    await waitFor(() =>
+      expect(
+        getByText("Rozmiar musi odpowiadać całkowitej liczbie bajtów."),
+      ).toBeTruthy(),
+    );
+    expect(consoleError).not.toHaveBeenCalled();
+  });
+
+  it("localizes configuration retry without exposing server text", async () => {
+    global.fetch = jest
+      .fn<typeof fetch>()
+      .mockRejectedValueOnce(new Error("private backend details"))
+      .mockResolvedValue(limitsResponse);
+    const { findByRole, getByRole, getByLabelText, queryByText } = render(
+      <LocaleProvider locale="pl">
+        <CreateRequestForm />
+      </LocaleProvider>,
+    );
+    expect((await findByRole("alert")).textContent).toBe(
+      "Nie udało się wczytać limitów serwera. Spróbuj ponownie.",
+    );
+    expect(queryByText("private backend details")).toBeNull();
+    fireEvent.click(getByRole("button", { name: "Wczytaj limity ponownie" }));
+    await waitFor(() =>
+      expect(
+        (getByLabelText("Maksymalny rozmiar pliku") as HTMLSelectElement)
+          .disabled,
+      ).toBe(false),
+    );
+  });
   beforeEach(() => {
     global.fetch = jest.fn<typeof fetch>(async () => limitsResponse);
   });
