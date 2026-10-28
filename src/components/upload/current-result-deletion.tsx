@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { DestructiveConfirmation } from "@/components/destructive-confirmation";
+import { useTranslation } from "@/lib/i18n/provider";
 import type { ConfirmedServerStatus } from "./upload-history";
 
 type Props = {
@@ -22,6 +23,7 @@ export function CurrentResultDeletion({
   onStartAnother,
   onConfirmed,
 }: Props) {
+  const { t } = useTranslation();
   const [deleted, setDeleted] = useState<ConfirmedServerStatus | null>(null);
   const pending = useRef(false);
 
@@ -58,7 +60,9 @@ export function CurrentResultDeletion({
     } catch {
       // Do not surface transport messages that could contain private capabilities.
       throw new Error(
-        "Deletion was not confirmed. Your file link is retained; please retry.",
+        t(
+          "Deletion was not confirmed. Your file link is retained; please retry.",
+        ),
       );
     } finally {
       pending.current = false;
@@ -69,20 +73,24 @@ export function CurrentResultDeletion({
     return (
       <>
         <p className="complete-label" role="status">
-          {deleted === "deleted" ? "Deleted" : "File unavailable"}
+          {deleted === "deleted" ? t("Deleted") : t("File unavailable")}
         </p>
         <h2>{name}</h2>
         <p>
           {deleted === "deleted"
-            ? "The file was deleted from the server. Existing sharing links no longer work. This cannot be undone."
-            : "The server confirmed this file is already unavailable. Existing sharing links no longer work."}
+            ? t(
+                "The file was deleted from the server. Existing sharing links no longer work. This cannot be undone.",
+              )
+            : t(
+                "The server confirmed this file is already unavailable. Existing sharing links no longer work.",
+              )}
         </p>
         <button
           className="start-over-button"
           type="button"
           onClick={onStartAnother}
         >
-          Upload another file
+          {t("Upload another file")}
         </button>
       </>
     );
@@ -90,13 +98,19 @@ export function CurrentResultDeletion({
   return (
     <>
       {children}
-      <div className="result-actions" role="group" aria-label="File management">
+      <div
+        className="result-actions"
+        role="group"
+        aria-label={t("File management")}
+      >
         <DestructiveConfirmation
-          label="Delete file"
+          label={t("Delete file")}
           className="outline-button"
-          title={`Delete ${name}?`}
-          description="Permanently delete this file from the server? Existing sharing links will stop working. This cannot be undone."
-          confirmLabel="Permanently delete file"
+          title={t("Delete {name}?", { name })}
+          description={t(
+            "Permanently delete this file from the server? Existing sharing links will stop working. This cannot be undone.",
+          )}
+          confirmLabel={t("Permanently delete file")}
           onConfirm={deleteCurrent}
         />
       </div>

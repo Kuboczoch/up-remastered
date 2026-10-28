@@ -23,6 +23,12 @@ await rm(publicDestination, { force: true, recursive: true });
 await rm(staticDestination, { force: true, recursive: true });
 await mkdir(`${standaloneDirectory}/.next`, { recursive: true });
 await Promise.all([
+  mkdir(`${standaloneDirectory}/src/lib/i18n`, { recursive: true }).then(() =>
+    cp(
+      "src/lib/i18n/locale.ts",
+      `${standaloneDirectory}/src/lib/i18n/locale.ts`,
+    ),
+  ),
   mkdir(`${standaloneDirectory}/scripts`, { recursive: true }).then(() =>
     Promise.all(
       ["start.mjs", "final-response-proxy.mjs"].map((name) =>

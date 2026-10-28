@@ -69,6 +69,26 @@ for (const type of ["text/html; charset=utf-8", "text/x-component"]) {
     assert.equal(result.body.toString(), "representation");
   });
 }
+test("locale header decodes saved preferences like Next without changing upstream cookies", async (t) => {
+  const port = await fixture(t, (req, res) => {
+    assert.match(req.headers.cookie, /^up-locale=/);
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end("representation");
+  });
+  for (const [cookie, expected] of [
+    ["up-locale=%70%6c", "pl"],
+    ["up-locale=%", "en"],
+    ["up-locale=en; up-locale=%70%6c", "pl"],
+    ["up-locale=pl; up-locale=%", "pl"],
+  ]) {
+    const result = await request(port, {
+      path: "/",
+      headers: { Cookie: cookie, "Accept-Language": "en" },
+    });
+    assert.equal(result.headers["content-language"], expected);
+  }
+});
+
 test("raw range, HEAD, filenames, validators and cache contracts remain unchanged", async (t) => {
   const port = await fixture(t, (req, res) => {
     assert.equal(req.headers.range, "bytes=1-3");

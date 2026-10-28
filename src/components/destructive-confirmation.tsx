@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "@/lib/i18n/provider";
 import styles from "./destructive-confirmation.module.css";
 
 type Props = {
@@ -26,6 +27,7 @@ export function DestructiveConfirmation({
   className,
   ariaLabel,
 }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -94,7 +96,7 @@ export function DestructiveConfirmation({
       setError(
         caught instanceof Error
           ? caught.message
-          : "The operation failed. Please retry.",
+          : t("The operation failed. Please retry."),
       );
     } finally {
       pending.current = false;
@@ -179,7 +181,9 @@ export function DestructiveConfirmation({
               <p id={`${id}-description`}>{description}</p>
               {error && <p role="alert">{error}</p>}
               {busy && (
-                <p role="status">Working… This operation cannot be undone.</p>
+                <p role="status">
+                  {t("Working… This operation cannot be undone.")}
+                </p>
               )}
               <div className={styles.actions}>
                 <button
@@ -189,7 +193,7 @@ export function DestructiveConfirmation({
                   disabled={busy}
                   onClick={() => setOpen(false)}
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button
                   className={styles.danger}

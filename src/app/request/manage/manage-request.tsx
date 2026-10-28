@@ -5,6 +5,7 @@ import { DestructiveConfirmation } from "@/components/destructive-confirmation";
 import Link from "next/link";
 import { ManualCopyLink } from "@/components/manual-copy-link";
 import { copyLink } from "@/lib/copy-link";
+import { useTranslation } from "@/lib/i18n/provider";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -71,6 +72,7 @@ function readToken(): string | undefined {
 }
 
 export function ManageRequest() {
+  const { locale, t, message } = useTranslation();
   const tokenRef = useRef<string | undefined>(undefined);
   const [managementToken, setManagementToken] = useState<string>();
   const [loadedRequest, setLoadedRequest] = useState<RequestDetails>();
@@ -149,12 +151,12 @@ export function ManageRequest() {
       }
       setLoadedRequest(body.request);
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Could not revoke the request.",
+      const safeError = message(
+        caught instanceof Error ? caught.message : "",
+        "Could not revoke the request.",
       );
-      throw caught;
+      setError("Could not revoke the request.");
+      throw new Error(safeError);
     } finally {
       setBusy(false);
     }
@@ -173,7 +175,7 @@ export function ManageRequest() {
   if (busy && !request) {
     return (
       <section className={styles.card} aria-busy="true">
-        <h2>Loading request status…</h2>
+        <h2>{t("Loading request status…")}</h2>
       </section>
     );
   }
@@ -181,12 +183,12 @@ export function ManageRequest() {
   if (!request) {
     return (
       <section className={styles.card}>
-        <h2>Owner link unavailable</h2>
+        <h2>{t("Owner link unavailable")}</h2>
         <p className={styles.error} role="alert">
-          {error}
+          {message(error, "This upload request is unavailable.")}
         </p>
         <Link className={styles.linkButton} href="/request/new">
-          Create a new request
+          {t("Create a new request")}
         </Link>
       </section>
     );
@@ -194,28 +196,29 @@ export function ManageRequest() {
 
   return (
     <section className={styles.card} aria-labelledby="management-status">
-      <h2 id="management-status">Request status</h2>
+      <h2 id="management-status">{t("Request status")}</h2>
       <p className={styles.muted}>
-        This private owner link is a bearer capability. Anyone with it can view
-        this status or revoke an active request.
+        {t(
+          "This private owner link is a bearer capability. Anyone with it can view this status or revoke an active request.",
+        )}
       </p>
       <p className={styles.status} role="status">
-        {request.status.replace("_", " ")}
+        {message(request.status.replace("_", " "))}
       </p>
       <p className={styles.muted} aria-live="polite">
-        {statusConnectionMessage(connection)}
+        {message(statusConnectionMessage(connection))}
       </p>
       <dl className={styles.details}>
         <div>
-          <dt>Upload limit</dt>
-          <dd>{formatBytes(request.maxBytes)}</dd>
+          <dt>{t("Upload limit")}</dt>
+          <dd>{formatBytes(request.maxBytes, locale)}</dd>
         </div>
         <div>
-          <dt>Expires</dt>
+          <dt>{t("Expires")}</dt>
           <dd>
-            {formatRelativeExpiry(request.expiresAt)} ·{" "}
+            {formatRelativeExpiry(request.expiresAt, undefined, locale)} ·{" "}
             <time dateTime={request.expiresAt}>
-              {formatLocalDateTime(request.expiresAt)}
+              {formatLocalDateTime(request.expiresAt, locale)}
             </time>
           </dd>
         </div>
@@ -227,21 +230,27 @@ export function ManageRequest() {
           onClick={copyOwnerLink}
           type="button"
         >
-          {copied ? "Owner link copied" : "Copy owner link"}
+          {copied ? t("Owner link copied") : t("Copy owner link")}
         </button>
         {isTerminalRequest(request.status) ? (
           <Link className={styles.linkButton} href="/request/new">
-            Create a new request
+            {t("Create a new request")}
           </Link>
         ) : (
           <DestructiveConfirmation
             className={styles.linkButton}
             disabled={busy || !["active", "retry"].includes(request.status)}
             onConfirm={revoke}
-            label="Revoke request"
-            title="Revoke upload request?"
-            description={`Revoke the upload request expiring ${formatLocalDateTime(request.expiresAt)} (${formatBytes(request.maxBytes)} limit)? Its shared upload link will stop working. This cannot be undone; create a new request instead.`}
-            confirmLabel="Confirm revoke request"
+            label={t("Revoke request")}
+            title={t("Revoke upload request?")}
+            description={t(
+              "Revoke the upload request expiring {date} ({size} limit)? Its shared upload link will stop working. This cannot be undone; create a new request instead.",
+              {
+                date: formatLocalDateTime(request.expiresAt, locale),
+                size: formatBytes(request.maxBytes, locale),
+              },
+            )}
+            confirmLabel={t("Confirm revoke request")}
           />
         )}
         <button
@@ -250,13 +259,13 @@ export function ManageRequest() {
           onClick={() => tokenRef.current && void load(tokenRef.current)}
           type="button"
         >
-          Refresh status
+          {t("Refresh status")}
         </button>
       </div>
       {manualCopyUrl && <ManualCopyLink value={manualCopyUrl} />}
       {error ? (
         <p className={styles.error} role="alert">
-          {error}
+          {message(error, "This upload request is unavailable.")}
         </p>
       ) : null}
     </section>

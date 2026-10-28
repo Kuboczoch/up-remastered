@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useSyncExternalStore } from "react";
+import { useTranslation } from "@/lib/i18n/provider";
 
 const subscribe = () => () => {};
 const supportsShare = () => typeof navigator.share === "function";
@@ -25,6 +26,7 @@ function isPublicFileUrl(value: string): boolean {
 }
 
 export function NativeShare({ url }: { url: string }) {
+  const { t } = useTranslation();
   const supported = useSyncExternalStore(
     subscribe,
     supportsShare,
@@ -44,8 +46,8 @@ export function NativeShare({ url }: { url: string }) {
     try {
       // Call synchronously within the click gesture; never share owner metadata.
       await navigator.share({
-        title: "Shared file",
-        text: "Download this file using the link.",
+        title: t("Shared file"),
+        text: t("Download this file using the link."),
         url,
       });
     } catch (error) {
@@ -74,11 +76,11 @@ export function NativeShare({ url }: { url: string }) {
         disabled={pending}
         onClick={() => void share()}
       >
-        Share
+        {t("Share")}
       </button>
       {failed && (
         <span role="status">
-          Sharing did not complete. Use Copy link instead.
+          {t("Sharing did not complete. Use Copy link instead.")}
         </span>
       )}
     </>

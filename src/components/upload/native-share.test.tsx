@@ -1,8 +1,32 @@
 import { afterEach, expect, it, jest } from "@jest/globals";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { NativeShare } from "./native-share";
+import { LocaleProvider } from "@/lib/i18n/provider";
 
 const originalShare = Object.getOwnPropertyDescriptor(navigator, "share");
+it("localizes genuine share failures without exposing owner metadata", async () => {
+  const share = jest
+    .fn<NonNullable<Navigator["share"]>>()
+    .mockRejectedValue(new Error("owner-secret"));
+  installShare(share);
+  const view = render(
+    <LocaleProvider locale="pl">
+      <NativeShare url="https://up.example/decrypt/BBBBB#key=secret_key" />
+    </LocaleProvider>,
+  );
+  fireEvent.click(view.getByRole("button", { name: "Udostępnij" }));
+  await waitFor(() =>
+    expect(view.getByRole("status").textContent).toBe(
+      "Udostępnianie nie powiodło się. Zamiast tego skopiuj link.",
+    ),
+  );
+  expect(share).toHaveBeenCalledWith({
+    title: "Udostępniony plik",
+    text: "Pobierz ten plik za pomocą linku.",
+    url: "https://up.example/decrypt/BBBBB#key=secret_key",
+  });
+  expect(view.container.textContent).not.toContain("owner-secret");
+});
 function installShare(share: unknown) {
   Object.defineProperty(navigator, "share", {
     configurable: true,

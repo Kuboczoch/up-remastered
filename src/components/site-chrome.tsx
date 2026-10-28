@@ -1,7 +1,8 @@
 "use client";
 
+/* eslint-disable @next/next/no-html-link-for-pages -- Header navigation must load locale-negotiated documents; client routing restores stale metadata on history traversal. */
+
 import Image from "next/image";
-import Link from "next/link";
 
 import { siteName } from "@/config/site";
 import { useTranslation } from "@/lib/i18n/provider";
@@ -11,7 +12,10 @@ export function SiteHeader() {
   const { t } = useTranslation();
   return (
     <header className="site-header">
-      <Link
+      {/* Locale negotiation and metadata belong to the destination document.
+          Native navigation also restores that document's head on Back/Forward,
+          rather than reusing Next's rewritten-route metadata cache. */}
+      <a
         className="site-brand"
         href="/"
         aria-label={t("{siteName} home", { siteName })}
@@ -26,10 +30,10 @@ export function SiteHeader() {
           width={34}
         />
         <strong>{siteName}</strong>
-      </Link>
-      <Link className="outline-button" href="/request/new">
+      </a>
+      <a className="outline-button" href="/request/new">
         {t("Request a file")}
-      </Link>
+      </a>
     </header>
   );
 }

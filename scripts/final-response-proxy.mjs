@@ -1,4 +1,5 @@
 import http from "node:http";
+import { resolveLocale, localeCookie } from "../src/lib/i18n/locale.ts";
 
 const hopHeaders = [
   "connection",
@@ -51,6 +52,36 @@ export function createFinalResponseProxy(upstreamPort) {
       const contentType = String(headers["content-type"] ?? "");
       if (/^(text\/html|text\/x-component)(?:;|$)/i.test(contentType)) {
         headers.vary = mergeVary(headers.vary, ["Accept-Language", "Cookie"]);
+        // Static RSC responses can discard middleware response headers.
+        const url = new URL(request.url, "http://internal.invalid");
+        const internalLocale = /^\/l10n\/(en|pl)(?:\/|\.|$)/.exec(
+          url.pathname,
+        )?.[1];
+        if (internalLocale) headers["content-language"] = internalLocale;
+        if (
+          url.pathname === "/" ||
+          /^\/(?:request|decrypt)\//.test(url.pathname) ||
+          (incoming.statusCode === 404 && /\brsc\b/i.test(headers.vary))
+        ) {
+          // Match Next's cookie decoding and last valid duplicate precedence.
+          // Leave the original Cookie header untouched on the upstream request.
+          let cookie;
+          for (const entry of String(request.headers.cookie ?? "").split(
+            /; */,
+          )) {
+            if (!entry.startsWith(`${localeCookie}=`)) continue;
+            try {
+              cookie = decodeURIComponent(entry.slice(localeCookie.length + 1));
+            } catch {
+              // Next ignores malformed percent encoding rather than crashing.
+            }
+          }
+          headers["content-language"] = resolveLocale({
+            query: url.searchParams.get("lang"),
+            cookie,
+            acceptLanguage: request.headers["accept-language"],
+          });
+        }
       }
       response.writeHead(incoming.statusCode ?? 502, headers);
       incoming.on("error", () => response.destroy());

@@ -368,7 +368,9 @@ test("recoverable validation response permits correction", async () => {
   xhr.status = 413;
   xhr.response = { error: { message: "Too large." } };
   await act(async () => xhr.onload?.());
-  expect(screen.getByRole("alert").textContent).toBe("Too large.");
+  expect(screen.getByRole("alert").textContent).toBe(
+    "The file must be no larger than 1 KiB.",
+  );
   expect(
     (screen.getByRole("button", { name: "Upload file" }) as HTMLButtonElement)
       .disabled,
