@@ -98,6 +98,31 @@ function createRequest() {
 }
 
 describe("requested uploads", () => {
+  it.each([16, 17])(
+    "enforces the inclusive multipart request limit (%s bytes)",
+    async (size) => {
+      createRequest();
+      const form = new FormData();
+      form.set("file", new File(["a".repeat(size)], "limit.txt"));
+      const pending = fulfillRequestedUpload(
+        PUBLIC_TOKEN,
+        new Request("https://up.example/api/upload", {
+          method: "POST",
+          body: form,
+        }),
+        NOW,
+      );
+      if (size === 16) {
+        await expect(pending).resolves.toMatchObject({ size: 16 });
+      } else {
+        await expect(pending).rejects.toMatchObject({ status: 413 });
+        expect(getActiveRequestedUpload(PUBLIC_TOKEN, NOW)?.status).toBe(
+          "retry",
+        );
+      }
+    },
+  );
+
   it.each([false, true])(
     "disposes an aborted stalled body and releases its claim (multipart=%s)",
     async (multipart) => {

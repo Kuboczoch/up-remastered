@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { readdir, stat } from "node:fs/promises";
+import { join } from "node:path";
 
 async function createRequest(page: import("@playwright/test").Page) {
   const response = await page.request.post("/api/upload-requests", {
@@ -33,6 +35,10 @@ test("slow upload measures progress, blocks double submit, cancels and releases 
   test.setTimeout(90_000);
   const created = await createRequest(page);
   await selectFile(page);
+  const uploadDir = process.env.UPLOAD_DIR!;
+  const before = new Set(await readdir(uploadDir));
+  const newFiles = async () =>
+    (await readdir(uploadDir)).filter((name) => !before.has(name));
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Network.enable");
   await cdp.send("Network.emulateNetworkConditions", {
@@ -64,6 +70,16 @@ test("slow upload measures progress, blocks double submit, cancels and releases 
     Number(await page.getByRole("progressbar").getAttribute("value")),
   ).toBeLessThan(100);
   expect(attempts).toBe(1);
+  await expect
+    .poll(async () => {
+      const sizes = await Promise.all(
+        (await newFiles()).map(
+          async (name) => (await stat(join(uploadDir, name))).size,
+        ),
+      );
+      return sizes.reduce((sum, size) => sum + size, 0);
+    })
+    .toBeGreaterThan(0);
   await page.getByRole("button", { name: "Cancel upload" }).click();
   await expect(page.getByRole("status")).toContainText("cancelled locally");
   await expect(page.getByLabel("Choose file")).toBeEnabled();
@@ -81,6 +97,7 @@ test("slow upload measures progress, blocks double submit, cancels and releases 
       return (await response.json()).request.status;
     })
     .toBe("retry");
+  await expect.poll(newFiles).toEqual([]);
   await page.getByRole("button", { name: "Upload file" }).click();
   await expect(
     page.getByRole("heading", { name: "Upload complete" }),
