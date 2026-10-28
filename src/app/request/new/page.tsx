@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { createPageTitle } from "@/config/site";
+import { getUploadLimits } from "@/server/config/uploads";
+import { formatBytes } from "@/lib/format";
 
 import styles from "../request.module.css";
 import { CreateRequestForm } from "./create-request-form";
@@ -13,6 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default function NewUploadRequestPage() {
+  const { maxUploadBytes, maxExpirationMs } = getUploadLimits();
   return (
     <>
       <SiteHeader />
@@ -25,6 +28,14 @@ export default function NewUploadRequestPage() {
           <p>
             Create a private, single-use link for someone else to upload one
             file.
+          </p>
+          <p
+            data-max-bytes={maxUploadBytes}
+            data-max-hours={maxExpirationMs / 3_600_000}
+          >
+            Deployment limits: {formatBytes(maxUploadBytes)} per file; up to{" "}
+            {maxExpirationMs / 3_600_000} hours. Current server limits are
+            checked before creating a request.
           </p>
         </header>
         <CreateRequestForm />

@@ -277,7 +277,9 @@ for (const width of [320, 390, 768, 1024, 1440]) {
       "preserved text draft",
     );
     await page.getByRole("button", { name: /Advanced options/ }).click();
-    await expect(page.getByLabel(/Expires after/)).toHaveValue("24");
+    await expect(page.getByLabel(/Expires after/)).toHaveValue(
+      process.env.DEFAULT_EXPIRATION_HOURS ?? "1",
+    );
     await expect(
       page.getByRole("switch", { name: "Key protect" }),
     ).not.toBeChecked();
