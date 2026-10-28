@@ -183,7 +183,7 @@ describe("ManageRequest", () => {
         : response(active),
     );
 
-    const { getByRole } = render(<ManageRequest />);
+    const { getByRole, queryByRole } = render(<ManageRequest />);
 
     await waitFor(() =>
       expect(getByRole("status").textContent).toBe("consumed"),
@@ -191,9 +191,6 @@ describe("ManageRequest", () => {
     expect(getByRole("link", { name: "Open file" }).getAttribute("href")).toBe(
       "/A1B2C",
     );
-    expect(
-      (getByRole("button", { name: "Revoke request" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    expect(queryByRole("button", { name: "Revoke request" })).toBeNull();
   });
 });

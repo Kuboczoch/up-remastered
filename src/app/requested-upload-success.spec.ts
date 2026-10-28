@@ -60,10 +60,9 @@ for (const mode of ["supported", "missing", "rejected"] as const) {
       );
       await expect(page.getByText(filename, { exact: true })).toBeVisible();
       await expect(page.getByText("1 KiB", { exact: true })).toBeVisible();
-      await expect(page.locator("time")).toHaveAttribute(
-        "datetime",
-        uploaded!.upload.expiresAt,
-      );
+      await expect(
+        page.locator('section[aria-labelledby="upload-complete"] time'),
+      ).toHaveAttribute("datetime", uploaded!.upload.expiresAt);
       await expect(page.getByLabel("Choose file")).toHaveCount(0);
       await expect(
         page.getByRole("button", { name: "Upload file" }),
@@ -131,7 +130,9 @@ for (const mode of ["supported", "missing", "rejected"] as const) {
       await page.goto(owner.uploadUrl);
       await page.reload();
       await expect(
-        page.getByRole("heading", { name: "Upload request unavailable" }),
+        page.getByRole("heading", {
+          name: "This upload request has already been used",
+        }),
       ).toBeVisible();
       await expect(
         page.getByRole("button", { name: "Upload file" }),

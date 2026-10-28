@@ -6,6 +6,11 @@ test("keeps the request form visible while returning to uploads", async ({
   await page.goto("/request/new");
   const backLink = page.getByRole("link", { name: "Back to uploads" });
   await expect(backLink).toHaveAttribute("href", "/");
+  // Configuration can finish loading during the held navigation on a cold page.
+  // Compare the settled form rather than its loading and ready states.
+  await expect(
+    page.getByRole("button", { name: "Create upload request" }),
+  ).toBeEnabled();
   const devtools = await page.context().newCDPSession(page);
   const requestPageScreenshot = await devtools.send("Page.captureScreenshot", {
     format: "png",
@@ -159,7 +164,9 @@ test("creates a bounded request, accepts one upload, and exposes owner status", 
 
   await page.goto(uploadUrl!);
   await expect(
-    page.getByRole("heading", { name: "Upload request unavailable" }),
+    page.getByRole("heading", {
+      name: "This upload request has already been used",
+    }),
   ).toBeVisible();
 });
 
@@ -194,7 +201,7 @@ test("lets the owner revoke an unused request without disclosing capabilities", 
 
   await page.goto(uploadUrl!);
   await expect(
-    page.getByRole("heading", { name: "Upload request unavailable" }),
+    page.getByRole("heading", { name: "This upload request was revoked" }),
   ).toBeVisible();
 
   const invalid = await page.evaluate(async () => {
