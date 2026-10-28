@@ -34,6 +34,7 @@ import {
   type UploadHistoryEntry,
 } from "@/components/upload/upload-history";
 import { QrDialog } from "@/components/upload/qr-dialog";
+import { CurrentResultDeletion } from "@/components/upload/current-result-deletion";
 import { siteName } from "@/config/site";
 import { ManualCopyLink } from "@/components/manual-copy-link";
 import { copyLink } from "@/lib/copy-link";
@@ -614,39 +615,7 @@ export function UploadExperience({
       } else {
         throw new Error("Delete failed.");
       }
-      // Identity matching preserves a different result uploaded during deletion.
-      setResult((current) =>
-        current?.id === entry.id ? { ...current, serverStatus } : current,
-      );
-      historyCopySequence.current += 1;
-      setHistoryCopyUrl("");
-      let persisted = true;
-      if (saveHistoryRef.current) {
-        try {
-          const confirmed = confirmUploadHistoryStatus(
-            window.localStorage,
-            entry.id,
-            serverStatus,
-            history,
-          );
-          persisted = confirmed.persisted;
-        } catch {
-          persisted = false;
-        }
-        setHistory((current) =>
-          current.map((item) =>
-            item.id === entry.id ? { ...item, serverStatus } : item,
-          ),
-        );
-      }
-      setHistoryStatus(
-        (serverStatus === "unavailable"
-          ? `${entry.originalName} was already unavailable.`
-          : `${entry.originalName} was deleted.`) +
-          (persisted
-            ? ""
-            : " Status could not be saved in this browser. Remove the local record before reloading."),
-      );
+      reconcileServerStatus(entry, serverStatus);
     } catch {
       setHistoryStatus(
         `${entry.originalName} could not be deleted. Try again.`,
@@ -655,6 +624,45 @@ export function UploadExperience({
     } finally {
       setDeletingHistoryId(null);
     }
+  }
+
+  function reconcileServerStatus(
+    entry: Pick<UploadResult, "id" | "originalName">,
+    serverStatus: ConfirmedServerStatus,
+  ) {
+    // Identity matching preserves a different result uploaded during deletion.
+    setResult((current) =>
+      current?.id === entry.id ? { ...current, serverStatus } : current,
+    );
+    historyCopySequence.current += 1;
+    setHistoryCopyUrl("");
+    let persisted = true;
+    if (saveHistoryRef.current) {
+      try {
+        const confirmed = confirmUploadHistoryStatus(
+          window.localStorage,
+          entry.id,
+          serverStatus,
+          history,
+        );
+        persisted = confirmed.persisted;
+      } catch {
+        persisted = false;
+      }
+      setHistory((current) =>
+        current.map((item) =>
+          item.id === entry.id ? { ...item, serverStatus } : item,
+        ),
+      );
+    }
+    setHistoryStatus(
+      (serverStatus === "unavailable"
+        ? `${entry.originalName} was already unavailable.`
+        : `${entry.originalName} was deleted.`) +
+        (persisted
+          ? ""
+          : " Status could not be saved in this browser. Remove the local record before reloading."),
+    );
   }
 
   function removeHistoryEntry(entry: UploadHistoryEntry) {
@@ -1000,147 +1008,158 @@ export function UploadExperience({
         )}
         {phase === "success" && result && !result.serverStatus && (
           <section className="upload-card result-card" aria-live="polite">
-            <div className="scene" aria-hidden="true" />
-            <p className="complete-label">
-              ✓ <span>Upload complete</span>
-            </p>
-            <div className="result-file">
-              <span className="file-type">{fileType(result.originalName)}</span>
-              <div>
-                <h2 ref={resultHeadingRef} tabIndex={-1}>
-                  {result.originalName}
-                </h2>
-                <p>
-                  {formatBytes(result.size)} · Expires{" "}
-                  {formatRelativeExpiry(result.expiresAt, now)} ·{" "}
-                  <time
-                    dateTime={result.expiresAt}
-                    title={formatLocalDateTime(result.expiresAt)}
-                  >
-                    {formatLocalDateTime(result.expiresAt)}
-                  </time>
-                </p>
-              </div>
-            </div>
-            <div className="share-row">
-              <input
-                id="share-url"
-                aria-label="Share URL"
-                className="result-url"
-                onDoubleClick={() => void copyUrl()}
-                readOnly
-                title="Double-click to copy"
-                value={result.shareUrl}
-              />
-              <button
-                aria-live="polite"
-                className={`primary-action copy-action${copied ? " is-confirmed" : ""}`}
-                onClick={() => void copyUrl()}
-                type="button"
-              >
-                {copied ? (
-                  <>
-                    Copied <span aria-hidden="true">✓</span>
-                  </>
-                ) : (
-                  "Copy URL"
-                )}
-              </button>
-            </div>
-            {manualCopyUrl && <ManualCopyLink value={manualCopyUrl} />}
-            <p className="share-note">
-              {result.shareUrl.includes("#key=")
-                ? "Only the full link unlocks the file. Keep it safe: keys are not saved in this app’s upload history and cannot be recovered."
-                : "Anyone with the link can download."}
-            </p>
-            <div
-              aria-label="Uploaded file actions"
-              className="result-actions"
-              role="group"
+            <CurrentResultDeletion
+              key={result.id}
+              id={result.id}
+              accessToken={result.accessToken}
+              name={result.originalName}
+              onStartAnother={startAnotherUpload}
+              onConfirmed={(status) => reconcileServerStatus(result, status)}
             >
-              <a href={result.shareUrl} rel="noreferrer" target="_blank">
-                Open file
-              </a>
-              <a
-                href={
-                  result.shareUrl.includes("#key=")
-                    ? result.shareUrl
-                    : forcedDownloadUrl(result.shareUrl)
-                }
-              >
-                Download file
-              </a>
-              <button
-                className="outline-button"
-                ref={qrTriggerRef}
-                onClick={() => {
-                  setQrError("");
-                  setQrOpen(true);
-                }}
-                type="button"
-              >
-                Show QR code
-              </button>
-              <button
-                className="start-over-button"
-                onClick={startAnotherUpload}
-                type="button"
-              >
-                Upload another file
-              </button>
-            </div>
-            {qrOpen && (
-              <QrDialog
-                triggerRef={qrTriggerRef}
-                onClose={() => setQrOpen(false)}
-              >
+              <div className="scene" aria-hidden="true" />
+              <p className="complete-label">
+                ✓ <span>Upload complete</span>
+              </p>
+              <div className="result-file">
+                <span className="file-type">
+                  {fileType(result.originalName)}
+                </span>
+                <div>
+                  <h2 ref={resultHeadingRef} tabIndex={-1}>
+                    {result.originalName}
+                  </h2>
+                  <p>
+                    {formatBytes(result.size)} · Expires{" "}
+                    {formatRelativeExpiry(result.expiresAt, now)} ·{" "}
+                    <time
+                      dateTime={result.expiresAt}
+                      title={formatLocalDateTime(result.expiresAt)}
+                    >
+                      {formatLocalDateTime(result.expiresAt)}
+                    </time>
+                  </p>
+                </div>
+              </div>
+              <div className="share-row">
+                <input
+                  id="share-url"
+                  aria-label="Share URL"
+                  className="result-url"
+                  onDoubleClick={() => void copyUrl()}
+                  readOnly
+                  title="Double-click to copy"
+                  value={result.shareUrl}
+                />
                 <button
-                  aria-label="Close QR code"
-                  className="qr-close"
-                  onClick={() => setQrOpen(false)}
+                  aria-live="polite"
+                  className={`primary-action copy-action${copied ? " is-confirmed" : ""}`}
+                  onClick={() => void copyUrl()}
                   type="button"
                 >
-                  ×
+                  {copied ? (
+                    <>
+                      Copied <span aria-hidden="true">✓</span>
+                    </>
+                  ) : (
+                    "Copy URL"
+                  )}
                 </button>
-                <h2 id="qr-title">Scan to download</h2>
-                {qrSvg ? (
-                  <>
-                    <div
-                      aria-label="QR code for uploaded file"
-                      className="qr-code"
-                      data-testid="qr-code"
-                      dangerouslySetInnerHTML={{ __html: qrSvg }}
-                      role="img"
-                    />
-                    <a
-                      className="outline-button"
-                      download={`${result.id}-qr.svg`}
-                      href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
-                    >
-                      Download QR code
-                    </a>
-                  </>
-                ) : qrError ? (
-                  <div aria-live="polite" role="status">
-                    <p>{qrError}</p>
-                    <button
-                      className="outline-button"
-                      onClick={() => {
-                        setQrError("");
-                        setQrGenerationAttempt((attempt) => attempt + 1);
-                      }}
-                      type="button"
-                    >
-                      Retry QR code
-                    </button>
-                  </div>
-                ) : (
-                  <p aria-live="polite" role="status">
-                    Generating QR code…
-                  </p>
-                )}
-              </QrDialog>
-            )}
+              </div>
+              {manualCopyUrl && <ManualCopyLink value={manualCopyUrl} />}
+              <p className="share-note">
+                {result.shareUrl.includes("#key=")
+                  ? "Only the full link unlocks the file. Keep it safe: keys are not saved in this app’s upload history and cannot be recovered."
+                  : "Anyone with the link can download."}
+              </p>
+              <div
+                aria-label="Uploaded file actions"
+                className="result-actions"
+                role="group"
+              >
+                <a href={result.shareUrl} rel="noreferrer" target="_blank">
+                  Open file
+                </a>
+                <a
+                  href={
+                    result.shareUrl.includes("#key=")
+                      ? result.shareUrl
+                      : forcedDownloadUrl(result.shareUrl)
+                  }
+                >
+                  Download file
+                </a>
+                <button
+                  className="outline-button"
+                  ref={qrTriggerRef}
+                  onClick={() => {
+                    setQrError("");
+                    setQrOpen(true);
+                  }}
+                  type="button"
+                >
+                  Show QR code
+                </button>
+                <button
+                  className="start-over-button"
+                  onClick={startAnotherUpload}
+                  type="button"
+                >
+                  Upload another file
+                </button>
+              </div>
+              {qrOpen && (
+                <QrDialog
+                  triggerRef={qrTriggerRef}
+                  onClose={() => setQrOpen(false)}
+                >
+                  <button
+                    aria-label="Close QR code"
+                    className="qr-close"
+                    onClick={() => setQrOpen(false)}
+                    type="button"
+                  >
+                    ×
+                  </button>
+                  <h2 id="qr-title">Scan to download</h2>
+                  {qrSvg ? (
+                    <>
+                      <div
+                        aria-label="QR code for uploaded file"
+                        className="qr-code"
+                        data-testid="qr-code"
+                        dangerouslySetInnerHTML={{ __html: qrSvg }}
+                        role="img"
+                      />
+                      <a
+                        className="outline-button"
+                        download={`${result.id}-qr.svg`}
+                        href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
+                      >
+                        Download QR code
+                      </a>
+                    </>
+                  ) : qrError ? (
+                    <div aria-live="polite" role="status">
+                      <p>{qrError}</p>
+                      <button
+                        className="outline-button"
+                        onClick={() => {
+                          setQrError("");
+                          setQrGenerationAttempt((attempt) => attempt + 1);
+                        }}
+                        type="button"
+                      >
+                        Retry QR code
+                      </button>
+                    </div>
+                  ) : (
+                    <p aria-live="polite" role="status">
+                      Generating QR code…
+                    </p>
+                  )}
+                </QrDialog>
+              )}
+            </CurrentResultDeletion>
           </section>
         )}
         {optionsOpen && mobile && (

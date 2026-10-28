@@ -17,6 +17,27 @@ Key protection is opt-in and encrypts original bytes with AES-256-GCM in the
 browser. A complete fragment-key link opens the dedicated receiver; keys are
 never saved in upload history. See `docs/pages/download/encryption.md`.
 
+## Current upload deletion
+
+Every successful current result offers secondary **Delete file**, even with Save
+history off. It uses only that upload's in-memory access token, not its password
+or fragment key, with no history reads or writes while history is off. The accessible confirmation
+warns that existing sharing links break and deletion cannot be undone. Cancel
+and Escape send no deletion request; Cancel receives initial focus and keyboard
+focus remains inside the dialog while it is open. Pending confirmation cannot
+be dismissed or submitted twice.
+
+Only the management route's exact empty HTTP 200 confirms deletion. Authentication,
+network, raw 404 and unexpected success responses retain the complete current
+result and retry capability. A structured management API 404 confirms only that
+the file is already unavailable, not successful deletion. Confirmation replaces
+the complete result with **File deleted** or **File unavailable** and Upload
+another file; Copy, Open, Download and QR are removed. With history off, terminal
+state remains page-local and deletion does not read or write history storage. With
+history enabled, the matching record is reconciled to its durable terminal state
+without restoring removed rows or saving fragment keys. Storage failure never
+undoes server confirmation and is announced separately.
+
 ## Opt-in upload history
 
 Save history defaults off when the optional `up-remastered:history-enabled`

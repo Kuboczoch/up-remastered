@@ -105,6 +105,45 @@ it("retains confirmed deletion across remount and invalidates the current result
     ).disabled,
   ).toBe(true);
 });
+it.each(["deleted", "unavailable"] as const)(
+  "current-result deletion reconciles enabled history as %s after remount",
+  async (status) => {
+    global.fetch = jest.fn<typeof fetch>(async () =>
+      status === "deleted"
+        ? deletedResponse()
+        : ({
+            status: 404,
+            json: async () => ({ success: false, message: "File not found." }),
+          } as Response),
+    );
+    const view = mount();
+    await showResult(view);
+    fireEvent.click(view.getByRole("button", { name: /^Delete file$/ }));
+    fireEvent.click(
+      view.getByRole("button", { name: "Permanently delete file" }),
+    );
+    await waitFor(() =>
+      expect(
+        JSON.parse(localStorage.getItem(historyKey)!)[0].serverStatus,
+      ).toBe(status),
+    );
+    expect(view.queryByRole("button", { name: "Copy URL" })).toBeNull();
+    view.unmount();
+    const restored = mount();
+    expect(
+      restored.getByText(
+        status === "deleted"
+          ? "Deleted on server. Saved links no longer work."
+          : "Already unavailable on server. Saved links no longer work.",
+      ),
+    ).toBeTruthy();
+    expect(
+      (restored.getByRole("button", { name: "Copy link" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  },
+);
+
 it.each([403, 500, 404, 204])(
   "retains live metadata and actions after unconfirmed response %s",
   async (status) => {
