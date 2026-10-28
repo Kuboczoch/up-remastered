@@ -21,3 +21,5 @@ The displayed `v<version>` value comes directly from the root `package.json` dur
 Unit coverage verifies the footer landmark, primary destinations, and that the rendered version matches `package.json`. Playwright verifies full-width desktop alignment, narrow-mobile reflow, long-version reflow, 200% zoom reflow, and browser-level accessibility.
 
 `mobile-navigation.test.ts` checks CSS source contracts only, not rendered layout. `mobile-navigation.spec.ts` measures link bounding boxes, padded-edge pointer hit testing, separation, focus, typography, and overflow on the home and new-request pages at 320 and 390 px. Execution of those browser assertions requires a running app; source checks are not a substitute.
+
+The browser suite also substitutes longer Polish navigation labels to stress wrapping and target separation at both widths. This geometry-only fixture does not certify SSR localization, which has separate acceptance criteria.

@@ -55,6 +55,57 @@ async function expectSeparateTargets(targets: Locator) {
 }
 
 for (const width of [320, 390]) {
+  test(`long Polish navigation labels retain separate mobile targets at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    for (const path of ["/", "/request/new"]) {
+      await page.goto(path);
+      // Geometry stress only; full SSR localization is accepted separately.
+      await page.locator(".site-footer a").evaluateAll((links) => {
+        const labels = [
+          "Konfiguracja ShareX",
+          "Pomocnik powłoki",
+          "Repozytorium GitHub",
+          "Autor ilustracji",
+        ];
+        links.forEach((link, index) => {
+          link.textContent = labels[index];
+        });
+      });
+      const navigation =
+        path === "/"
+          ? page.locator(".upload-rail a")
+          : page.locator(".site-header > .outline-button");
+      await navigation.evaluate((link) => {
+        link.textContent = "Poproś o przesłanie pliku ↗";
+      });
+      if (path !== "/") {
+        const back = page.getByRole("link", { name: "Back to uploads" });
+        await back.evaluate((link) => {
+          link.textContent = "Powrót do przesyłania plików";
+        });
+        await expectTouchTarget(
+          page.getByRole("link", { name: "Powrót do przesyłania plików" }),
+        );
+      }
+      for (const target of await page
+        .locator(".site-footer a, .upload-rail a, .site-header a")
+        .all()) {
+        await expectTouchTarget(target);
+      }
+      await expectSeparateTargets(page.locator(".site-header a"));
+      await expectSeparateTargets(page.locator(".site-footer a"));
+      expect(
+        await page.evaluate(
+          () =>
+            document.documentElement.scrollWidth <=
+            document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
+    }
+  });
+
   for (const path of ["/", "/request/new"]) {
     test(`${path} secondary navigation has real, separate mobile hit boxes at ${width}px`, async ({
       page,
