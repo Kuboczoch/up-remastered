@@ -44,9 +44,9 @@ export default defineConfig({
   ],
   webServer: {
     command: isCiRun
-      ? "node .next/standalone/server.js"
+      ? "node .next/standalone/scripts/start.mjs"
       : isLighthouseRun
-        ? "pnpm run build && node .next/standalone/server.js"
+        ? "pnpm run build && node .next/standalone/scripts/start.mjs"
         : "pnpm run dev",
     url: baseURL,
     reuseExistingServer: !usesProductionServer,
