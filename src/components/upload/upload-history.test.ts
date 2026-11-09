@@ -5,6 +5,7 @@ import {
   saveUploadHistoryEntry,
   removeUploadHistoryEntry,
   clearUploadHistory,
+  confirmUploadHistoryStatus,
   UPLOAD_HISTORY_STORAGE_KEY as KEY,
 } from "./upload-history";
 const NOW = Date.parse("2026-01-01T00:00:00Z");
@@ -28,6 +29,65 @@ function storage(value: string | null = null) {
   };
 }
 describe("upload history", () => {
+  it.each(["deleted", "unavailable"] as const)(
+    "persists confirmed %s without evicting metadata or changing other rows",
+    (serverStatus) => {
+      const target = storage();
+      saveUploadHistoryEntry(target, upload, NOW);
+      const before = saveUploadHistoryEntry(
+        target,
+        { ...upload, id: "BBBBB" },
+        NOW,
+      );
+      const confirmed = confirmUploadHistoryStatus(
+        target,
+        upload.id,
+        serverStatus,
+        before,
+      );
+      expect(confirmed.persisted).toBe(true);
+      expect(readUploadHistory(target)).toEqual([
+        before[0],
+        { ...before[1], serverStatus },
+      ]);
+      target.setItem.mockClear();
+      readUploadHistory(target);
+      expect(target.setItem).not.toHaveBeenCalled();
+      expect(removeUploadHistoryEntry(target, upload.id)).toEqual([before[0]]);
+    },
+  );
+  it("does not resurrect a removed record on confirmation", () => {
+    const target = storage();
+    const before = saveUploadHistoryEntry(target, upload, NOW);
+    removeUploadHistoryEntry(target, upload.id);
+    confirmUploadHistoryStatus(target, upload.id, "deleted", before);
+    expect(readUploadHistory(target)).toEqual([]);
+  });
+  it("reports storage failure but retains the confirmed state in memory", () => {
+    const target = storage();
+    const before = saveUploadHistoryEntry(target, upload, NOW);
+    target.setItem.mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    expect(
+      confirmUploadHistoryStatus(target, upload.id, "deleted", before),
+    ).toEqual({
+      entries: [{ ...before[0], serverStatus: "deleted" }],
+      persisted: false,
+    });
+    expect(readUploadHistory(target)).toEqual(before);
+  });
+  it.each(["unknown", "live", null, { deleted: true }])(
+    "does not interpret unrecognized status as confirmed: %s",
+    (serverStatus) => {
+      const target = storage(
+        JSON.stringify([
+          { ...upload, savedAt: new Date(NOW).toISOString(), serverStatus },
+        ]),
+      );
+      expect(readUploadHistory(target)[0].serverStatus).toBeUndefined();
+    },
+  );
   it("reads full metadata including expired entries without rewriting storage", () => {
     const entry = { ...upload, savedAt: new Date(NOW).toISOString() };
     const target = storage(JSON.stringify([entry]));

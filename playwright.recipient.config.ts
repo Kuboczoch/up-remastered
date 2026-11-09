@@ -22,7 +22,7 @@ export default defineConfig({
   ...base,
   use: { ...base.use, baseURL },
   webServer: {
-    command: "node .next/standalone/server.js",
+    command: "node .next/standalone/scripts/start.mjs",
     url: baseURL,
     env: { PORT: String(port), UP_PUBLIC_ORIGIN: baseURL },
     reuseExistingServer: false,

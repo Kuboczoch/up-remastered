@@ -23,14 +23,10 @@ it("enables only implemented Advanced settings without accessing history before 
     HTMLInputElement | HTMLSelectElement
   >("#advanced-options input, #advanced-options select");
   expect(controls).toHaveLength(5);
+  // JSDOM lacks a secure Web Crypto environment; protection must be unavailable.
   controls.forEach((control) =>
     expect(control.disabled).toBe(
-      ![
-        "save-history",
-        "key-protect",
-        "expiry-hours",
-        "download-limit",
-      ].includes(control.id),
+      !["save-history", "expiry-hours", "download-limit"].includes(control.id),
     ),
   );
   const history = getByRole("switch", {
@@ -54,4 +50,23 @@ it("enables only implemented Advanced settings without accessing history before 
   ).toBe(false);
   expect(write).not.toHaveBeenCalled();
   expect(remove).not.toHaveBeenCalled();
+});
+
+it("uses baked fractional expiration defaults without offering values above the deployment maximum", () => {
+  global.fetch = jest.fn<typeof fetch>(() => new Promise(() => {}));
+  const { getByRole, getByLabelText } = render(
+    <UploadExperience
+      initialMaxBytes={8192}
+      initialExpirationHours={0.5}
+      maxExpirationHours={2}
+    />,
+  );
+  fireEvent.click(getByRole("button", { name: /Advanced options/ }));
+  const expiry = getByLabelText("Expires after") as HTMLSelectElement;
+  expect(expiry.value).toBe("0.5");
+  expect(Array.from(expiry.options, (option) => option.value)).toEqual([
+    "0.5",
+    "1",
+    "2",
+  ]);
 });

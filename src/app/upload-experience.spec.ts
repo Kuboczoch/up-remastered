@@ -225,7 +225,7 @@ test("uploads a picked file and exposes result actions", async ({
   await expect(
     page
       .locator(".result-card p")
-      .filter({ hasText: /Expires in (?:24 hours|1 day)/ }),
+      .filter({ hasText: /Expires in (?:60 minutes|1 hour)/ }),
   ).toBeVisible();
   await expect(page.locator(".result-card time")).toHaveAttribute(
     "datetime",
@@ -374,7 +374,9 @@ test("keeps advanced settings collapsed, accessible, and narrow-layout safe", as
   await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog", { name: "Advanced options" });
   await expect(dialog).toBeVisible();
-  await expect(page.getByLabel("Expires after")).toHaveValue("24");
+  await expect(page.getByLabel("Expires after")).toHaveValue(
+    process.env.DEFAULT_EXPIRATION_HOURS ?? "1",
+  );
   expect(
     await dialog.evaluate(
       (element) => element.getBoundingClientRect().right <= window.innerWidth,
@@ -570,7 +572,11 @@ test("uses short feedback motion and honors reduced-motion preferences", async (
   await page.getByRole("button", { name: /Advanced options/ }).click();
   await expect(page.locator(".advanced-options-content")).toHaveCSS(
     "animation-name",
-    "disclosure-feedback-in",
+    "options-panel-in",
+  );
+  await expect(page.locator(".advanced-options-content")).toHaveCSS(
+    "opacity",
+    "1",
   );
 
   await page.locator("#file-picker").setInputFiles({

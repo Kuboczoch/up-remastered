@@ -66,6 +66,17 @@ for (const terminal of ["consumed", "revoked", "expired"] as const) {
       expect((await uploaded.json()).key).toBe(uploadId);
     } else if (terminal === "revoked") {
       await manager.getByRole("button", { name: "Revoke request" }).click();
+      await expect(
+        manager.getByRole("button", { name: "Cancel" }),
+      ).toBeFocused();
+      const beforeConfirmation = await request.get(
+        "/api/upload-requests/manage",
+        { headers: { authorization: `Bearer ${managementToken}` } },
+      );
+      expect((await beforeConfirmation.json()).request.status).toBe("active");
+      await manager
+        .getByRole("button", { name: "Confirm revoke request" })
+        .click();
     }
 
     for (const owner of [page, manager]) {
