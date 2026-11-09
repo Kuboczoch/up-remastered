@@ -22,6 +22,12 @@ Production browser tests verify the palette with light and dark OS preferences o
 - Save history is an enabled native checkbox switch, false when the localStorage preference flag is absent. Expiration offers 1, 3, 6, 12 and 24 hours (default 24) and applies to every upload entry point. Download limit is an enabled slider offering 1–10 or Unlimited, with the selected value announced by its output and aria-valuetext and submitted as maxDownloads for finite limits. Key protect is opt-in direct AES-256-GCM encryption in secure contexts up to 32 MiB; the complete fragment-key link opens a browser receiver. Text encoding remains a native-disabled UTF-8 placeholder with 0.5 opacity. Disclosure, Done, close, Escape, and focus restoration remain functional and undimmed.
 - The server-rendered maximum upload size is refreshed from `GET /api/configuration`; oversized files are rejected before upload.
 
+## Mobile secondary navigation
+
+At widths up to 760 px, the homepage Request a file link, shared header Home/Request links, and request-page Back link use actual minimum 44×44 CSS px touch boxes. Padding retains low-emphasis link typography; flex/grid flow keeps adjacent targets separate without invisible overlapping extensions. Request buttons and secondary link buttons also have a 44 px minimum height. Page gutters and footer bottom padding honor safe-area insets. The File/Text selector stays in the approved heading position with its existing 40 px mobile height and visual styling.
+
+CSS source tests verify minimum-size declarations without claiming browser geometry. `mobile-navigation.spec.ts` adds real bounding-box, padded-edge hit-testing, adjacent-target separation, navigation, focus, typography, request-submit sizing, and overflow assertions at 320 and 390 px; run these against a built app before treating mobile layout as verified. This is a usability improvement, not a blanket claim about WCAG target-size compliance or inline-link exceptions.
+
 ## States
 
 The client exposes idle, uploading, error, and success states. Upload progress is announced and mirrored in the document title. Errors receive focus and provide a reset path. Offline status uses a fixed toast so connectivity initialization cannot move the upload workspace; retained browser history stays hidden without restoration. Configuration warnings remain inside the upload card without changing its dimensions. A successful upload shows the public URL, size, expiration countdown, and a responsive action hierarchy: Copy URL is primary; Open file, forced Download file, and QR are secondary; and Upload another file is a neutral start-over action. The result download action uses the documented `?download=1` server contract rather than relying on browser filename or MIME behavior. Activating Upload another file restores keyboard focus to the file picker. Keyboard focus on the visually hidden picker is projected onto its visible Choose file label. The QR overlay uses a native modal dialog: the background is inert, Tab/Shift+Tab remain inside, Escape/close/backdrop dismiss it, and focus returns to Show QR code. Body scrolling is restored after dismissal.
@@ -35,6 +41,18 @@ The one-time access token returned by the upload endpoint is never rendered or l
 Result copying (including double-click), history, and request pages share a clipboard utility that feature-detects the API and catches permission rejection. Success is announced only after the write completes. LAN HTTP browsers without the Clipboard API and browsers denying clipboard access instead show explicit instructions and a read-only, selectable complete link, selected on focus/click for manual copying. A failed attempt never announces success. History still cannot copy protected links whose encryption key was intentionally not saved.
 
 Production browser regressions cover all copy entry points on a real insecure named HTTP origin, browser-visible HTTPS with the native Clipboard API, and secure-context permission rejection. Alternate-origin API responses are explicit UI fixtures; origin validation is not weakened.
+
+## Confirmed server-deletion state
+
+History server deletion reconciles by upload ID: the matching success result
+becomes Deleted or Unavailable and exposes only Upload another file; a different
+result is preserved. Confirmed history rows remain saved with a reload-stable
+status and explanation that their links no longer work. Copy, download and repeat
+deletion are unavailable for these rows. Local Remove and Clear remain separate
+forgetting actions, never Undo for deleted server bytes. Only the deletion API's
+empty HTTP 200 or structured not-found HTTP 404 confirms a status; other responses
+and transport failures retain live/retryable metadata. Storage failure is announced
+without rolling back a real deletion. See `docs/browser/upload-options.md`.
 
 ## Local history and privacy
 

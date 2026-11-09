@@ -82,6 +82,121 @@ function insertUpload({
 }
 
 describe("createDownloadResponse", () => {
+  it.each(["missing", "expired", "deleted", "exhausted", "missing-bytes"])(
+    "keeps %s unavailable safely across aliases, HEAD and APIs without counting",
+    async (state) => {
+      const id = "A7Z20";
+      if (state !== "missing") {
+        const upload = insertUpload({
+          id,
+          expiresAt: new Date(
+            Date.now() + (state === "expired" ? -1000 : 3600000),
+          ),
+          maxDownloads: 1,
+          originalName: "protected-secret.txt",
+        });
+        if (state !== "missing-bytes")
+          await writeFile(
+            join(process.env.UPLOAD_DIR!, upload.storedName),
+            "hello",
+          );
+        const db = createSqliteConnection();
+        try {
+          if (state === "deleted")
+            db.prepare("DELETE FROM upload_metadata WHERE id = ?").run(id);
+          if (state === "exhausted")
+            db.prepare(
+              "UPDATE upload_metadata SET download_count = 1 WHERE id = ?",
+            ).run(id);
+        } finally {
+          db.close();
+        }
+      }
+      for (const route of [
+        await import("@/app/[id]/route"),
+        await import("@/app/u/[key]/route"),
+      ]) {
+        const headers = {
+          Accept: "text/html",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Dest": "document",
+        };
+        const context = { params: Promise.resolve({ id, key: id }) };
+        const response = await route.GET(
+          new Request(`http://localhost/${id}`, { headers }),
+          context,
+        );
+        expect(response.status).toBe(404);
+        expect(response.headers.get("content-type")).toBe(
+          "text/html; charset=utf-8",
+        );
+        const body = await response.text();
+        expect(body).not.toContain("protected-secret");
+        expect(body).not.toContain(id);
+        const raw = await route.GET(
+          new Request(`http://localhost/${id}`, {
+            headers: { accept: "text/plain" },
+          }),
+          context,
+        );
+        expect(await raw.text()).toBe("File unavailable.\n");
+        const head = await route.HEAD(
+          new Request(`http://localhost/${id}`, { method: "HEAD", headers }),
+          context,
+        );
+        expect(head.status).toBe(404);
+        expect(head.headers.get("content-type")).toBe(
+          "text/plain; charset=utf-8",
+        );
+        // Next strips HEAD bodies on the wire; preserve the existing handler contract.
+        expect(await head.text()).toBe("File unavailable.\n");
+      }
+      const { GET } = await import("@/app/api/u/[key]/details/route");
+      const api = await GET(
+        new Request(`http://localhost/api/u/${id}/details`, {
+          headers: {
+            Accept: "text/html",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Dest": "document",
+          },
+        }),
+        { params: Promise.resolve({ key: id }) },
+      );
+      expect(api.status).toBe(state === "missing-bytes" ? 200 : 404);
+      expect(api.headers.get("content-type")).toContain("application/json");
+      if (!["missing", "deleted"].includes(state))
+        expect(count(id).count).toBe(state === "exhausted" ? 1 : 0);
+    },
+  );
+  it.each(["direct", "alias"])(
+    "renders recoverable HTML for %s browser navigation only",
+    async (route) => {
+      const { GET } =
+        route === "direct"
+          ? await import("@/app/[id]/route")
+          : await import("@/app/u/[key]/route");
+      const response = await GET(
+        new Request("http://localhost/ZZZZZ", {
+          headers: {
+            Accept: "text/html",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Dest": "document",
+          },
+        }),
+        { params: Promise.resolve({ id: "ZZZZZ", key: "ZZZZZ" }) },
+      );
+      expect(response.status).toBe(404);
+      expect(response.headers.get("content-type")).toBe(
+        "text/html; charset=utf-8",
+      );
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      const body = await response.text();
+      expect(body).toContain("Upload another file");
+      expect(body).toContain('href="/"');
+      expect(body).not.toContain("ZZZZZ");
+    },
+  );
   function count(id: string) {
     const connection = createSqliteConnection();
     try {

@@ -47,11 +47,33 @@ All copy actions use the shared clipboard utility. On LAN HTTP without Clipboard
 
 ## Uploader
 
-`GET /request/{publicToken}` displays the request only while active. `POST /api/upload-requests/{publicToken}/upload` accepts one file through the normal streaming upload pipeline. The effective limit is the minimum of request `maxBytes`, global per-upload limit, and remaining global storage quota.
+`GET /request/{publicToken}` displays the upload form only for active or retryable requests. Instructions and oversize validation use the same shared IEC formatter (for example, 1 GiB or 2.5 MiB). Expiry pairs remaining lifetime at page render with an absolute UTC `<time datetime>` value. Explicit `en-GB` locale and UTC timezone make server rendering deterministic; refresh to update remaining lifetime. `POST /api/upload-requests/{publicToken}/upload` accepts one file through the normal streaming upload pipeline. The effective limit is the minimum of request `maxBytes`, global per-upload limit, and remaining global storage quota.
+
+The recipient page uses a separate safe snapshot authorized by the public capability: only status, and for active/retry states the size limit and expiration, are exposed. Reserved upload/share IDs, owner tokens, claim IDs and private revision timestamps are never returned. Malformed, unknown and owner capabilities receive identical invalid-link guidance. In-progress links explain that another upload is busy and offer a status refresh; retry links explain that the previous attempt failed. Used, revoked and expired links offer no upload form and direct recipients to ask the sender for a new request, never to retry a consumed link. Terminal states take precedence over stale claims.
+
+If a rendered form becomes unavailable before submission, the non-disclosing upload 404 disables resubmission and offers a page status check. It does not guess whether the request was consumed or merely busy. Upload API authorization and its uniform error contract are unchanged. Browser regressions in `recipient-states.spec.ts` cover readable custom limits/expiry, oversize correction, invalid/revoked/used/expired guidance, and stale-form resubmission prevention; unit tests additionally cover temporarily claimed and retry states.
 
 The server atomically claims the request before reading the upload. Concurrent reuse fails with the same non-disclosing `404 upload_request_unavailable` response used for invalid, expired, revoked, consumed, and in-progress links. A failed validation/upload releases the claim for retry. A successful upload consumes the request and uses the ID/share URL reserved when the request was created. If consumption loses a revocation race, the newly created upload is deleted before an unavailable response is returned.
 
-The uploader receives the ordinary upload access token for managing the uploaded file, but never receives the owner management token.
+The uploader API receives the ordinary upload access token for managing the uploaded file, but never receives the owner management token. The recipient completion UI deliberately discards that access token and any other private response fields; it does not expose an Advanced/API credential disclosure or write capabilities to recipient history/storage.
+
+### Recipient completion
+
+After a successful upload, the form is replaced by a completion receipt: filename, IEC size, and absolute local file expiration in a `<time datetime>` element. The completion heading receives focus and a live status confirms that the requester can retrieve the file. The consumed request cannot accept a second upload; reloading it follows the used-request guidance. Sending another file requires a new request link from the requester.
+
+Open file and Copy link use a same-origin public URL constructed from the validated five-character upload ID, not a raw response URL. Download file uses that URL with `?download=1`, matching the existing forced-download route. Anyone with the public file link can access it until expiration. No owner or uploader management capability is included in these URLs.
+
+Copy link becomes Copied only after the shared clipboard utility reports a successful write, with a polite announcement and a three-second reset. Unsupported Clipboard API (including LAN HTTP) or denied permission provides a labelled read-only link and manual-copy instructions without claiming success. Rapid retries apply only the latest attempt; unmount cancels feedback/reset timers. No recipient copy helper depends on unpublished changes to other request surfaces.
+
+Coverage: recipient component regressions cover completion, safe links, capability exclusion, manual recovery, latest-attempt-wins and unmount/reset behavior. `src/app/requested-upload-success.spec.ts` adds browser acceptance for real file delivery, Open/Download, clipboard supported/missing/rejected, 320px layout, accessibility and consumed reload. These browser assertions require the configured Playwright application server and are not replaced by unit validation.
+
+The recipient form shows the selected filename and byte size, measurable XHR request-body progress, and a polite live status. File replacement and duplicate submission are disabled during transmission. Once the browser finishes sending bytes it reports **Finalizing**, not completion; only a successful server response completes the flow. Recoverable validation/network failures preserve the selection for retry.
+
+Cancel aborts the transport (including when leaving the form). The server binds raw and multipart readers to the request abort signal, removes incomplete bytes before releasing the claim, and deletes a persisted upload if cancellation is observed before consumption. Cancellation does not introduce a public status or cleanup endpoint. The UI explicitly reports **local** cancellation: cleanup is asynchronous, and cancellation after the atomic consume point cannot undo a successful single-use upload. Immediate retry can temporarily return unavailable while cleanup is still running; uncertain network failures can likewise hide a completed upload. If deletion of a persisted, unconsumed upload fails, the server retains the claim instead of advertising a safe retry over remaining bytes.
+
+### Recipient browser regressions
+
+After a production build, `pnpm run test:e2e:recipient` runs the large-file Chromium regression suite with one worker, its own `.playwright-recipient-data` store, and port 3346 by default (`PORT` overrides it). It checks real throttled upload progress and cancellation/claim retry, network failure/retry, duplicate-submit prevention, oversize correction, and response-stage finalizing. `test:e2e:ci` includes this suite after the normal browser suite; large-file limits are isolated from the normal 4 KiB fixtures.
 
 ## Owner
 
@@ -61,11 +83,11 @@ Send `Authorization: Bearer {ownerCapability}` to:
 - `GET /api/upload-requests/manage/events` to follow status changes as server-sent events;
 - `DELETE /api/upload-requests/manage` to revoke an unused request.
 
-Wrong or malformed owner capabilities receive the same non-disclosing 404 response. Consumed requests cannot be retroactively revoked; the uploader owns the resulting file through its separate upload access token.
+Wrong or malformed owner capabilities receive the same non-disclosing 404 response. Both owner views confirm revocation with the request expiry and size limit, explaining that the shared upload link will stop working and recovery requires a new request. Cancel is focused first; Escape/cancel dismisses without an API mutation. Pending confirmations block duplicate submissions and remain visible until the server responds; failure retains the request and announces an error without claiming revocation. Consumed requests cannot be retroactively revoked; the uploader owns the resulting file through its separate upload access token.
 
 The event stream uses the same bearer header rather than placing the owner capability in a URL. It sends an immediate authoritative snapshot, `status` events with deterministic IDs, and accepts `Last-Event-ID` when reconnecting. Terminal `consumed`, `revoked`, and `expired` events close the stream. Non-terminal streams send keep-alive comments and close after 55 seconds so clients reconnect instead of holding unbounded server resources. Responses use `no-store`, disable reverse-proxy buffering, and never include the uploader capability.
 
-The creation result and owner page open one authenticated event stream, announce its connection state, and apply status changes without manual refresh. A dropped non-terminal stream reconnects after a two-second delay; unmounting cancels the request and pending retry. While an upload is in progress, contradictory revocation controls are disabled. A consumed request links directly to the uploaded file.
+The creation result and owner page open one authenticated event stream, announce its connection state, and apply status changes without manual refresh. A dropped non-terminal stream reconnects after a two-second delay; unmounting cancels the request and pending retry. While an upload is in progress, contradictory revocation controls are disabled. Both owner views say “Waiting for upload” for active requests; retry states explain that the recipient may reuse the upload link. A reserved upload ID is not presented as an existing file: only a successfully consumed request shows “Uploaded file” and “Open file”. Revoked and expired requests explain that a new request is needed, and all terminal states remove the revoke action. These rules apply to initial status loads, same-tab owner-page reloads, and live events. URL preallocation and file ownership are unchanged.
 
 ## Threat and abuse boundaries
 

@@ -215,9 +215,9 @@ async function parseRawUpload(
   const mimeType = getRawUploadMimeType(request);
 
   const size = await writeStreamToPendingFile(
-    Readable.fromWeb(
-      request.body as NodeReadableStream<Uint8Array>,
-    ) as NodeJS.ReadableStream,
+    Readable.fromWeb(request.body as NodeReadableStream<Uint8Array>, {
+      signal: request.signal,
+    }) as NodeJS.ReadableStream,
     pendingFile,
     byteLimit,
     limitKind,
@@ -274,7 +274,8 @@ async function parseMultipartUpload(
       limits: {
         fields: 50,
         fieldSize: MAX_MULTIPART_FIELD_BYTES,
-        fileSize: byteLimit,
+        // Busboy emits "limit" at equality; the byte-count validator is inclusive.
+        fileSize: byteLimit + 1,
         files: MAX_MULTIPART_FILES,
         parts: 60,
       },
@@ -341,6 +342,8 @@ async function parseMultipartUpload(
           error instanceof Error
             ? error
             : new Error("Failed to stream uploaded file.");
+        // A failed file pipeline cannot drain Busboy; unblock its outer pipeline.
+        parser.destroy(uploadError);
       });
 
     fileWrites.push(writePromise);
@@ -399,6 +402,7 @@ async function parseMultipartUpload(
 
   const source = Readable.fromWeb(
     request.body as NodeReadableStream<Uint8Array>,
+    { signal: request.signal },
   );
 
   try {
