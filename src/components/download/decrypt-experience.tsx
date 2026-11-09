@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   decryptFile,
@@ -8,6 +7,8 @@ import {
 } from "@/components/upload/encryption";
 import { formatBytes } from "@/lib/format";
 import { fetchEncryptedFile } from "./fetch-encrypted-file";
+import { useTranslation } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 function subscribe(callback: () => void) {
   window.addEventListener("hashchange", callback);
@@ -19,13 +20,14 @@ function fragmentKey() {
 }
 
 export function DecryptExperience({ id }: { id: string }) {
+  const { locale, t, message } = useTranslation();
   const fragment = useSyncExternalStore(subscribe, fragmentKey, () => "");
   const [manualKey, setManualKey] = useState<string | null>(null);
   const key = manualKey ?? fragment;
   const validKey = validateEncryptionKey(key);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [stage, setStage] = useState("Downloading encrypted file");
+  const [stage, setStage] = useState<MessageKey>("Downloading encrypted file");
   const [error, setError] = useState<string | null>(null);
   const [download, setDownload] = useState<{
     url: string;
@@ -80,11 +82,22 @@ export function DecryptExperience({ id }: { id: string }) {
         });
       }
     } catch (caught) {
+      const failure = caught instanceof Error ? caught.message : "";
+      const status =
+        /^Download failed \((\d{3})\)\. Check your connection and try again; a retry may use another download\.$/.exec(
+          failure,
+        )?.[1];
       if (!request.signal.aborted)
         setError(
-          caught instanceof Error
-            ? caught.message
-            : "Download failed. Check your connection and ask the sender for a new link.",
+          status
+            ? t(
+                "Download failed ({status}). Check your connection and try again; a retry may use another download.",
+                { status },
+              )
+            : message(
+                failure,
+                "Download failed. Check your connection and ask the sender for a new link.",
+              ),
         );
     } finally {
       inFlight.current = false;
@@ -97,26 +110,28 @@ export function DecryptExperience({ id }: { id: string }) {
       className="upload-experience decrypt-experience"
       aria-labelledby="decrypt-heading"
     >
-      <p className="eyebrow">Private transfer</p>
-      <h1 id="decrypt-heading">Decrypt your file</h1>
+      <p className="eyebrow">{t("Private transfer")}</p>
+      <h1 id="decrypt-heading">{t("Decrypt your file")}</h1>
       <p>
-        This file is protected with a secret key. Decryption happens only in
-        your browser; the server never receives the key.
+        {t(
+          "This file is protected with a secret key. Decryption happens only in your browser; the server never receives the key.",
+        )}
       </p>
       <p>
-        Files up to 32 MiB are supported. Nothing is downloaded until you choose
-        to decrypt. Fetching the encrypted file uses one download from its
-        limit, even if the key is wrong.
+        {t(
+          "Files up to 32 MiB are supported. Nothing is downloaded until you choose to decrypt. Fetching the encrypted file uses one download from its limit, even if the key is wrong.",
+        )}
       </p>
       {!validKey && (
         <p role="status">
-          Missing or invalid key. Ask the sender for the complete link,
-          including #key=…, or enter the key below.
+          {t(
+            "Missing or invalid key. Ask the sender for the complete link, including #key=…, or enter the key below.",
+          )}
         </p>
       )}
       {!download && (
         <>
-          <label htmlFor="decryption-key">Decryption key</label>
+          <label htmlFor="decryption-key">{t("Decryption key")}</label>
           <input
             id="decryption-key"
             type="password"
@@ -128,8 +143,9 @@ export function DecryptExperience({ id }: { id: string }) {
             aria-describedby="key-help"
           />
           <p id="key-help">
-            Use the key after #key= in the sender’s link. Never send it to the
-            server or put it in a URL query.
+            {t(
+              "Use the key after #key= in the sender’s link. Never send it to the server or put it in a URL query.",
+            )}
           </p>
           <button
             type="button"
@@ -137,13 +153,13 @@ export function DecryptExperience({ id }: { id: string }) {
             disabled={!validKey || busy}
             onClick={() => void decrypt()}
           >
-            {busy ? "Downloading and decrypting…" : "Decrypt file"}
+            {t(busy ? "Downloading and decrypting…" : "Decrypt file")}
           </button>
         </>
       )}
       {busy && (
         <div role="status">
-          {stage} ({formatBytes(progress)})
+          {t(stage)} ({formatBytes(progress, locale)})
           <button
             type="button"
             onClick={() => {
@@ -153,7 +169,7 @@ export function DecryptExperience({ id }: { id: string }) {
               setStage("Cancelling decryption…");
             }}
           >
-            Cancel decryption
+            {t("Cancel decryption")}
           </button>
         </div>
       )}
@@ -161,8 +177,10 @@ export function DecryptExperience({ id }: { id: string }) {
       {download && (
         <div role="status">
           <p>
-            Decrypted: {download.name} ({formatBytes(download.size)}). Save the
-            original file below.
+            {t("Decrypted: {name} ({size}). Save the original file below.", {
+              name: download.name,
+              size: formatBytes(download.size, locale),
+            })}
           </p>
           <a
             className="primary-action"
@@ -170,14 +188,16 @@ export function DecryptExperience({ id }: { id: string }) {
             download={download.name}
             referrerPolicy="no-referrer"
           >
-            Save decrypted file
+            {t("Save decrypted file")}
           </a>
         </div>
       )}
       <p>
-        <Link href="/" prefetch={false} referrerPolicy="no-referrer">
-          Upload another file
-        </Link>
+        {/* Native navigation avoids prefetch and restores metadata on Back. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        <a href="/" referrerPolicy="no-referrer">
+          {t("Upload another file")}
+        </a>
       </p>
     </section>
   );

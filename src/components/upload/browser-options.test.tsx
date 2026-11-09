@@ -103,6 +103,59 @@ it.each(["button", "panel", "window"])(
     expect(bytes).toEqual([65, 195, 169]);
   },
 );
+it("offers current upload deletion while history remains off", async () => {
+  const view = mount();
+  const writes = jest.spyOn(Storage.prototype, "setItem");
+  fireEvent.paste(window, {
+    clipboardData: { files: [], getData: () => "disposable" },
+  });
+  await waitFor(() =>
+    expect(view.getByRole("button", { name: "Copy URL" })).toBeTruthy(),
+  );
+  expect(view.getByRole("button", { name: "Delete file" })).toBeTruthy();
+  expect(writes).not.toHaveBeenCalled();
+});
+it("history-off current result becomes terminal only after confirmed server deletion", async () => {
+  const view = mount();
+  const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+  fetchMock.mockImplementation(async (input, init) => {
+    if (init?.method === "DELETE")
+      return { status: 200, text: async () => "" } as Response;
+    return {
+      ok: true,
+      json: async () =>
+        input === "/api/configuration"
+          ? {
+              maxUploadSize: 1000000,
+              expirationOptions: [1, 3, 6, 12, 24],
+              maxExpirationHours: 24,
+              minimumExpirationHours: 1,
+            }
+          : { upload: result },
+    } as Response;
+  });
+  fireEvent.paste(window, {
+    clipboardData: { files: [], getData: () => "disposable" },
+  });
+  await waitFor(() =>
+    expect(view.getByRole("button", { name: "Delete file" })).toBeTruthy(),
+  );
+  fireEvent.click(view.getByRole("button", { name: "Delete file" }));
+  fireEvent.click(
+    view.getByRole("button", { name: "Permanently delete file" }),
+  );
+  await waitFor(() =>
+    expect(view.getByText("File deleted", { exact: true })).toBeTruthy(),
+  );
+  expect(view.queryByText("Upload complete")).toBeNull();
+  expect(view.queryByRole("button", { name: "Copy URL" })).toBeNull();
+  expect(view.queryByRole("link", { name: "Open file" })).toBeNull();
+  expect(view.queryByRole("link", { name: "Download file" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Show QR code" })).toBeNull();
+  expect(localStorage.getItem(historyKey)).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Upload another file" }));
+  expect(view.queryByText("File deleted", { exact: true })).toBeNull();
+});
 const preferenceKey = "up-remastered:history-enabled";
 const historyKey = "up-remastered:upload-history:v1";
 const saved = [{ ...result, savedAt: "2026-01-01T00:00:00Z" }];
@@ -185,6 +238,48 @@ it.each(["false", "TRUE", "1", ""])(
     expect(reads.mock.calls).toEqual([[preferenceKey]]);
   },
 );
+it.each(["HTTP", "aborted"])(
+  "confirms server deletion, cancels without API work, and retains history on %s failure",
+  async (failure) => {
+    localStorage.setItem(preferenceKey, "true");
+    localStorage.setItem(historyKey, JSON.stringify(saved));
+    const view = mount();
+    const trigger = view.getByRole("button", { name: /Delete server file/ });
+    fireEvent.click(trigger);
+    expect(view.getByRole("dialog").textContent).toContain(
+      "shared download links",
+    );
+    fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+    expect(
+      (global.fetch as jest.Mock<typeof fetch>).mock.calls.filter(
+        ([, init]) => init?.method === "DELETE",
+      ),
+    ).toHaveLength(0);
+    global.fetch = jest.fn<typeof fetch>(async () => {
+      if (failure === "aborted")
+        throw new DOMException("Request aborted", "AbortError");
+      return { ok: false, status: 500 } as Response;
+    });
+    fireEvent.click(trigger);
+    fireEvent.click(view.getByRole("button", { name: "Delete server file" }));
+    await waitFor(() =>
+      expect(view.getByRole("alert").textContent).toContain(
+        "could not be deleted",
+      ),
+    );
+    expect(JSON.parse(localStorage.getItem(historyKey)!)).toEqual(saved);
+    expect(view.getByRole("dialog")).toBeTruthy();
+    global.fetch = jest.fn<typeof fetch>(
+      async () => ({ ok: true, status: 200, text: async () => "" }) as Response,
+    );
+    fireEvent.click(view.getByRole("button", { name: "Delete server file" }));
+    await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+    expect(JSON.parse(localStorage.getItem(historyKey)!)).toEqual([
+      { ...saved[0], serverStatus: "deleted" },
+    ]);
+  },
+);
+
 it("restores enabled history read-only on mount", () => {
   localStorage.setItem(preferenceKey, "true");
   localStorage.setItem(historyKey, JSON.stringify(saved));

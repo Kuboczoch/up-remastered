@@ -177,6 +177,11 @@
   margin: 0;
 }
 
+.receipt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 600px) {
   .shell {
     width: calc(100% - 34px);
@@ -199,5 +204,26 @@
   }
   .inlineFields {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .shell {
+    width: calc(
+      100% - max(17px, env(safe-area-inset-left)) -
+        max(17px, env(safe-area-inset-right))
+    );
+  }
+  .header a {
+    display: inline-flex;
+    min-height: 44px;
+    min-width: 44px;
+    align-items: center;
+    padding: 0 8px;
+  }
+  .button,
+  .linkButton {
+    min-height: 44px;
+    min-width: 44px;
   }
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import { render, screen } from "@testing-library/react";
 import { axe } from "jest-axe";
 
-import NotFound from "./not-found";
+import NotFound from "./l10n/[locale]/not-found";
 
 describe("NotFound", () => {
   it("renders an accessible route home", async () => {
