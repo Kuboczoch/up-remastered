@@ -1,8 +1,9 @@
 "use client";
 
+/* eslint-disable @next/next/no-html-link-for-pages -- Request creation uses locale-negotiated document navigation, never the inherited App Router loading boundary. */
+
 import { DestructiveConfirmation } from "@/components/destructive-confirmation";
 
-import Link from "next/link";
 import { ManualCopyLink } from "@/components/manual-copy-link";
 import { copyLink } from "@/lib/copy-link";
 import { useTranslation } from "@/lib/i18n/provider";
@@ -187,9 +188,9 @@ export function ManageRequest() {
         <p className={styles.error} role="alert">
           {message(error, "This upload request is unavailable.")}
         </p>
-        <Link className={styles.linkButton} href="/request/new">
+        <a className={styles.linkButton} href="/request/new">
           {t("Create a new request")}
-        </Link>
+        </a>
       </section>
     );
   }
@@ -233,9 +234,9 @@ export function ManageRequest() {
           {copied ? t("Owner link copied") : t("Copy owner link")}
         </button>
         {isTerminalRequest(request.status) ? (
-          <Link className={styles.linkButton} href="/request/new">
+          <a className={styles.linkButton} href="/request/new">
             {t("Create a new request")}
-          </Link>
+          </a>
         ) : (
           <DestructiveConfirmation
             className={styles.linkButton}

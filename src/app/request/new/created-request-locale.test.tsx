@@ -54,7 +54,12 @@ it.each([
     );
     const view = render(
       <LocaleProvider locale="pl">
-        <CreateRequestForm />
+        <CreateRequestForm
+          initialLimits={{
+            maxExpirationMs: 86_400_000,
+            maxUploadBytes: 1024 ** 3,
+          }}
+        />
       </LocaleProvider>,
     );
     const submit = view.getByRole("button", { name: "Utwórz prośbę o plik" });

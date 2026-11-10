@@ -6,10 +6,24 @@ Requested-upload links let one person invite one anonymous upload without creati
 
 `/request/new` is prerendered at build time, including inherited URL metadata
 from `UP_PUBLIC_ORIGIN`; rebuild when changing that origin. Other routes retain
-their existing rendering behavior. The form loads current size and lifetime
-limits from `/api/configuration` at runtime, with a localized loading/error/retry
-state and submission disabled until valid limits are available. The API remains
-authoritative for request validation.
+their existing rendering behavior. The form receives those same deployment size
+and lifetime limits in its prerendered HTML, so it renders real options immediately
+and is usable after hydration without waiting for `/api/configuration`. Build and
+runtime settings must match, as for the prerendered upload page. A background
+configuration refresh reconciles current limits without resetting custom input;
+failed or invalid refreshes fail closed with localized error/retry guidance, not a
+loading placeholder. The creation API remains authoritative even if a request is
+submitted before the refresh completes.
+
+All request-creation entry links (home call-to-action, shared header, unavailable
+owner link and terminal owner status) use ordinary document navigation. The source
+page stays displayed until the localized static document is ready; navigation does
+not depend on a warm App Router cache or prefetch and cannot enter its inherited
+`loading.tsx` boundary. Keep the generic loading boundary for unrelated routes.
+`direct-navigation.spec.ts` observes DOM mutations across navigation in EN/PL,
+with browser caching disabled, prefetch aborted, a delayed destination and stalled
+configuration. It rejects even transient loading text/busy UI, verifies document
+navigation and locale, and creates a real request from every entry and a direct URL.
 
 ## Capability model
 

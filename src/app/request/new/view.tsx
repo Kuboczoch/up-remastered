@@ -53,7 +53,12 @@ export default function NewUploadRequestPage({
             />
           </p>
         </header>
-        <CreateRequestForm />
+        <CreateRequestForm
+          initialLimits={{
+            maxExpirationMs,
+            maxUploadBytes,
+          }}
+        />
       </main>
       <SiteFooter />
     </>
