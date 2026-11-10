@@ -33,13 +33,14 @@ test("renders the form before a delayed limits response", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Request a file." }),
   ).toBeVisible();
-  await expect(page.locator("form [role=status]")).toHaveText(
-    "Loading server limits…",
-  );
+  await expect(page.locator("form [role=status]")).toHaveCount(0);
+  await expect(
+    page.getByRole("option", { name: /Server maximum:/ }),
+  ).toHaveCount(1);
   await expect(page.getByLabel("Maximum upload size")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Create upload request" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await expect(page.locator(".loading-page")).toHaveCount(0);
   release();
   await expect(

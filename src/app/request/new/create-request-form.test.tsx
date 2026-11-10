@@ -6,7 +6,7 @@ import {
   it,
   jest,
 } from "@jest/globals";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { LocaleProvider } from "@/lib/i18n/provider";
 
@@ -24,13 +24,19 @@ describe("CreateRequestForm", () => {
   it("renders Polish input labels on the server and after hydration", async () => {
     const form = (
       <LocaleProvider locale="pl">
-        <CreateRequestForm />
+        <CreateRequestForm
+          initialLimits={{
+            maxExpirationMs: 86_400_000,
+            maxUploadBytes: 1024 ** 3,
+          }}
+        />
       </LocaleProvider>
     );
     const container = document.createElement("div");
     document.body.appendChild(container);
     container.innerHTML = renderToString(form);
-    expect(container.textContent).toContain("Wczytywanie limitów serwera…");
+    expect(container.textContent).not.toContain("Wczytywanie limitów serwera…");
+    expect(container.textContent).toContain("Maksimum serwera: 1 GiB");
     expect(container.textContent).not.toContain("Loading server limits");
     const consoleError = jest
       .spyOn(console, "error")
@@ -62,6 +68,270 @@ describe("CreateRequestForm", () => {
     expect(consoleError).not.toHaveBeenCalled();
   });
 
+  it("renders usable limits during a stalled refresh without resetting custom input", async () => {
+    let resolveLimits!: (response: Response) => void;
+    global.fetch = jest.fn<typeof fetch>().mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveLimits = resolve;
+      }),
+    );
+    const view = render(
+      <CreateRequestForm
+        initialLimits={{
+          maxExpirationMs: 86_400_000,
+          maxUploadBytes: 1024 ** 3,
+        }}
+      />,
+    );
+    expect(
+      (
+        view.getByRole("button", {
+          name: "Create upload request",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+    expect(view.queryByText("Loading server limits…")).toBeNull();
+    fireEvent.change(view.getByLabelText("Maximum upload size"), {
+      target: { value: "custom" },
+    });
+    fireEvent.change(view.getByLabelText("Size amount"), {
+      target: { value: "2" },
+    });
+    fireEvent.change(view.getByLabelText("Size unit"), {
+      target: { value: "KiB" },
+    });
+    fireEvent.change(view.getByLabelText("Request expires"), {
+      target: { value: "custom" },
+    });
+    fireEvent.change(view.getByLabelText("Custom expiration date and time"), {
+      target: { value: "2030-01-02T03:04" },
+    });
+    await act(async () => {
+      resolveLimits(limitsResponse);
+    });
+    expect(
+      (view.getByLabelText("Request expires") as HTMLSelectElement).value,
+    ).toBe("custom");
+    expect(
+      (
+        view.getByLabelText(
+          "Custom expiration date and time",
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("2030-01-02T03:04");
+    expect(
+      (view.getByLabelText("Maximum upload size") as HTMLSelectElement).value,
+    ).toBe("custom");
+    expect((view.getByLabelText("Size amount") as HTMLInputElement).value).toBe(
+      "2",
+    );
+    expect((view.getByLabelText("Size unit") as HTMLSelectElement).value).toBe(
+      "KiB",
+    );
+  });
+
+  it.each([120, 30])(
+    "updates the custom HTML expiration bound when the maximum changes to %i minutes",
+    async (minutes) => {
+      const now = new Date("2030-01-01T12:00:00").getTime();
+      jest.spyOn(Date, "now").mockReturnValue(now);
+      let resolveLimits!: (response: Response) => void;
+      global.fetch = jest.fn<typeof fetch>().mockReturnValue(
+        new Promise<Response>((resolve) => {
+          resolveLimits = resolve;
+        }),
+      );
+      const view = render(
+        <CreateRequestForm
+          initialLimits={{ maxExpirationMs: 60 * 60_000, maxUploadBytes: 4096 }}
+        />,
+      );
+      fireEvent.change(view.getByLabelText("Request expires"), {
+        target: { value: "custom" },
+      });
+      const input = view.getByLabelText(
+        "Custom expiration date and time",
+      ) as HTMLInputElement;
+      fireEvent.change(input, { target: { value: "2030-01-01T13:30" } });
+      expect(input.max).toBe("2030-01-01T13:00");
+      expect(input.validity.rangeOverflow).toBe(true);
+      await act(async () => {
+        resolveLimits({
+          ok: true,
+          json: async () => ({
+            maxFileLifetime: minutes * 60_000,
+            maxTemporaryFileSize: 4096,
+          }),
+        } as Response);
+      });
+      expect(input.value).toBe("2030-01-01T13:30");
+      expect(input.max).toBe(
+        minutes === 120 ? "2030-01-01T14:00" : "2030-01-01T12:30",
+      );
+      expect(input.validity.rangeOverflow).toBe(minutes === 30);
+      expect(input.checkValidity()).toBe(minutes === 120);
+    },
+  );
+
+  it.each([
+    {
+      initialMinutes: 60,
+      selectedMinutes: 60,
+      refreshedMinutes: 60,
+      initialBytes: 4096,
+      refreshedBytes: 8192,
+      expectedMinutes: 60,
+      expectedBytes: 4096,
+    },
+    {
+      initialMinutes: 90,
+      selectedMinutes: 90,
+      refreshedMinutes: 120,
+      initialBytes: 4096,
+      refreshedBytes: 8192,
+      expectedMinutes: 90,
+      expectedBytes: 4096,
+    },
+    {
+      initialMinutes: 90,
+      selectedMinutes: 90,
+      refreshedMinutes: 90,
+      initialBytes: 4096,
+      refreshedBytes: 4096,
+      expectedMinutes: 90,
+      expectedBytes: 4096,
+    },
+    {
+      initialMinutes: 120,
+      selectedMinutes: 60,
+      refreshedMinutes: 90,
+      initialBytes: 4096,
+      refreshedBytes: 2048,
+      expectedMinutes: 60,
+      expectedBytes: 2048,
+    },
+    {
+      initialMinutes: 90,
+      selectedMinutes: 90,
+      refreshedMinutes: 75,
+      initialBytes: 4096,
+      refreshedBytes: 3072,
+      expectedMinutes: 75,
+      expectedBytes: 3072,
+    },
+    {
+      initialMinutes: 90,
+      selectedMinutes: 90,
+      refreshedMinutes: 30,
+      initialBytes: 4096,
+      refreshedBytes: 512,
+      expectedMinutes: 30,
+      expectedBytes: 512,
+    },
+  ])(
+    "preserves valid numeric caps and clamps only excessive choices: %j",
+    async ({
+      initialMinutes,
+      selectedMinutes,
+      refreshedMinutes,
+      initialBytes,
+      refreshedBytes,
+      expectedMinutes,
+      expectedBytes,
+    }) => {
+      let resolveLimits!: (response: Response) => void;
+      const fetchMock = jest
+        .fn<typeof fetch>()
+        .mockReturnValueOnce(
+          new Promise<Response>((resolve) => {
+            resolveLimits = resolve;
+          }),
+        )
+        .mockResolvedValue({ ok: false, json: async () => ({}) } as Response);
+      global.fetch = fetchMock;
+      const view = render(
+        <CreateRequestForm
+          initialLimits={{
+            maxExpirationMs: initialMinutes * 60_000,
+            maxUploadBytes: initialBytes,
+          }}
+        />,
+      );
+      fireEvent.change(view.getByLabelText("Request expires"), {
+        target: { value: String(selectedMinutes * 60_000) },
+      });
+      await act(async () => {
+        resolveLimits({
+          ok: true,
+          json: async () => ({
+            maxFileLifetime: refreshedMinutes * 60_000,
+            maxTemporaryFileSize: refreshedBytes,
+          }),
+        } as Response);
+      });
+      const expiration = view.getByLabelText(
+        "Request expires",
+      ) as HTMLSelectElement;
+      const size = view.getByLabelText(
+        "Maximum upload size",
+      ) as HTMLSelectElement;
+      expect(expiration.value).toBe(String(expectedMinutes * 60_000));
+      expect(size.value).toBe(String(expectedBytes));
+      expect(
+        Array.from(expiration.options).filter(
+          (option) => option.value === expiration.value,
+        ),
+      ).toHaveLength(1);
+      expect(
+        Array.from(size.options).filter(
+          (option) => option.value === size.value,
+        ),
+      ).toHaveLength(1);
+      const submittedAt = Date.now();
+      jest.spyOn(Date, "now").mockReturnValue(submittedAt);
+      fireEvent.click(
+        view.getByRole("button", { name: "Create upload request" }),
+      );
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+      expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+        expiresAt: new Date(
+          submittedAt + expectedMinutes * 60_000,
+        ).toISOString(),
+        maxBytes: expectedBytes,
+      });
+    },
+  );
+
+  it("preserves an unchanged generated expiration maximum on refresh", async () => {
+    let resolveLimits!: (response: Response) => void;
+    global.fetch = jest.fn<typeof fetch>().mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveLimits = resolve;
+      }),
+    );
+    const maxExpirationMs = 90 * 60_000;
+    const view = render(
+      <CreateRequestForm
+        initialLimits={{ maxExpirationMs, maxUploadBytes: 1024 ** 3 }}
+      />,
+    );
+    fireEvent.change(view.getByLabelText("Request expires"), {
+      target: { value: String(maxExpirationMs) },
+    });
+    await act(async () => {
+      resolveLimits({
+        ok: true,
+        json: async () => ({
+          maxFileLifetime: maxExpirationMs,
+          maxTemporaryFileSize: 1024 ** 3,
+        }),
+      } as Response);
+    });
+    expect(
+      (view.getByLabelText("Request expires") as HTMLSelectElement).value,
+    ).toBe(String(maxExpirationMs));
+  });
+
   it("localizes configuration retry without exposing server text", async () => {
     global.fetch = jest
       .fn<typeof fetch>()
@@ -69,13 +339,29 @@ describe("CreateRequestForm", () => {
       .mockResolvedValue(limitsResponse);
     const { findByRole, getByRole, getByLabelText, queryByText } = render(
       <LocaleProvider locale="pl">
-        <CreateRequestForm />
+        <CreateRequestForm
+          initialLimits={{
+            maxExpirationMs: 86_400_000,
+            maxUploadBytes: 1024 ** 3,
+          }}
+        />
       </LocaleProvider>,
     );
     expect((await findByRole("alert")).textContent).toBe(
       "Nie udało się wczytać limitów serwera. Spróbuj ponownie.",
     );
     expect(queryByText("private backend details")).toBeNull();
+    expect(
+      (getByLabelText("Maksymalny rozmiar pliku") as HTMLSelectElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (
+        getByRole("button", {
+          name: "Utwórz prośbę o plik",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
     fireEvent.click(getByRole("button", { name: "Wczytaj limity ponownie" }));
     await waitFor(() =>
       expect(
@@ -94,11 +380,26 @@ describe("CreateRequestForm", () => {
     const clock = jest.spyOn(Date, "now");
     clock.mockReturnValueOnce(1).mockReturnValueOnce(9_999_999);
 
-    const first = renderToString(<CreateRequestForm />);
-    const second = renderToString(<CreateRequestForm />);
+    const first = renderToString(
+      <CreateRequestForm
+        initialLimits={{
+          maxExpirationMs: 86_400_000,
+          maxUploadBytes: 1024 ** 3,
+        }}
+      />,
+    );
+    const second = renderToString(
+      <CreateRequestForm
+        initialLimits={{
+          maxExpirationMs: 86_400_000,
+          maxUploadBytes: 1024 ** 3,
+        }}
+      />,
+    );
 
     expect(second).toBe(first);
-    expect(first).toContain("Loading server limits");
+    expect(first).not.toContain("Loading server limits");
+    expect(first).toContain("Server maximum: 1 GiB");
     expect(first).toContain("disabled");
     clock.mockRestore();
   });
@@ -108,7 +409,14 @@ describe("CreateRequestForm", () => {
     const consoleError = jest
       .spyOn(console, "error")
       .mockImplementation(() => {});
-    const form = <CreateRequestForm />;
+    const form = (
+      <CreateRequestForm
+        initialLimits={{
+          maxExpirationMs: 86_400_000,
+          maxUploadBytes: 1024 ** 3,
+        }}
+      />
+    );
     clock.mockReturnValue(1);
     const container = document.createElement("div");
     container.innerHTML = renderToString(form);
@@ -148,7 +456,14 @@ describe("CreateRequestForm", () => {
     );
     fetchMock.mockResolvedValueOnce(limitsResponse);
     global.fetch = fetchMock;
-    const { getByLabelText, getByRole } = render(<CreateRequestForm />);
+    const { getByLabelText, getByRole } = render(
+      <CreateRequestForm
+        initialLimits={{
+          maxExpirationMs: 86_400_000,
+          maxUploadBytes: 1024 ** 3,
+        }}
+      />,
+    );
 
     await waitFor(() =>
       expect(
@@ -196,7 +511,14 @@ describe("CreateRequestForm", () => {
         } as Response),
       )
       .mockResolvedValueOnce(limitsResponse);
-    const { getByRole } = render(<CreateRequestForm />);
+    const { getByRole } = render(
+      <CreateRequestForm
+        initialLimits={{
+          maxExpirationMs: 86_400_000,
+          maxUploadBytes: 1024 ** 3,
+        }}
+      />,
+    );
 
     await waitFor(() =>
       expect(

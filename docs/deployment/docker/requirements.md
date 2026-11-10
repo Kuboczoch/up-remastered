@@ -40,8 +40,11 @@ as the public origin.
 This is not a static export. Upload/download handlers, capability-token pages,
 and database-backed routes remain Node server routes. Runtime API configuration
 and validation remain authoritative, including when rejecting requests from an
-older browser page with stale baked limits. The request form still validates
-the runtime limits before allowing submission.
+older browser page with stale baked limits. The request form is immediately
+usable with build-time limits and refreshes runtime limits in the background
+without a loading state. Refreshed limits update the form constraints while
+preserving valid selections and custom input; a failed refresh offers a retry.
+The creation API always validates submissions against current runtime limits.
 
 ## Application-owned final-response layer
 

@@ -73,16 +73,32 @@ function toLocalInputValue(date: Date): string {
   return local.toISOString().slice(0, 16);
 }
 
-export function CreateRequestForm() {
+type RequestLimits = {
+  maxExpirationMs: number;
+  maxUploadBytes: number;
+};
+
+export function CreateRequestForm({
+  initialLimits,
+}: {
+  initialLimits: RequestLimits;
+}) {
   const { locale, t, message } = useTranslation();
-  const [limits, setLimits] = useState<{
-    maxExpirationMs: number;
-    maxUploadBytes: number;
-  } | null>(null);
+  // Match the prerendered page's deployment limits immediately. Refresh in the
+  // background; the creation API still validates every submitted request.
+  const [limits, setLimits] = useState<RequestLimits | null>(initialLimits);
   const [limitsError, setLimitsError] = useState(false);
   const [limitsAttempt, setLimitsAttempt] = useState(0);
-  const maxExpirationMs = limits?.maxExpirationMs ?? 0;
-  const maxUploadBytes = limits?.maxUploadBytes ?? 0;
+  const maxExpirationMs =
+    limits?.maxExpirationMs ?? initialLimits.maxExpirationMs;
+  const maxUploadBytes = limits?.maxUploadBytes ?? initialLimits.maxUploadBytes;
+  const [expirationChoice, setExpirationChoice] = useState(() =>
+    String(
+      EXPIRATION_PRESETS.find(({ value }) => value <= maxExpirationMs)?.value ??
+        maxExpirationMs,
+    ),
+  );
+  const [sizeChoice, setSizeChoice] = useState(String(maxUploadBytes));
   const expirationPresets = useMemo(() => {
     const allowed = EXPIRATION_PRESETS.filter(
       ({ value }) => value <= maxExpirationMs,
@@ -95,17 +111,32 @@ export function CreateRequestForm() {
         value: maxExpirationMs,
       });
     }
-    return allowed;
-  }, [maxExpirationMs, locale, t]);
+    // A former generated maximum remains selectable after the limit increases.
+    const selected = Number(expirationChoice);
+    if (
+      selected > 0 &&
+      selected <= maxExpirationMs &&
+      !allowed.some(({ value }) => value === selected)
+    ) {
+      allowed.push({
+        label: formatDuration(selected, locale),
+        value: selected,
+      });
+    }
+    return allowed.sort((a, b) => a.value - b.value);
+  }, [maxExpirationMs, expirationChoice, locale, t]);
   const sizePresets = useMemo(
     () =>
       Array.from(
         new Set([
           ...SIZE_PRESETS.filter((value) => value < maxUploadBytes),
           maxUploadBytes,
+          ...(Number(sizeChoice) > 0 && Number(sizeChoice) <= maxUploadBytes
+            ? [Number(sizeChoice)]
+            : []),
         ]),
-      ),
-    [maxUploadBytes],
+      ).sort((a, b) => a - b),
+    [maxUploadBytes, sizeChoice],
   );
   const [created, setCreated] = useState<CreatedRequest>();
   const [copied, setCopied] = useState<"management" | "upload">();
@@ -118,12 +149,15 @@ export function CreateRequestForm() {
     () => true,
     () => false,
   );
-  const [expirationChoice, setExpirationChoice] = useState(() =>
-    String(expirationPresets[0]?.value ?? maxExpirationMs),
-  );
   const [customExpiration, setCustomExpiration] = useState("");
-  const [customExpirationMax, setCustomExpirationMax] = useState("");
-  const [sizeChoice, setSizeChoice] = useState(String(maxUploadBytes));
+  const [customExpirationStartedAt, setCustomExpirationStartedAt] =
+    useState<number>();
+  const customExpirationMax =
+    customExpirationStartedAt === undefined
+      ? ""
+      : toLocalInputValue(
+          new Date(customExpirationStartedAt + maxExpirationMs),
+        );
   const [customSize, setCustomSize] = useState(String(maxUploadBytes));
   const [customSizeUnit, setCustomSizeUnit] = useState<ByteUnit>("B");
   const [now, setNow] = useState<number>();
@@ -147,17 +181,30 @@ export function CreateRequestForm() {
           throw new Error("Invalid server limits.");
         }
         if (controller.signal.aborted) return;
+        setLimitsError(false);
         setLimits({
           maxExpirationMs: configuration.maxFileLifetime,
           maxUploadBytes: configuration.maxTemporaryFileSize,
         });
-        setExpirationChoice(
-          String(Math.min(HOUR, configuration.maxFileLifetime)),
+        // Preserve custom input and every still-valid numeric cap, including
+        // generated maxima that are not part of the fixed preset lists.
+        setExpirationChoice((current) =>
+          current === "custom"
+            ? current
+            : String(Math.min(Number(current), configuration.maxFileLifetime)),
         );
-        setSizeChoice(String(configuration.maxTemporaryFileSize));
-        setCustomSize(String(configuration.maxTemporaryFileSize));
+        setSizeChoice((current) =>
+          current === "custom"
+            ? current
+            : String(
+                Math.min(Number(current), configuration.maxTemporaryFileSize),
+              ),
+        );
       } catch {
-        if (!controller.signal.aborted) setLimitsError(true);
+        if (!controller.signal.aborted) {
+          setLimits(null);
+          setLimitsError(true);
+        }
       }
     }
     void loadLimits();
@@ -181,9 +228,7 @@ export function CreateRequestForm() {
     const current = Date.now();
     const defaultDuration = Math.min(HOUR, maxExpirationMs);
     setCustomExpiration(toLocalInputValue(new Date(current + defaultDuration)));
-    setCustomExpirationMax(
-      toLocalInputValue(new Date(current + maxExpirationMs)),
-    );
+    setCustomExpirationStartedAt(current);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -414,25 +459,16 @@ export function CreateRequestForm() {
 
   return (
     <form className={styles.card} onSubmit={submit}>
-      {!limits && (
+      {limitsError && (
         <div>
-          <p role={limitsError ? "alert" : "status"}>
-            {limitsError
-              ? t("Could not load server limits. Please retry.")
-              : t("Loading server limits…")}
-          </p>
-          {limitsError && (
-            <button
-              className="outline-button"
-              onClick={() => {
-                setLimitsError(false);
-                setLimitsAttempt((attempt) => attempt + 1);
-              }}
-              type="button"
-            >
-              {t("Retry loading limits")}
-            </button>
-          )}
+          <p role="alert">{t("Could not load server limits. Please retry.")}</p>
+          <button
+            className="outline-button"
+            onClick={() => setLimitsAttempt((attempt) => attempt + 1)}
+            type="button"
+          >
+            {t("Retry loading limits")}
+          </button>
         </div>
       )}
       <label className={styles.field}>
@@ -443,13 +479,11 @@ export function CreateRequestForm() {
           onChange={(event) => selectExpiration(event.target.value)}
           value={expirationChoice}
         >
-          {!limits && <option value="0">{t("Loading server limits…")}</option>}
-          {limits &&
-            expirationPresets.map(({ label, value }) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+          {expirationPresets.map(({ label, value }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
           <option value="custom">{t("Custom date and time")}</option>
         </select>
       </label>
@@ -474,17 +508,15 @@ export function CreateRequestForm() {
           onChange={(event) => setSizeChoice(event.target.value)}
           value={sizeChoice}
         >
-          {!limits && <option value="0">{t("Loading server limits…")}</option>}
-          {limits &&
-            sizePresets.map((bytes) => (
-              <option key={bytes} value={bytes}>
-                {bytes === maxUploadBytes
-                  ? t("Server maximum: {size}", {
-                      size: formatBytes(bytes, locale),
-                    })
-                  : formatBytes(bytes, locale)}
-              </option>
-            ))}
+          {sizePresets.map((bytes) => (
+            <option key={bytes} value={bytes}>
+              {bytes === maxUploadBytes
+                ? t("Server maximum: {size}", {
+                    size: formatBytes(bytes, locale),
+                  })
+                : formatBytes(bytes, locale)}
+            </option>
+          ))}
           <option value="custom">{t("Custom size")}</option>
         </select>
       </label>

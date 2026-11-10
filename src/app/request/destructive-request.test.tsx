@@ -59,7 +59,16 @@ async function ownerPage(kind: "creation" | "manager", status: RequestStatus) {
   global.fetch = fetchMock;
   window.history.replaceState(null, "", `/request/manage#${TOKEN}`);
   const view = render(
-    kind === "creation" ? <CreateRequestForm /> : <ManageRequest />,
+    kind === "creation" ? (
+      <CreateRequestForm
+        initialLimits={{
+          maxExpirationMs: 86_400_000,
+          maxUploadBytes: 1024 ** 3,
+        }}
+      />
+    ) : (
+      <ManageRequest />
+    ),
   );
   if (kind === "creation") {
     const submit = view.getByRole("button", { name: "Create upload request" });
