@@ -92,6 +92,13 @@ export function CreateRequestForm({
   const maxExpirationMs =
     limits?.maxExpirationMs ?? initialLimits.maxExpirationMs;
   const maxUploadBytes = limits?.maxUploadBytes ?? initialLimits.maxUploadBytes;
+  const [expirationChoice, setExpirationChoice] = useState(() =>
+    String(
+      EXPIRATION_PRESETS.find(({ value }) => value <= maxExpirationMs)?.value ??
+        maxExpirationMs,
+    ),
+  );
+  const [sizeChoice, setSizeChoice] = useState(String(maxUploadBytes));
   const expirationPresets = useMemo(() => {
     const allowed = EXPIRATION_PRESETS.filter(
       ({ value }) => value <= maxExpirationMs,
@@ -104,17 +111,32 @@ export function CreateRequestForm({
         value: maxExpirationMs,
       });
     }
-    return allowed;
-  }, [maxExpirationMs, locale, t]);
+    // A former generated maximum remains selectable after the limit increases.
+    const selected = Number(expirationChoice);
+    if (
+      selected > 0 &&
+      selected <= maxExpirationMs &&
+      !allowed.some(({ value }) => value === selected)
+    ) {
+      allowed.push({
+        label: formatDuration(selected, locale),
+        value: selected,
+      });
+    }
+    return allowed.sort((a, b) => a.value - b.value);
+  }, [maxExpirationMs, expirationChoice, locale, t]);
   const sizePresets = useMemo(
     () =>
       Array.from(
         new Set([
           ...SIZE_PRESETS.filter((value) => value < maxUploadBytes),
           maxUploadBytes,
+          ...(Number(sizeChoice) > 0 && Number(sizeChoice) <= maxUploadBytes
+            ? [Number(sizeChoice)]
+            : []),
         ]),
-      ),
-    [maxUploadBytes],
+      ).sort((a, b) => a - b),
+    [maxUploadBytes, sizeChoice],
   );
   const [created, setCreated] = useState<CreatedRequest>();
   const [copied, setCopied] = useState<"management" | "upload">();
@@ -127,12 +149,15 @@ export function CreateRequestForm({
     () => true,
     () => false,
   );
-  const [expirationChoice, setExpirationChoice] = useState(() =>
-    String(expirationPresets[0]?.value ?? maxExpirationMs),
-  );
   const [customExpiration, setCustomExpiration] = useState("");
-  const [customExpirationMax, setCustomExpirationMax] = useState("");
-  const [sizeChoice, setSizeChoice] = useState(String(maxUploadBytes));
+  const [customExpirationStartedAt, setCustomExpirationStartedAt] =
+    useState<number>();
+  const customExpirationMax =
+    customExpirationStartedAt === undefined
+      ? ""
+      : toLocalInputValue(
+          new Date(customExpirationStartedAt + maxExpirationMs),
+        );
   const [customSize, setCustomSize] = useState(String(maxUploadBytes));
   const [customSizeUnit, setCustomSizeUnit] = useState<ByteUnit>("B");
   const [now, setNow] = useState<number>();
@@ -161,27 +186,19 @@ export function CreateRequestForm({
           maxExpirationMs: configuration.maxFileLifetime,
           maxUploadBytes: configuration.maxTemporaryFileSize,
         });
-        // A late refresh must not reset an in-progress custom selection.
+        // Preserve custom input and every still-valid numeric cap, including
+        // generated maxima that are not part of the fixed preset lists.
         setExpirationChoice((current) =>
-          current === "custom" ||
-          Number(current) === configuration.maxFileLifetime ||
-          EXPIRATION_PRESETS.some(
-            ({ value }) =>
-              String(value) === current &&
-              value <= configuration.maxFileLifetime,
-          )
+          current === "custom"
             ? current
-            : String(Math.min(HOUR, configuration.maxFileLifetime)),
+            : String(Math.min(Number(current), configuration.maxFileLifetime)),
         );
         setSizeChoice((current) =>
-          current === "custom" ||
-          SIZE_PRESETS.some(
-            (value) =>
-              String(value) === current &&
-              value <= configuration.maxTemporaryFileSize,
-          )
+          current === "custom"
             ? current
-            : String(configuration.maxTemporaryFileSize),
+            : String(
+                Math.min(Number(current), configuration.maxTemporaryFileSize),
+              ),
         );
       } catch {
         if (!controller.signal.aborted) {
@@ -211,9 +228,7 @@ export function CreateRequestForm({
     const current = Date.now();
     const defaultDuration = Math.min(HOUR, maxExpirationMs);
     setCustomExpiration(toLocalInputValue(new Date(current + defaultDuration)));
-    setCustomExpirationMax(
-      toLocalInputValue(new Date(current + maxExpirationMs)),
-    );
+    setCustomExpirationStartedAt(current);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
